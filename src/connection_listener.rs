@@ -1,23 +1,36 @@
-use std::{io::{self, Error}, thread::{spawn, JoinHandle, sleep}, time::Duration, sync::{mpsc::{Sender, channel, RecvTimeoutError}, Arc}, net::TcpListener};
+use std::{
+    io::{self, Error, Write},
+    net::TcpListener,
+    sync::{
+        mpsc::{channel, RecvTimeoutError, Sender},
+        Arc,
+    },
+    thread::{sleep, spawn, JoinHandle},
+    time::Duration,
+};
 
 use parking_lot::RwLock;
 
-use crate::{peer::Peer, transport::Transport, network_manager::{InternalMessage, PeerDB}};
+use crate::{network_manager::PeerDB, peer::Peer, transport::Transport};
 
 /// Public structure in the main thread
 pub struct ConnectionListener {
     handler: Option<JoinHandle<()>>,
-    thread_sender: Sender<Message> 
+    thread_sender: Sender<Message>,
 }
 
 /// Enum that define the messages that can be sent to the thread
 enum Message {
-    Stop
+    Stop,
 }
 
 impl ConnectionListener {
-    pub(crate) fn new(ip: &String, port: &String, max_peers: usize, peers: Arc<RwLock<PeerDB>>, peer_creation_sender: Sender<InternalMessage>) -> ConnectionListener {
-
+    pub(crate) fn new(
+        ip: &String,
+        port: &String,
+        max_peers: usize,
+        peers: Arc<RwLock<PeerDB>>,
+    ) -> ConnectionListener {
         let (tx, rx) = channel();
 
         //TODO: Config to be a read/write lock
@@ -25,22 +38,27 @@ impl ConnectionListener {
         let port = port.clone();
 
         let handler = spawn(move || {
-            
-            let listener = TcpListener::bind(format!("{}:{}", ip, port)).expect("Cannot bind listener");
-            listener.set_nonblocking(true).expect("Cannot set non-blocking");
+            //TODO: Maybe optimize with mio.
+            let listener =
+                TcpListener::bind(format!("{}:{}", ip, port)).expect("Cannot bind listener");
+            listener
+                .set_nonblocking(true)
+                .expect("Cannot set non-blocking");
             loop {
                 for stream in listener.incoming() {
                     match stream {
                         Ok(s) => {
                             let mut peers_db_write = peers.write();
-                            if peers_db_write.nb_peers < max_peers {
+                            if peers_db_write.peers.len() < max_peers {
                                 println!("New connection");
-                                // Can't initialize peers directly here because otherwise they can't have a sender (that will be used to ask them information)
-                                // for each accessible by an other thread and we don't want to have all messages passing by this listener 
-                                // thread to be able to be sent to the peers.
-                                // Possible solution: Having a list of sender and receiver already initialized in the main thread and passing the receiver to the peers
-                                // here but it changes the way peers are managed as they can exists but not connected to anyone
-                                peer_creation_sender.send(InternalMessage::CreatePeer(Transport::Tcp(s))).unwrap();
+                                peers_db_write.peers.push(Peer::new(Transport::Tcp(s)));
+                            } else {
+                                // TODO: Move Other thread/async tasks
+                                println!("Too many peers");
+                                let mut buffer = [0; 1];
+                                buffer[0] = 0;
+                                let mut stream = s;
+                                stream.write(&buffer).expect("Cannot write to stream");
                             }
                         }
                         Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -50,10 +68,10 @@ impl ConnectionListener {
                     }
                 }
                 //TODO: Configure timeout
-                match rx.recv_timeout(Duration::from_secs(1)) {
+                match rx.recv_timeout(Duration::from_millis(10)) {
                     Ok(Message::Stop) => {
                         break;
-                    },
+                    }
                     Err(err) => {
                         if err == RecvTimeoutError::Disconnected {
                             println!("Disconnected");
@@ -65,7 +83,7 @@ impl ConnectionListener {
 
         ConnectionListener {
             handler: Some(handler),
-            thread_sender: tx
+            thread_sender: tx,
         }
     }
 }

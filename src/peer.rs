@@ -1,6 +1,8 @@
-use std::{thread::{JoinHandle, spawn}, sync::mpsc::{Sender, channel}};
+use std::thread::{spawn, JoinHandle};
 
-use crate::transport::{TransportType, Transport};
+use crossbeam::channel::{unbounded, Sender};
+
+use crate::transport::{Transport, TransportType};
 
 pub struct PeerMetadata {
     // The IP address of the peer
@@ -21,21 +23,20 @@ pub(crate) struct Peer {
 }
 
 enum PeerMessage {
-    Stop
+    Stop,
 }
 
 impl Peer {
     pub(crate) fn new(stream: Transport) -> Peer {
-        let (tx, rx) = channel();
-        let handler = spawn(move || {
-            loop {
-                match rx.recv() {
-                    Ok(PeerMessage::Stop) => {
-                        break;
-                    },
-                    Err(err) => {
-                        println!("Error: {}", err);
-                    }
+        //TODO: Bounded
+        let (tx, rx) = unbounded();
+        let handler = spawn(move || loop {
+            match rx.recv() {
+                Ok(PeerMessage::Stop) => {
+                    break;
+                }
+                Err(err) => {
+                    println!("Error: {}", err);
                 }
             }
         });
