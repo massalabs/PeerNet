@@ -1,6 +1,7 @@
 use std::net::{TcpStream, UdpSocket};
 
-pub(crate) enum TransportType {
+#[derive(PartialEq, Eq, Hash, Copy, Clone)]
+pub enum TransportType {
     Tcp,
     Udp,
 }

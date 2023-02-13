@@ -1,8 +1,9 @@
+use std::{net::SocketAddr, collections::HashMap};
+
+use crate::transport::TransportType;
+
 pub struct PeerNetConfiguration {
-    // The IP address
-    pub ip: String,
-    // The port
-    pub port: String,
+    pub transports: HashMap<TransportType, SocketAddr>,
     // Number of peers we want to have
     pub max_peers: usize,
 }

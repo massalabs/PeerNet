@@ -1,6 +1,6 @@
 use std::{
     sync::{mpsc::channel, Arc},
-    thread::JoinHandle,
+    thread::JoinHandle, collections::HashMap,
 };
 
 use parking_lot::RwLock;
@@ -8,7 +8,7 @@ use parking_lot::RwLock;
 use crate::{
     config::PeerNetConfiguration,
     connection_listener::ConnectionListener,
-    peer::{Peer, PeerMetadata},
+    peer::{Peer, PeerMetadata}, transport::TransportType,
 };
 
 pub(crate) struct PeerDB {
@@ -17,27 +17,30 @@ pub(crate) struct PeerDB {
 
 pub struct PeerNetManager {
     config: PeerNetConfiguration,
-    peers_metadata: Vec<PeerMetadata>,
+    peer_list: Vec<PeerMetadata>,
     peer_db: Arc<RwLock<PeerDB>>,
-    peers: Vec<Peer>,
-    connection_listener: ConnectionListener,
+    connection_listeners: HashMap<TransportType, ConnectionListener>,
 }
 
 impl PeerNetManager {
-    pub fn new(config: PeerNetConfiguration, peers_metadata: Vec<PeerMetadata>) -> PeerNetManager {
+    pub fn new(config: PeerNetConfiguration, peer_list: Vec<PeerMetadata>) -> PeerNetManager {
         let peer_db = Arc::new(RwLock::new(PeerDB {
             peers: Default::default(),
         }));
-        let peers = Vec::new();
-        //TODO: Launch multiple thread depending on the number of different transports
-        let connection_listener =
-            ConnectionListener::new(&config.ip, &config.port, config.max_peers, peer_db.clone());
+        let mut connection_listeners = HashMap::new();
+        for (transport_type, transport_address) in config.transports.iter() {
+            connection_listeners.insert(*transport_type, ConnectionListener::new(
+                transport_address.clone(),
+                transport_type,
+                config.max_peers,
+                peer_db.clone(),
+            ));
+        }
         PeerNetManager {
             config,
-            peers_metadata,
+            peer_list,
             peer_db,
-            peers,
-            connection_listener,
+            connection_listeners,
         }
     }
 }
