@@ -1,14 +1,12 @@
 use std::{
-    sync::{mpsc::channel, Arc},
-    thread::JoinHandle, collections::HashMap,
+    sync::Arc, collections::HashMap, net::SocketAddr,
 };
 
 use parking_lot::RwLock;
 
 use crate::{
     config::PeerNetConfiguration,
-    connection_listener::ConnectionListener,
-    peer::{Peer, PeerMetadata}, transport::TransportType,
+    peer::Peer, transports::{InternalTransportType, TransportType, Transport}, error::PeerNetError
 };
 
 pub(crate) struct PeerDB {
@@ -17,31 +15,30 @@ pub(crate) struct PeerDB {
 
 pub struct PeerNetManager {
     config: PeerNetConfiguration,
-    peer_list: Vec<PeerMetadata>,
     peer_db: Arc<RwLock<PeerDB>>,
-    connection_listeners: HashMap<TransportType, ConnectionListener>,
+    transports: HashMap<TransportType, InternalTransportType>,
 }
 
 impl PeerNetManager {
-    pub fn new(config: PeerNetConfiguration, peer_list: Vec<PeerMetadata>) -> PeerNetManager {
+    // TODO: Doc
+    // We don't put the transports in the config has they don't implement Clone and so we will have to define
+    // an other config structure without the transports for internal usages if we move the transports out of the config.
+    pub fn new(config: PeerNetConfiguration) -> PeerNetManager {
         let peer_db = Arc::new(RwLock::new(PeerDB {
             peers: Default::default(),
         }));
-        let mut connection_listeners = HashMap::new();
-        for (transport_type, transport_address) in config.transports.iter() {
-            connection_listeners.insert(*transport_type, ConnectionListener::new(
-                transport_address.clone(),
-                transport_type,
-                config.max_peers,
-                peer_db.clone(),
-            ));
-        }
         PeerNetManager {
             config,
-            peer_list,
             peer_db,
-            connection_listeners,
+            transports: Default::default()
         }
+    }
+
+    pub fn start_listener(&mut self, transport_type: TransportType, addr: SocketAddr) -> Result<(), PeerNetError> {
+        let mut transport = InternalTransportType::from(transport_type);
+        transport.start_listener(addr)?;
+        self.transports.insert(transport_type, transport);
+        Ok(())
     }
 }
 

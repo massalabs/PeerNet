@@ -1,23 +1,22 @@
-use std::thread::{spawn, JoinHandle};
+use std::{thread::{spawn, JoinHandle}, net::SocketAddr};
 
 use crossbeam::channel::{unbounded, Sender};
 
-use crate::transport::{Transport, TransportType};
+use crate::{transports::InternalTransportType, endpoint::Endpoint};
 
 pub struct PeerMetadata {
     // The IP address of the peer
-    ip: String,
-    // The port of the peer
-    port: u16,
+    address: SocketAddr,
     // The public key of the peer
     public_key: String,
-    // Transport type
-    transport: TransportType,
+    // InternalTransportType type
+    transport: InternalTransportType,
 }
 
 pub(crate) struct Peer {
     // The socket connected with the peer
-    stream: Transport,
+    // TODO
+    endpoint: Endpoint,
     thread_handler: Option<JoinHandle<()>>,
     thread_sender: Sender<PeerMessage>,
 }
@@ -27,7 +26,7 @@ enum PeerMessage {
 }
 
 impl Peer {
-    pub(crate) fn new(stream: Transport) -> Peer {
+    pub(crate) fn new(endpoint: Endpoint) -> Peer {
         //TODO: Bounded
         let (tx, rx) = unbounded();
         let handler = spawn(move || loop {
@@ -41,7 +40,7 @@ impl Peer {
             }
         });
         Peer {
-            stream,
+            endpoint,
             thread_handler: Some(handler),
             thread_sender: tx,
         }

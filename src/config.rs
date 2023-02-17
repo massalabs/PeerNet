@@ -1,9 +1,10 @@
-use std::{net::SocketAddr, collections::HashMap};
+use std::{collections::HashMap, net::SocketAddr};
 
-use crate::transport::TransportType;
+use crate::{peer::PeerMetadata, transports::TransportType};
 
 pub struct PeerNetConfiguration {
-    pub transports: HashMap<TransportType, SocketAddr>,
-    // Number of peers we want to have
+    /// Number of peers we want to have
     pub max_peers: usize,
+    /// Initial peer list
+    pub initial_peer_list: Vec<PeerMetadata>
 }

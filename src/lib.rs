@@ -1,6 +1,7 @@
-mod connection_listener;
+mod endpoint;
 
 pub mod config;
-pub mod transport;
+pub mod error;
+pub mod transports;
 pub mod network_manager;
 pub mod peer;
