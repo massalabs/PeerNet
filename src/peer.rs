@@ -1,8 +1,11 @@
-use std::{thread::{spawn, JoinHandle}, net::SocketAddr};
+use std::{
+    net::SocketAddr,
+    thread::{spawn, JoinHandle},
+};
 
 use crossbeam::channel::{unbounded, Sender};
 
-use crate::{transports::InternalTransportType, endpoint::Endpoint};
+use crate::{endpoint::Endpoint, transports::InternalTransportType};
 
 pub struct PeerMetadata {
     // The IP address of the peer

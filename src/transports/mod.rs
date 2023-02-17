@@ -1,13 +1,13 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use enum_dispatch::enum_dispatch;
 
-use crate::error::PeerNetError;
+use crate::{error::PeerNetError, network_manager::SharedPeerDB};
 
-use self::{tcp::TcpTransport, quic::QuicTransport};
+use self::{quic::QuicTransport, tcp::TcpTransport};
 
-mod tcp;
 mod quic;
+mod tcp;
 
 // TODO: Maybe try to fusion with the InternalTransportType enum above
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
@@ -24,10 +24,13 @@ pub(crate) enum InternalTransportType {
     Quic(QuicTransport),
 }
 
-impl From<TransportType> for InternalTransportType {
-    fn from(transport_type: TransportType) -> Self {
+impl InternalTransportType {
+    pub(crate) fn from_transport_type(
+        transport_type: TransportType,
+        peer_db: SharedPeerDB,
+    ) -> Self {
         match transport_type {
-            TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new()),
+            TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(peer_db)),
             TransportType::Quic => InternalTransportType::Quic(QuicTransport::new()),
         }
     }
@@ -38,10 +41,10 @@ impl From<TransportType> for InternalTransportType {
 /// transport layers
 #[enum_dispatch(InternalTransportType)]
 pub trait Transport {
-    /// Start the listener in a separate thread.
+    /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
     /// TODO: Determine when we check we don't have too many peers and how.
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
-    fn try_connect(&mut self) -> Result<usize, PeerNetError>;
-    fn stop_listener(&mut self) -> Result<(), PeerNetError>;
+    fn try_connect(&mut self, address: SocketAddr, timeout: Duration) -> Result<(), PeerNetError>;
+    fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
 }

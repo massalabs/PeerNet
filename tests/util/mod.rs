@@ -1,4 +1,8 @@
-use std::{net::SocketAddr, thread::{JoinHandle, sleep}, time::Duration};
+use std::{
+    net::SocketAddr,
+    thread::{sleep, JoinHandle},
+    time::Duration,
+};
 
 pub fn create_clients(nb_clients: usize) -> Vec<JoinHandle<()>> {
     let mut clients = Vec::new();

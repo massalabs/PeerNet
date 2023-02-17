@@ -1,21 +1,25 @@
-use std::{
-    sync::Arc, collections::HashMap, net::SocketAddr,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use parking_lot::RwLock;
 
 use crate::{
     config::PeerNetConfiguration,
-    peer::Peer, transports::{InternalTransportType, TransportType, Transport}, error::PeerNetError
+    error::PeerNetError,
+    peer::Peer,
+    transports::{InternalTransportType, Transport, TransportType},
 };
 
 pub(crate) struct PeerDB {
+    pub(crate) config: PeerNetConfiguration,
     pub(crate) peers: Vec<Peer>,
+    pub(crate) nb_in_connections: usize,
+    pub(crate) nb_out_connections: usize,
 }
 
+pub(crate) type SharedPeerDB = Arc<RwLock<PeerDB>>;
+
 pub struct PeerNetManager {
-    config: PeerNetConfiguration,
-    peer_db: Arc<RwLock<PeerDB>>,
+    peer_db: SharedPeerDB,
     transports: HashMap<TransportType, InternalTransportType>,
 }
 
@@ -26,18 +30,37 @@ impl PeerNetManager {
     pub fn new(config: PeerNetConfiguration) -> PeerNetManager {
         let peer_db = Arc::new(RwLock::new(PeerDB {
             peers: Default::default(),
+            nb_in_connections: 0,
+            nb_out_connections: 0,
+            config: config,
         }));
         PeerNetManager {
-            config,
             peer_db,
-            transports: Default::default()
+            transports: Default::default(),
         }
     }
 
-    pub fn start_listener(&mut self, transport_type: TransportType, addr: SocketAddr) -> Result<(), PeerNetError> {
-        let mut transport = InternalTransportType::from(transport_type);
+    pub fn start_listener(
+        &mut self,
+        transport_type: TransportType,
+        addr: SocketAddr,
+    ) -> Result<(), PeerNetError> {
+        let transport = self.transports.entry(transport_type).or_insert_with(|| {
+            InternalTransportType::from_transport_type(transport_type, self.peer_db.clone())
+        });
         transport.start_listener(addr)?;
-        self.transports.insert(transport_type, transport);
+        Ok(())
+    }
+
+    pub fn stop_listener(
+        &mut self,
+        transport_type: TransportType,
+        addr: SocketAddr,
+    ) -> Result<(), PeerNetError> {
+        let transport = self.transports.entry(transport_type).or_insert_with(|| {
+            InternalTransportType::from_transport_type(transport_type, self.peer_db.clone())
+        });
+        transport.stop_listener(addr)?;
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 
 use crate::error::PeerNetError;
 
@@ -8,7 +8,7 @@ pub struct QuicTransport;
 
 impl QuicTransport {
     pub fn new() -> QuicTransport {
-        QuicTransport {  }
+        QuicTransport {}
     }
 }
 
@@ -17,11 +17,11 @@ impl Transport for QuicTransport {
         Ok(())
     }
 
-    fn try_connect(&mut self) -> Result<usize, PeerNetError> {
-        Ok(0)
+    fn try_connect(&mut self, address: SocketAddr, timeout: Duration) -> Result<(), PeerNetError> {
+        Ok(())
     }
 
-    fn stop_listener(&mut self) -> Result<(), PeerNetError> {
+    fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
         Ok(())
     }
 }
