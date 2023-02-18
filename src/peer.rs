@@ -3,7 +3,7 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use crossbeam::channel::{unbounded, Sender};
+use crossbeam::channel::{unbounded, Sender, RecvError};
 
 use crate::{endpoint::Endpoint, transports::InternalTransportType};
 
@@ -25,6 +25,7 @@ pub(crate) struct Peer {
 }
 
 enum PeerMessage {
+    //TODO: Don't need this the crossbeam channel already disconnect himself
     Stop,
 }
 
@@ -37,8 +38,8 @@ impl Peer {
                 Ok(PeerMessage::Stop) => {
                     break;
                 }
-                Err(err) => {
-                    println!("Error: {}", err);
+                Err(_) => {
+                    return;
                 }
             }
         });

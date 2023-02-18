@@ -63,6 +63,19 @@ impl PeerNetManager {
         transport.stop_listener(addr)?;
         Ok(())
     }
+
+    pub fn try_connect(
+        &mut self,
+        transport_type: TransportType,
+        addr: SocketAddr,
+        timeout: std::time::Duration,
+    ) -> Result<(), PeerNetError> {
+        let transport = self.transports.entry(transport_type).or_insert_with(|| {
+            InternalTransportType::from_transport_type(transport_type, self.peer_db.clone())
+        });
+        transport.try_connect(addr, timeout)?;
+        Ok(())
+    }
 }
 
 impl Drop for PeerNetManager {

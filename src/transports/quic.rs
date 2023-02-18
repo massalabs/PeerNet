@@ -13,15 +13,15 @@ impl QuicTransport {
 }
 
 impl Transport for QuicTransport {
-    fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
+    fn start_listener(&mut self, _address: SocketAddr) -> Result<(), PeerNetError> {
         Ok(())
     }
 
-    fn try_connect(&mut self, address: SocketAddr, timeout: Duration) -> Result<(), PeerNetError> {
+    fn try_connect(&mut self, _address: SocketAddr, _timeout: Duration) -> Result<(), PeerNetError> {
         Ok(())
     }
 
-    fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
+    fn stop_listener(&mut self, _address: SocketAddr) -> Result<(), PeerNetError> {
         Ok(())
     }
 }

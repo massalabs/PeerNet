@@ -1,6 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr};
-
-use crate::{peer::PeerMetadata, transports::TransportType};
+use crate::peer::PeerMetadata;
 
 pub struct PeerNetConfiguration {
     /// Number of peers we want to have in IN connection

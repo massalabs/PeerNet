@@ -62,6 +62,7 @@ impl Transport for TcpTransport {
                     match event.token() {
                         NEW_CONNECTION => {
                             let connection = server.accept();
+                            println!("New connection");
                             drop(connection);
                         }
                         STOP_LISTENER => {
@@ -77,13 +78,14 @@ impl Transport for TcpTransport {
     }
 
     fn try_connect(&mut self, address: SocketAddr, timeout: Duration) -> Result<(), PeerNetError> {
-       std::thread::spawn({
+        std::thread::spawn({
             let peer_db = self.peer_db.clone();
             let wg = self.out_connection_attempts.clone();
             move || {
-                let Ok(connection) = TcpStream::connect_timeout(&address, timeout) else {
+                let Ok(_connection) = TcpStream::connect_timeout(&address, timeout) else {
                 return;
                 };
+                println!("Connected to {}", address);
                 let mut peer_db = peer_db.write();
                 if peer_db.nb_in_connections < peer_db.config.max_in_connections {
                     peer_db.nb_in_connections += 1;
