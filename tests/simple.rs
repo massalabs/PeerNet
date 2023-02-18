@@ -29,7 +29,7 @@ fn simple() {
 }
 
 #[test]
-fn two_peers() {
+fn two_peers_tcp() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
@@ -37,7 +37,7 @@ fn two_peers() {
     };
     let mut manager = PeerNetManager::new(config);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
+        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 
     let config = PeerNetConfiguration {
@@ -46,9 +46,48 @@ fn two_peers() {
         initial_peer_list: Vec::new(),
     };
     let mut manager2 = PeerNetManager::new(config);
-    manager2.try_connect(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap(), Duration::from_secs(3)).unwrap();
+    manager2
+        .try_connect(
+            TransportType::Tcp,
+            "127.0.0.1:8080".parse().unwrap(),
+            Duration::from_secs(3),
+        )
+        .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
+        .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .unwrap();
+}
+
+
+#[test]
+fn two_peers_quic() {
+    let config = PeerNetConfiguration {
+        max_in_connections: 10,
+        max_out_connections: 20,
+        initial_peer_list: Vec::new(),
+    };
+    let mut manager = PeerNetManager::new(config);
+    manager
+        .start_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
+        .unwrap();
+
+    //TODO: Uncomment
+    // let config = PeerNetConfiguration {
+    //     max_in_connections: 10,
+    //     max_out_connections: 20,
+    //     initial_peer_list: Vec::new(),
+    // };
+    // let mut manager2 = PeerNetManager::new(config);
+    // manager2
+    //     .try_connect(
+    //         TransportType::Tcp,
+    //         "127.0.0.1:8082".parse().unwrap(),
+    //         Duration::from_secs(3),
+    //     )
+    //     .unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(3));
+    manager
+        .stop_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
 }

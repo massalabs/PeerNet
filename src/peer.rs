@@ -3,7 +3,7 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use crossbeam::channel::{unbounded, Sender, RecvError};
+use crossbeam::channel::{unbounded, RecvError, Sender};
 
 use crate::{endpoint::Endpoint, transports::InternalTransportType};
 

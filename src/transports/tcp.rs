@@ -35,10 +35,7 @@ impl TcpTransport {
 
 impl Transport for TcpTransport {
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
-        let mut poll = Poll::new().expect(&format!(
-            "Can't initialize polling in TCP transport of address {}",
-            address
-        ));
+        let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let mut events = Events::with_capacity(128);
         let waker = Waker::new(poll.registry(), STOP_LISTENER)
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
