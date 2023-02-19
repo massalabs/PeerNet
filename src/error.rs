@@ -2,6 +2,7 @@
 #[derive(Debug)]
 pub enum PeerNetError {
     ListenerError(String),
+    WrongConfigType,
     PeerConnectionError(String),
     InitializationError(String),
 }

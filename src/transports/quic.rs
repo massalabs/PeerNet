@@ -1,8 +1,9 @@
 use std::{collections::HashMap, net::SocketAddr, thread::JoinHandle, time::Duration};
 
 use mio::{net::UdpSocket, Events, Interest, Poll, Token, Waker};
+use quiche::{connect, ConnectionId};
 
-use crate::error::PeerNetError;
+use crate::{error::PeerNetError, peer_id::PeerId};
 
 use super::Transport;
 
@@ -10,8 +11,14 @@ const NEW_CONNECTION: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 const MAX_BUF_SIZE: usize = 65507;
 
-pub struct QuicTransport {
+pub(crate) struct QuicTransport {
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<()>)>,
+}
+
+pub struct QuicOutConnectionConfig {
+    pub identity: PeerId,
+    pub local_addr: SocketAddr,
+    pub quiche_config: quiche::Config,
 }
 
 impl QuicTransport {
@@ -23,6 +30,8 @@ impl QuicTransport {
 }
 
 impl Transport for QuicTransport {
+    type OutConnectionConfig = QuicOutConnectionConfig;
+
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let mut events = Events::with_capacity(128);
@@ -40,6 +49,7 @@ impl Transport for QuicTransport {
                 ));
             let mut buf = [0; MAX_BUF_SIZE];
             loop {
+                println!("Listening for new connections...");
                 // Poll Mio for events, blocking until we get an event.
                 poll.poll(&mut events, None)
                     .expect(&format!("Can't poll QUIC transport of address {}", address));
@@ -66,11 +76,11 @@ impl Transport for QuicTransport {
 
     fn try_connect(
         &mut self,
-        _address: SocketAddr,
+        address: SocketAddr,
         _timeout: Duration,
+        config: &mut Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
-        //TODO: Get the information from myself as a peer that should be in network manager
-        //connect(None, scid, local, peer, config)
+        connect(None, &ConnectionId::from_vec(config.identity.to_bytes()), config.local_addr, address, &mut config.quiche_config).unwrap();
         Ok(())
     }
 

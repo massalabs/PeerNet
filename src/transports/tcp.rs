@@ -7,8 +7,9 @@ use crate::endpoint::Endpoint;
 use crate::error::PeerNetError;
 use crate::network_manager::SharedPeerDB;
 use crate::peer::Peer;
+use crate::peer_id::PeerId;
 
-use super::Transport;
+use super::{Transport};
 
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener;
@@ -23,6 +24,8 @@ pub(crate) struct TcpTransport {
 const NEW_CONNECTION: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
+pub type TcpOutConnectionConfig = ();
+
 impl TcpTransport {
     pub fn new(peer_db: SharedPeerDB) -> TcpTransport {
         TcpTransport {
@@ -34,6 +37,8 @@ impl TcpTransport {
 }
 
 impl Transport for TcpTransport {
+    type OutConnectionConfig = TcpOutConnectionConfig;
+
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let mut events = Events::with_capacity(128);
@@ -74,7 +79,12 @@ impl Transport for TcpTransport {
         Ok(())
     }
 
-    fn try_connect(&mut self, address: SocketAddr, timeout: Duration) -> Result<(), PeerNetError> {
+    fn try_connect(
+        &mut self,
+        address: SocketAddr,
+        timeout: Duration,
+        config: &mut Self::OutConnectionConfig,
+    ) -> Result<(), PeerNetError> {
         std::thread::spawn({
             let peer_db = self.peer_db.clone();
             let wg = self.out_connection_attempts.clone();

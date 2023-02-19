@@ -6,7 +6,7 @@ use crate::{
     config::PeerNetConfiguration,
     error::PeerNetError,
     peer::Peer,
-    transports::{InternalTransportType, Transport, TransportType},
+    transports::{InternalTransportType, Transport, TransportType, OutConnectionConfig},
 };
 
 pub(crate) struct PeerDB {
@@ -66,14 +66,14 @@ impl PeerNetManager {
 
     pub fn try_connect(
         &mut self,
-        transport_type: TransportType,
         addr: SocketAddr,
         timeout: std::time::Duration,
+        out_connection_config: &mut OutConnectionConfig
     ) -> Result<(), PeerNetError> {
-        let transport = self.transports.entry(transport_type).or_insert_with(|| {
-            InternalTransportType::from_transport_type(transport_type, self.peer_db.clone())
+        let transport = self.transports.entry(TransportType::from_out_connection_config(&out_connection_config)).or_insert_with(|| {
+            InternalTransportType::from_transport_type(TransportType::from_out_connection_config(&out_connection_config), self.peer_db.clone())
         });
-        transport.try_connect(addr, timeout)?;
+        transport.try_connect(addr, timeout, out_connection_config.into())?;
         Ok(())
     }
 }
