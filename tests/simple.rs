@@ -3,8 +3,10 @@ use std::{thread::sleep, time::Duration};
 
 use massa_signature::KeyPair;
 use peernet::{
-    config::PeerNetConfiguration, network_manager::PeerNetManager, peer_id::PeerId,
-    transports::{TransportType, OutConnectionConfig, QuicOutConnectionConfig},
+    config::PeerNetConfiguration,
+    network_manager::PeerNetManager,
+    peer_id::PeerId,
+    transports::{OutConnectionConfig, QuicOutConnectionConfig, TransportType},
 };
 use util::create_clients;
 
@@ -94,7 +96,10 @@ fn two_peers_quic() {
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
             //TODO: Use the one in manager instead of asking. Need a wrapper structure ?
-            &mut OutConnectionConfig::Quic(QuicOutConnectionConfig { identity: PeerId::from_public_key(keypair2.get_public_key()), local_addr: "127.0.0.1:8083".parse().unwrap(), quiche_config: quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap() }),
+            &mut OutConnectionConfig::Quic(QuicOutConnectionConfig {
+                identity: PeerId::from_public_key(keypair2.get_public_key()),
+                local_addr: "127.0.0.1:8083".parse().unwrap(),
+            }),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));

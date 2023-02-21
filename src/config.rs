@@ -1,5 +1,3 @@
-use massa_signature::PublicKey;
-
 use crate::{peer::PeerMetadata, peer_id::PeerId};
 
 pub struct PeerNetConfiguration {

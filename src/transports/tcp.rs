@@ -7,9 +7,8 @@ use crate::endpoint::Endpoint;
 use crate::error::PeerNetError;
 use crate::network_manager::SharedPeerDB;
 use crate::peer::Peer;
-use crate::peer_id::PeerId;
 
-use super::{Transport};
+use super::Transport;
 
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener;
@@ -44,33 +43,43 @@ impl Transport for TcpTransport {
         let mut events = Events::with_capacity(128);
         let waker = Waker::new(poll.registry(), STOP_LISTENER)
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
-        let listener_handle: JoinHandle<()> = std::thread::spawn(move || {
-            let mut server = TcpListener::bind(address)
-                .expect(&format!("Can't bind TCP transport to address {}", address));
-            // Start listening for incoming connections.
-            poll.registry()
-                .register(&mut server, NEW_CONNECTION, Interest::READABLE)
-                .expect(&format!(
-                    "Can't register polling on TCP transport of address {}",
-                    address
-                ));
-            loop {
-                // Poll Mio for events, blocking until we get an event.
-                poll.poll(&mut events, None)
-                    .expect(&format!("Can't poll TCP transport of address {}", address));
+        let listener_handle: JoinHandle<()> = std::thread::spawn({
+            let peer_db = self.peer_db.clone();
+            move || {
+                let mut server = TcpListener::bind(address)
+                    .expect(&format!("Can't bind TCP transport to address {}", address));
+                // Start listening for incoming connections.
+                poll.registry()
+                    .register(&mut server, NEW_CONNECTION, Interest::READABLE)
+                    .expect(&format!(
+                        "Can't register polling on TCP transport of address {}",
+                        address
+                    ));
+                loop {
+                    // Poll Mio for events, blocking until we get an event.
+                    poll.poll(&mut events, None)
+                        .expect(&format!("Can't poll TCP transport of address {}", address));
 
-                // Process each event.
-                for event in events.iter() {
-                    match event.token() {
-                        NEW_CONNECTION => {
-                            let connection = server.accept();
-                            println!("New connection");
-                            drop(connection);
+                    // Process each event.
+                    for event in events.iter() {
+                        match event.token() {
+                            NEW_CONNECTION => {
+                                let connection = server.accept();
+                                println!("New connection");
+                                let mut peer_db = peer_db.write();
+                                if peer_db.nb_in_connections < peer_db.config.max_in_connections {
+                                    peer_db.nb_in_connections += 1;
+                                    let peer = Peer::new(Endpoint {});
+                                    peer_db.peers.push(peer);
+                                }
+                                //TODO: Remove
+                                drop(connection);
+                            }
+                            STOP_LISTENER => {
+                                return;
+                            }
+                            _ => {}
                         }
-                        STOP_LISTENER => {
-                            return;
-                        }
-                        _ => {}
                     }
                 }
             }
@@ -83,7 +92,7 @@ impl Transport for TcpTransport {
         &mut self,
         address: SocketAddr,
         timeout: Duration,
-        config: &mut Self::OutConnectionConfig,
+        _config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
         std::thread::spawn({
             let peer_db = self.peer_db.clone();
@@ -94,8 +103,8 @@ impl Transport for TcpTransport {
                 };
                 println!("Connected to {}", address);
                 let mut peer_db = peer_db.write();
-                if peer_db.nb_in_connections < peer_db.config.max_in_connections {
-                    peer_db.nb_in_connections += 1;
+                if peer_db.nb_out_connections < peer_db.config.max_out_connections {
+                    peer_db.nb_out_connections += 1;
                     let peer = Peer::new(Endpoint {});
                     peer_db.peers.push(peer);
                 }

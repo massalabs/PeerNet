@@ -1,5 +1,6 @@
 use massa_signature::PublicKey;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PeerId {
     // The public key of the peer
     // TODO: Offer multiple possibilities

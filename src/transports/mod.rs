@@ -18,9 +18,7 @@ pub enum TransportType {
 }
 
 impl TransportType {
-    pub fn from_out_connection_config(
-        config: &OutConnectionConfig,
-    ) -> Self {
+    pub fn from_out_connection_config(config: &OutConnectionConfig) -> Self {
         match config {
             OutConnectionConfig::Tcp(_) => TransportType::Tcp,
             OutConnectionConfig::Quic(_) => TransportType::Quic,
@@ -35,7 +33,8 @@ pub(crate) enum InternalTransportType {
     Tcp(TcpTransport),
     Quic(QuicTransport),
 }
-
+// Maybe having the same config type for both in the future
+#[derive(Clone)]
 pub enum OutConnectionConfig {
     Tcp(TcpOutConnectionConfig),
     Quic(QuicOutConnectionConfig),
@@ -67,13 +66,11 @@ impl Transport for InternalTransportType {
         &mut self,
         address: SocketAddr,
         timeout: Duration,
-        config: &mut Self::OutConnectionConfig,
+        config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
         match self {
             InternalTransportType::Tcp(transport) => match config {
-                OutConnectionConfig::Tcp(config) => {
-                    transport.try_connect(address, timeout, config)
-                }
+                OutConnectionConfig::Tcp(config) => transport.try_connect(address, timeout, config),
                 _ => Err(PeerNetError::WrongConfigType),
             },
             InternalTransportType::Quic(transport) => match config {
@@ -100,7 +97,7 @@ impl InternalTransportType {
     ) -> Self {
         match transport_type {
             TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(peer_db)),
-            TransportType::Quic => InternalTransportType::Quic(QuicTransport::new()),
+            TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(peer_db)),
         }
     }
 }
@@ -109,7 +106,7 @@ impl InternalTransportType {
 /// so that the network manager can be used with different
 /// transport layers
 pub trait Transport {
-    type OutConnectionConfig;
+    type OutConnectionConfig: Clone;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
     /// TODO: Determine when we check we don't have too many peers and how.
@@ -119,7 +116,7 @@ pub trait Transport {
         &mut self,
         address: SocketAddr,
         timeout: Duration,
-        config: &mut Self::OutConnectionConfig,
+        config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError>;
     fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
 }
