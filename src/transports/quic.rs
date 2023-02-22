@@ -13,7 +13,6 @@ use crate::{
 use super::Transport;
 
 const NEW_CONNECTION_SERVER: Token = Token(0);
-const NEW_CONNECTION_CLIENT: Token = Token(1);
 const STOP_LISTENER: Token = Token(10);
 
 pub(crate) struct QuicTransport {
@@ -107,8 +106,7 @@ impl Transport for QuicTransport {
         _timeout: Duration,
         config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
-        let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
-        let mut events = Events::with_capacity(128);
+        //TODO: Use timeout
         let config = config.clone();
         std::thread::spawn({
             let peer_db = self.peer_db.clone();
@@ -117,15 +115,8 @@ impl Transport for QuicTransport {
                 let mut out = [0; PUBLIC_KEY_SIZE_BYTES + SIGNATURE_SIZE_BYTES];
                 out[..PUBLIC_KEY_SIZE_BYTES].copy_from_slice(&config.identity.to_bytes());
                 //TODO: Add a signature of the public key
-                let mut socket = UdpSocket::bind(config.local_addr)
+                let socket = UdpSocket::bind(config.local_addr)
                     .expect(&format!("Can't bind TCP transport to address {}", address));
-                // Start listening for incoming connections.
-                poll.registry()
-                    .register(&mut socket, NEW_CONNECTION_CLIENT, Interest::READABLE)
-                    .expect(&format!(
-                        "Can't register polling on TCP transport of address {}",
-                        address
-                    ));
                 println!("Connecting to {}", address);
                 //TODO: Use configs for quiche passed from config object.
                 let mut quiche_config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
@@ -164,6 +155,7 @@ impl Transport for QuicTransport {
                     let peer = Peer::new(Endpoint {});
                     peer_db.peers.push(peer);
                 }
+                drop(wg);
             }
         });
         Ok(())

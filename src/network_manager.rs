@@ -1,3 +1,7 @@
+//! The PeerNetManager is the main struct of the PeerNet library.
+//!
+//! It is the entry point of the library and is used to create and manage the transports and the peers.
+
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use parking_lot::RwLock;
@@ -18,15 +22,14 @@ pub(crate) struct PeerDB {
 
 pub(crate) type SharedPeerDB = Arc<RwLock<PeerDB>>;
 
+/// Main structure of the PeerNet library used to manage the transports and the peers.
 pub struct PeerNetManager {
     peer_db: SharedPeerDB,
     transports: HashMap<TransportType, InternalTransportType>,
 }
 
 impl PeerNetManager {
-    // TODO: Doc
-    // We don't put the transports in the config has they don't implement Clone and so we will have to define
-    // an other config structure without the transports for internal usages if we move the transports out of the config.
+    /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
     pub fn new(config: PeerNetConfiguration) -> PeerNetManager {
         let peer_db = Arc::new(RwLock::new(PeerDB {
             peers: Default::default(),
@@ -40,6 +43,8 @@ impl PeerNetManager {
         }
     }
 
+    /// Starts a listener on the given address and transport type.
+    /// The listener will accept incoming connections, verify we have seats for the peer and then create a new peer and his thread.
     pub fn start_listener(
         &mut self,
         transport_type: TransportType,
@@ -52,6 +57,8 @@ impl PeerNetManager {
         Ok(())
     }
 
+    /// Stops a listener on the given address and transport type.
+    /// TODO: Maybe have listener ids
     pub fn stop_listener(
         &mut self,
         transport_type: TransportType,
@@ -64,6 +71,9 @@ impl PeerNetManager {
         Ok(())
     }
 
+    /// Tries to connect to the given address and transport type.
+    /// The transport used is defined by the variant of the OutConnectionConfig.
+    /// If the connection can be established, a new peer is created and his thread is started.
     pub fn try_connect(
         &mut self,
         addr: SocketAddr,
@@ -83,11 +93,5 @@ impl PeerNetManager {
             });
         transport.try_connect(addr, timeout, out_connection_config.into())?;
         Ok(())
-    }
-}
-
-impl Drop for PeerNetManager {
-    fn drop(&mut self) {
-        //self.manager_thread.take().unwrap().join().unwrap();
     }
 }

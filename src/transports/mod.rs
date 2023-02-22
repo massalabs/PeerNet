@@ -1,3 +1,7 @@
+//! This modules define the prototype of a transport and the dispatching between the different transports.
+//!
+//! This module use enum dispatch to avoid using trait objects and to save runtime costs.
+
 use std::{net::SocketAddr, time::Duration};
 
 use crate::{error::PeerNetError, network_manager::SharedPeerDB};
@@ -10,7 +14,8 @@ mod tcp;
 pub use quic::QuicOutConnectionConfig;
 pub use tcp::TcpOutConnectionConfig;
 
-// TODO: Maybe try to fusion with the InternalTransportType enum above
+/// Define the different transports available
+/// TODO: Maybe try to fusion with the InternalTransportType enum above
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
 pub enum TransportType {
     Tcp,
@@ -18,6 +23,7 @@ pub enum TransportType {
 }
 
 impl TransportType {
+    /// Extract the transport type from `OutConnectionConfig`
     pub fn from_out_connection_config(config: &OutConnectionConfig) -> Self {
         match config {
             OutConnectionConfig::Tcp(_) => TransportType::Tcp,
@@ -33,7 +39,8 @@ pub(crate) enum InternalTransportType {
     Tcp(TcpTransport),
     Quic(QuicTransport),
 }
-// Maybe having the same config type for both in the future
+
+/// All configurations for out connection depending on the transport type
 #[derive(Clone)]
 pub enum OutConnectionConfig {
     Tcp(TcpOutConnectionConfig),
@@ -109,14 +116,14 @@ pub trait Transport {
     type OutConnectionConfig: Clone;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
-    /// TODO: Determine when we check we don't have too many peers and how.
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
-    // Need mut ref for quic
+    /// Try to connect to a peer
     fn try_connect(
         &mut self,
         address: SocketAddr,
         timeout: Duration,
         config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError>;
+    /// Stop a listener of a given address
     fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
 }

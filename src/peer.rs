@@ -1,3 +1,5 @@
+//! Every information about a peer (not used for now)
+
 use std::{
     net::SocketAddr,
     thread::{spawn, JoinHandle},
