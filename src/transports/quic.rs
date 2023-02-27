@@ -125,6 +125,7 @@ impl Transport for QuicTransport {
                 let mut quiche_config =
                     quiche::Config::new(quiche::PROTOCOL_VERSION).expect("Default config failed");
                 quiche_config.verify_peer(false);
+                //TODO: Config
                 quiche_config
                     .set_application_protos(&[b"massa/1.0"])
                     .unwrap();
