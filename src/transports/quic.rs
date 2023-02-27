@@ -3,7 +3,7 @@ use std::{collections::HashMap, net::SocketAddr, thread::JoinHandle, time::Durat
 use crossbeam::sync::WaitGroup;
 use massa_signature::{PUBLIC_KEY_SIZE_BYTES, SIGNATURE_SIZE_BYTES};
 use mio::{net::UdpSocket, Events, Interest, Poll, Token, Waker};
-use quiche::{accept, connect, ConnectionId};
+use quiche::ConnectionId;
 
 use crate::{
     endpoint::Endpoint, error::PeerNetError, network_manager::SharedPeerDB, peer::Peer,
@@ -42,6 +42,7 @@ impl Transport for QuicTransport {
 
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
+        //TODO: Configurable capacity
         let mut events = Events::with_capacity(128);
         let waker = Waker::new(poll.registry(), STOP_LISTENER)
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
@@ -49,12 +50,12 @@ impl Transport for QuicTransport {
             let peer_db = self.peer_db.clone();
             move || {
                 let mut socket = UdpSocket::bind(address)
-                    .expect(&format!("Can't bind TCP transport to address {}", address));
+                    .expect(&format!("Can't bind QUIC transport to address {}", address));
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut socket, NEW_CONNECTION_SERVER, Interest::READABLE)
                     .expect(&format!(
-                        "Can't register polling on TCP transport of address {}",
+                        "Can't register polling on QUIC transport of address {}",
                         address
                     ));
                 let mut buf = [0; PUBLIC_KEY_SIZE_BYTES + SIGNATURE_SIZE_BYTES];
@@ -72,7 +73,7 @@ impl Transport for QuicTransport {
                                 let (_num_recv, from_addr) = socket.recv_from(&mut buf).unwrap();
                                 let mut config =
                                     quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
-                                accept(
+                                quiche::accept(
                                     &ConnectionId::from_ref(&buf[..PUBLIC_KEY_SIZE_BYTES]),
                                     None,
                                     address,
@@ -90,7 +91,8 @@ impl Transport for QuicTransport {
                             STOP_LISTENER => {
                                 return;
                             }
-                            _ => {}
+                            // We don't expect any events with tokens other than those we provided. (from mio doc)
+                            _ => unreachable!(),
                         }
                     }
                 }
@@ -119,13 +121,15 @@ impl Transport for QuicTransport {
                     .expect(&format!("Can't bind TCP transport to address {}", address));
                 println!("Connecting to {}", address);
                 //TODO: Use configs for quiche passed from config object.
-                let mut quiche_config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
+                //and error handling
+                let mut quiche_config =
+                    quiche::Config::new(quiche::PROTOCOL_VERSION).expect("Default config failed");
                 quiche_config.verify_peer(false);
                 quiche_config
                     .set_application_protos(&[b"massa/1.0"])
                     .unwrap();
                 //TODO:Use the distant peerid as the connection id.
-                let mut conn = connect(
+                let mut conn = quiche::connect(
                     None,
                     &ConnectionId::from_vec(config.identity.to_bytes()),
                     config.local_addr,
