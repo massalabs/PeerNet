@@ -1,13 +1,18 @@
-use std::{collections::HashMap, net::SocketAddr, thread::JoinHandle, time::Duration};
+use std::{
+    collections::HashMap,
+    net::{SocketAddr, UdpSocket},
+    thread::JoinHandle,
+    time::Duration,
+};
 
 use crossbeam::sync::WaitGroup;
 use massa_signature::{PUBLIC_KEY_SIZE_BYTES, SIGNATURE_SIZE_BYTES};
-use mio::{net::UdpSocket, Events, Interest, Poll, Token, Waker};
+use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use quiche::ConnectionId;
 
 use crate::{
-    endpoint::Endpoint, error::PeerNetError, network_manager::SharedPeerDB, peer::Peer,
-    peer_id::PeerId,
+    error::PeerNetError, network_manager::SharedPeerDB, peer::Peer, peer_id::PeerId,
+    transports::Endpoint,
 };
 
 use super::Transport;
@@ -21,8 +26,15 @@ pub(crate) struct QuicTransport {
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<()>)>,
 }
 
+pub struct QuicEndpoint {
+    pub address: SocketAddr,
+    pub socket: UdpSocket,
+    pub connection: quiche::Connection,
+}
+
 #[derive(Clone)]
 pub struct QuicOutConnectionConfig {
+    // the peer we want to connect to
     pub identity: PeerId,
     pub local_addr: SocketAddr,
 }
@@ -40,6 +52,8 @@ impl QuicTransport {
 impl Transport for QuicTransport {
     type OutConnectionConfig = QuicOutConnectionConfig;
 
+    type Endpoint = QuicEndpoint;
+
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         //TODO: Configurable capacity
@@ -49,8 +63,9 @@ impl Transport for QuicTransport {
         let listener_handle = std::thread::spawn({
             let peer_db = self.peer_db.clone();
             move || {
-                let mut socket = UdpSocket::bind(address)
+                let server = UdpSocket::bind(address)
                     .expect(&format!("Can't bind QUIC transport to address {}", address));
+                let mut socket = MioUdpSocket::from_std(server.try_clone().unwrap());
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut socket, NEW_CONNECTION_SERVER, Interest::READABLE)
@@ -73,7 +88,12 @@ impl Transport for QuicTransport {
                                 let (_num_recv, from_addr) = socket.recv_from(&mut buf).unwrap();
                                 let mut config =
                                     quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
-                                quiche::accept(
+                                //TODO: Error handling
+                                let peer_id = PeerId::from_bytes(
+                                    &buf[..PUBLIC_KEY_SIZE_BYTES].try_into().unwrap(),
+                                )
+                                .unwrap();
+                                let connection = quiche::accept(
                                     &ConnectionId::from_ref(&buf[..PUBLIC_KEY_SIZE_BYTES]),
                                     None,
                                     address,
@@ -84,7 +104,12 @@ impl Transport for QuicTransport {
                                 let mut peer_db = peer_db.write();
                                 if peer_db.nb_in_connections < peer_db.config.max_in_connections {
                                     peer_db.nb_in_connections += 1;
-                                    let peer = Peer::new(Endpoint {});
+                                    let peer = Peer::new(Endpoint::Quic(QuicEndpoint {
+                                        address: from_addr,
+                                        //TODO: connection migration
+                                        socket: server.try_clone().unwrap(),
+                                        connection,
+                                    }));
                                     peer_db.peers.push(peer);
                                 }
                             }
@@ -157,7 +182,11 @@ impl Transport for QuicTransport {
                 let mut peer_db = peer_db.write();
                 if peer_db.nb_out_connections < peer_db.config.max_out_connections {
                     peer_db.nb_out_connections += 1;
-                    let peer = Peer::new(Endpoint {});
+                    let peer = Peer::new(Endpoint::Quic(QuicEndpoint {
+                        connection: conn,
+                        address,
+                        socket: socket,
+                    }));
                     peer_db.peers.push(peer);
                 }
                 drop(wg);
@@ -181,5 +210,13 @@ impl Transport for QuicTransport {
             .join()
             .expect(&format!("Couldn't join listener for address {}", address));
         Ok(())
+    }
+
+    fn send(endpoint: &Self::Endpoint) -> Result<(), PeerNetError> {
+        Ok(())
+    }
+
+    fn receive(endpoint: &Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
+        Ok(Vec::new())
     }
 }

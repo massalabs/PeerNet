@@ -6,7 +6,10 @@ use std::{net::SocketAddr, time::Duration};
 
 use crate::{error::PeerNetError, network_manager::SharedPeerDB};
 
-use self::{quic::QuicTransport, tcp::TcpTransport};
+use self::{
+    quic::{QuicEndpoint, QuicTransport},
+    tcp::{TcpEndpoint, TcpTransport},
+};
 
 mod quic;
 mod tcp;
@@ -40,6 +43,11 @@ pub(crate) enum InternalTransportType {
     Quic(QuicTransport),
 }
 
+pub(crate) enum Endpoint {
+    Tcp(TcpEndpoint),
+    Quic(QuicEndpoint),
+}
+
 /// All configurations for out connection depending on the transport type
 #[derive(Clone)]
 pub enum OutConnectionConfig {
@@ -61,6 +69,7 @@ impl From<<QuicTransport as Transport>::OutConnectionConfig> for OutConnectionCo
 
 impl Transport for InternalTransportType {
     type OutConnectionConfig = OutConnectionConfig;
+    type Endpoint = Endpoint;
 
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
         match self {
@@ -95,6 +104,20 @@ impl Transport for InternalTransportType {
             InternalTransportType::Quic(transport) => transport.stop_listener(address),
         }
     }
+
+    fn send(endpoint: &Self::Endpoint) -> Result<(), PeerNetError> {
+        match endpoint {
+            Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::send(endpoint),
+        }
+    }
+
+    fn receive(endpoint: &Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
+        match endpoint {
+            Endpoint::Tcp(endpoint) => TcpTransport::receive(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::receive(endpoint),
+        }
+    }
 }
 
 impl InternalTransportType {
@@ -114,6 +137,7 @@ impl InternalTransportType {
 /// transport layers
 pub trait Transport {
     type OutConnectionConfig: Clone;
+    type Endpoint;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
     fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
@@ -126,4 +150,6 @@ pub trait Transport {
     ) -> Result<(), PeerNetError>;
     /// Stop a listener of a given address
     fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
+    fn send(endpoint: &Self::Endpoint) -> Result<(), PeerNetError>;
+    fn receive(endpoint: &Self::Endpoint) -> Result<Vec<u8>, PeerNetError>;
 }

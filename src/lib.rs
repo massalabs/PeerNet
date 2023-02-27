@@ -52,7 +52,7 @@
 //!    .unwrap();
 //! ```
 //!
-mod endpoint;
+mod handshake;
 
 pub mod config;
 pub mod error;

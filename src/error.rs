@@ -6,6 +6,8 @@
 pub enum PeerNetError {
     /// Error when trying to start/stop a listener
     ListenerError(String),
+    /// PeerId error
+    PeerIdError(String),
     /// Error when trying to connect to a peer with a configuration that don't match the transport type
     WrongConfigType,
     /// Error when trying to connect to a peer
