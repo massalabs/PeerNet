@@ -7,10 +7,7 @@ use std::{
 
 use crossbeam::channel::{unbounded, Sender};
 
-use crate::{
-    peer_id::PeerId,
-    transports::{Endpoint, InternalTransportType, TransportType},
-};
+use crate::transports::{Endpoint, InternalTransportType};
 
 pub struct PeerMetadata {
     // The IP address of the peer
@@ -28,8 +25,8 @@ pub(crate) struct Peer {
     thread_sender: Sender<PeerMessage>,
 }
 
-struct PeerWorker {
-    endpoint: Endpoint,
+struct PeerWorker<'a> {
+    endpoint: &'a mut Endpoint,
 }
 
 enum PeerMessage {
@@ -38,14 +35,15 @@ enum PeerMessage {
 }
 
 impl Peer {
-    pub(crate) fn new(endpoint: Endpoint) -> Peer {
+    pub(crate) fn new(mut endpoint: Endpoint) -> Peer {
         //TODO: Bounded
         let (tx, rx) = unbounded();
         let handler = spawn(move || {
-            let peer_worker = PeerWorker { endpoint };
+            let peer_worker = PeerWorker {
+                endpoint: &mut endpoint,
+            };
             //HANDSHAKE
-            //TODO: Take this function as parameter
-
+            peer_worker.endpoint.handshake().unwrap();
             //MAIN LOOP
             loop {
                 match rx.recv() {

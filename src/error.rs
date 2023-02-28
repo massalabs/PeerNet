@@ -12,4 +12,8 @@ pub enum PeerNetError {
     WrongConfigType,
     /// Error when trying to connect to a peer
     PeerConnectionError(String),
+    /// Error when trying to send a message to a peer
+    SendError(String),
+    /// Error when trying to receive a message from a peer
+    ReceiveError(String),
 }

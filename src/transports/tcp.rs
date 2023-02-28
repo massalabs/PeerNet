@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -80,7 +81,7 @@ impl Transport for TcpTransport {
                             NEW_CONNECTION => {
                                 //TODO: Error handling
                                 //TODO: Use rate limiting
-                                let (mut stream, address) = server.accept().unwrap();
+                                let (stream, address) = server.accept().unwrap();
                                 println!("New connection");
                                 let mut peer_db = peer_db.write();
                                 if peer_db.nb_in_connections < peer_db.config.max_in_connections {
@@ -107,9 +108,8 @@ impl Transport for TcpTransport {
         &mut self,
         address: SocketAddr,
         timeout: Duration,
-        config: &Self::OutConnectionConfig,
+        _config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
-        let config = config.clone();
         std::thread::spawn({
             let peer_db = self.peer_db.clone();
             let wg = self.out_connection_attempts.clone();
@@ -151,11 +151,37 @@ impl Transport for TcpTransport {
         Ok(())
     }
 
-    fn send(endpoint: &Self::Endpoint) -> Result<(), PeerNetError> {
+    fn handshake(_endpoint: &mut Self::Endpoint) -> Result<(), PeerNetError> {
+        //TODO: Implement
         Ok(())
     }
 
-    fn receive(endpoint: &Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
-        Ok(vec![])
+    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError> {
+        //TODO: Rate limiting
+        endpoint
+            .stream
+            .write(&data.len().to_le_bytes())
+            .map_err(|err| PeerNetError::SendError(err.to_string()))?;
+        endpoint
+            .stream
+            .write(data)
+            .map_err(|err| PeerNetError::SendError(err.to_string()))?;
+        Ok(())
+    }
+
+    fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
+        //TODO: Rate limiting
+        let mut len_bytes = [0u8; 8];
+        endpoint
+            .stream
+            .read(&mut len_bytes)
+            .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?;
+        let len = usize::from_le_bytes(len_bytes);
+        let mut data = vec![0u8; len];
+        endpoint
+            .stream
+            .read(&mut data)
+            .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?;
+        Ok(data)
     }
 }

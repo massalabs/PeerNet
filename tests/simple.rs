@@ -98,15 +98,15 @@ fn two_peers_quic() {
     manager2
         .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
-            Duration::from_secs(3),
+            Duration::from_secs(10),
             //TODO: Use the one in manager instead of asking. Need a wrapper structure ?
             &mut OutConnectionConfig::Quic(QuicOutConnectionConfig {
-                identity: PeerId::from_public_key(keypair2.get_public_key()),
+                identity: PeerId::from_public_key(keypair1.get_public_key()),
                 local_addr: "127.0.0.1:8083".parse().unwrap(),
             }),
         )
         .unwrap();
-    std::thread::sleep(std::time::Duration::from_secs(3));
+    std::thread::sleep(std::time::Duration::from_secs(10));
     manager
         .stop_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
         .unwrap();

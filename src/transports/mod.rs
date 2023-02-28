@@ -48,6 +48,28 @@ pub(crate) enum Endpoint {
     Quic(QuicEndpoint),
 }
 
+impl Endpoint {
+    pub(crate) fn send(&mut self, data: &[u8]) -> Result<(), PeerNetError> {
+        match self {
+            Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint, data),
+            Endpoint::Quic(endpoint) => QuicTransport::send(endpoint, data),
+        }
+    }
+    pub(crate) fn receive(&mut self) -> Result<Vec<u8>, PeerNetError> {
+        match self {
+            Endpoint::Tcp(endpoint) => TcpTransport::receive(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::receive(endpoint),
+        }
+    }
+
+    pub(crate) fn handshake(&mut self) -> Result<(), PeerNetError> {
+        match self {
+            Endpoint::Tcp(endpoint) => TcpTransport::handshake(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::handshake(endpoint),
+        }
+    }
+}
+
 /// All configurations for out connection depending on the transport type
 #[derive(Clone)]
 pub enum OutConnectionConfig {
@@ -66,7 +88,8 @@ impl From<<QuicTransport as Transport>::OutConnectionConfig> for OutConnectionCo
         OutConnectionConfig::Quic(inner)
     }
 }
-
+// TODO: Macroize this I don't use enum_dispatch or enum_delegate as it generates a lot of code
+// to have everything generic and we don't need this.
 impl Transport for InternalTransportType {
     type OutConnectionConfig = OutConnectionConfig;
     type Endpoint = Endpoint;
@@ -105,17 +128,24 @@ impl Transport for InternalTransportType {
         }
     }
 
-    fn send(endpoint: &Self::Endpoint) -> Result<(), PeerNetError> {
+    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError> {
         match endpoint {
-            Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint),
-            Endpoint::Quic(endpoint) => QuicTransport::send(endpoint),
+            Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint, data),
+            Endpoint::Quic(endpoint) => QuicTransport::send(endpoint, data),
         }
     }
 
-    fn receive(endpoint: &Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
+    fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
         match endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::receive(endpoint),
             Endpoint::Quic(endpoint) => QuicTransport::receive(endpoint),
+        }
+    }
+
+    fn handshake(endpoint: &mut Self::Endpoint) -> Result<(), PeerNetError> {
+        match endpoint {
+            Endpoint::Tcp(endpoint) => TcpTransport::handshake(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::handshake(endpoint),
         }
     }
 }
@@ -150,6 +180,7 @@ pub trait Transport {
     ) -> Result<(), PeerNetError>;
     /// Stop a listener of a given address
     fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
-    fn send(endpoint: &Self::Endpoint) -> Result<(), PeerNetError>;
-    fn receive(endpoint: &Self::Endpoint) -> Result<Vec<u8>, PeerNetError>;
+    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError>;
+    fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError>;
+    fn handshake(endpoint: &mut Self::Endpoint) -> Result<(), PeerNetError>;
 }

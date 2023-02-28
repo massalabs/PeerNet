@@ -52,7 +52,6 @@
 //!    .unwrap();
 //! ```
 //!
-mod handshake;
 
 pub mod config;
 pub mod error;
