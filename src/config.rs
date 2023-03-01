@@ -3,7 +3,9 @@
 //! This module contains the configuration for the PeerNet manager.
 //! It regroups all the information needed to initialize a PeerNet manager.
 
-use crate::{peer::PeerMetadata, peer_id::PeerId};
+use massa_signature::KeyPair;
+
+use crate::peer::PeerMetadata;
 
 /// Struct containing the configuration for the PeerNet manager.
 pub struct PeerNetConfiguration {
@@ -12,7 +14,7 @@ pub struct PeerNetConfiguration {
     /// Number of peers we want to have in OUT connection
     pub max_out_connections: usize,
     /// Our peer id
-    pub peer_id: PeerId,
+    pub self_keypair: KeyPair,
     /// Initial peer list
     pub initial_peer_list: Vec<PeerMetadata>,
 }

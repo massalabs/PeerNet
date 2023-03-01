@@ -7,6 +7,7 @@ use std::{
 };
 
 use crossbeam::{channel, sync::WaitGroup};
+use massa_signature::KeyPair;
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
 
@@ -73,7 +74,11 @@ impl Transport for QuicTransport {
 
     type Endpoint = QuicEndpoint;
 
-    fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
+    fn start_listener(
+        &mut self,
+        self_keypair: KeyPair,
+        address: SocketAddr,
+    ) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         //TODO: Configurable capacity
         let mut events = Events::with_capacity(128);
@@ -184,10 +189,13 @@ impl Transport for QuicTransport {
                                                     (connection, send_rx, recv_tx, false),
                                                 );
                                             }
-                                            let peer = Peer::new(Endpoint::Quic(QuicEndpoint {
-                                                data_receiver: recv_rx,
-                                                data_sender: send_tx,
-                                            }));
+                                            let peer = Peer::new(
+                                                self_keypair.clone(),
+                                                Endpoint::Quic(QuicEndpoint {
+                                                    data_receiver: recv_rx,
+                                                    data_sender: send_tx,
+                                                }),
+                                            );
                                             peer_db.peers.push(peer);
                                         }
                                     }
@@ -284,6 +292,7 @@ impl Transport for QuicTransport {
 
     fn try_connect(
         &mut self,
+        self_keypair: KeyPair,
         address: SocketAddr,
         _timeout: Duration,
         config: &Self::OutConnectionConfig,
@@ -296,7 +305,7 @@ impl Transport for QuicTransport {
                 .get(&config.local_addr)
                 .expect("Listener not found")
         } else {
-            self.start_listener(config.local_addr)?;
+            self.start_listener(self_keypair.clone(), config.local_addr)?;
             //TODO: Make things more elegant with waker etc
             std::thread::sleep(Duration::from_millis(100));
             self.listeners
@@ -361,10 +370,13 @@ impl Transport for QuicTransport {
                         let mut connections = connections.write();
                         connections.insert(address, (conn, send_rx, recv_tx, false));
                     }
-                    let peer = Peer::new(Endpoint::Quic(QuicEndpoint {
-                        data_sender: send_tx,
-                        data_receiver: recv_rx,
-                    }));
+                    let peer = Peer::new(
+                        self_keypair.clone(),
+                        Endpoint::Quic(QuicEndpoint {
+                            data_sender: send_tx,
+                            data_receiver: recv_rx,
+                        }),
+                    );
                     peer_db.peers.push(peer);
                 }
                 drop(wg);
@@ -406,7 +418,10 @@ impl Transport for QuicTransport {
         Ok(Vec::new())
     }
 
-    fn handshake(endpoint: &mut Self::Endpoint) -> Result<(), PeerNetError> {
+    fn handshake(
+        _self_keypair: &KeyPair,
+        endpoint: &mut Self::Endpoint,
+    ) -> Result<(), PeerNetError> {
         // In quic handshake is done in the background, so we just wait for the handshake to be finished
         match endpoint
             .data_receiver

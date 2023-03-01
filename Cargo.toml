@@ -7,8 +7,10 @@ edition = "2021"
 # https://github.com/rust-lang/socket2/issues/378
 [dependencies]
 parking_lot = "0.12"
+rand = "0.8"
 crossbeam = "0.8"
 quiche = "0.16"
 enum_delegate = "0.2.0"
 mio = { version = "0.8", features = ["os-poll", "net"] }
+massa_hash = { git = "https://github.com/massalabs/massa", package = "massa_hash" }
 massa_signature = { git = "https://github.com/massalabs/massa", package = "massa_signature" }

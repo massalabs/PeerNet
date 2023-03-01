@@ -4,6 +4,7 @@
 
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
+use massa_signature::KeyPair;
 use parking_lot::RwLock;
 
 use crate::{
@@ -25,12 +26,14 @@ pub(crate) type SharedPeerDB = Arc<RwLock<PeerDB>>;
 /// Main structure of the PeerNet library used to manage the transports and the peers.
 pub struct PeerNetManager {
     peer_db: SharedPeerDB,
+    self_keypair: KeyPair,
     transports: HashMap<TransportType, InternalTransportType>,
 }
 
 impl PeerNetManager {
     /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
     pub fn new(config: PeerNetConfiguration) -> PeerNetManager {
+        let self_keypair = config.self_keypair.clone();
         let peer_db = Arc::new(RwLock::new(PeerDB {
             peers: Default::default(),
             nb_in_connections: 0,
@@ -39,6 +42,7 @@ impl PeerNetManager {
         }));
         PeerNetManager {
             peer_db,
+            self_keypair,
             transports: Default::default(),
         }
     }
@@ -53,7 +57,7 @@ impl PeerNetManager {
         let transport = self.transports.entry(transport_type).or_insert_with(|| {
             InternalTransportType::from_transport_type(transport_type, self.peer_db.clone())
         });
-        transport.start_listener(addr)?;
+        transport.start_listener(self.self_keypair.clone(), addr)?;
         Ok(())
     }
 
@@ -91,7 +95,12 @@ impl PeerNetManager {
                     self.peer_db.clone(),
                 )
             });
-        transport.try_connect(addr, timeout, out_connection_config.into())?;
+        transport.try_connect(
+            self.self_keypair.clone(),
+            addr,
+            timeout,
+            out_connection_config.into(),
+        )?;
         Ok(())
     }
 }

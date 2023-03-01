@@ -14,6 +14,7 @@ use self::{
 mod quic;
 mod tcp;
 
+use massa_signature::KeyPair;
 pub use quic::QuicOutConnectionConfig;
 pub use tcp::TcpOutConnectionConfig;
 
@@ -62,10 +63,10 @@ impl Endpoint {
         }
     }
 
-    pub(crate) fn handshake(&mut self) -> Result<(), PeerNetError> {
+    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair) -> Result<(), PeerNetError> {
         match self {
-            Endpoint::Tcp(endpoint) => TcpTransport::handshake(endpoint),
-            Endpoint::Quic(endpoint) => QuicTransport::handshake(endpoint),
+            Endpoint::Tcp(endpoint) => TcpTransport::handshake(self_keypair, endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::handshake(self_keypair, endpoint),
         }
     }
 }
@@ -94,27 +95,38 @@ impl Transport for InternalTransportType {
     type OutConnectionConfig = OutConnectionConfig;
     type Endpoint = Endpoint;
 
-    fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
+    fn start_listener(
+        &mut self,
+        self_keypair: KeyPair,
+        address: SocketAddr,
+    ) -> Result<(), PeerNetError> {
         match self {
-            InternalTransportType::Tcp(transport) => transport.start_listener(address),
-            InternalTransportType::Quic(transport) => transport.start_listener(address),
+            InternalTransportType::Tcp(transport) => {
+                transport.start_listener(self_keypair, address)
+            }
+            InternalTransportType::Quic(transport) => {
+                transport.start_listener(self_keypair, address)
+            }
         }
     }
 
     fn try_connect(
         &mut self,
+        self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
         match self {
             InternalTransportType::Tcp(transport) => match config {
-                OutConnectionConfig::Tcp(config) => transport.try_connect(address, timeout, config),
+                OutConnectionConfig::Tcp(config) => {
+                    transport.try_connect(self_keypair, address, timeout, config)
+                }
                 _ => Err(PeerNetError::WrongConfigType),
             },
             InternalTransportType::Quic(transport) => match config {
                 OutConnectionConfig::Quic(config) => {
-                    transport.try_connect(address, timeout, config)
+                    transport.try_connect(self_keypair, address, timeout, config)
                 }
                 _ => Err(PeerNetError::WrongConfigType),
             },
@@ -142,10 +154,13 @@ impl Transport for InternalTransportType {
         }
     }
 
-    fn handshake(endpoint: &mut Self::Endpoint) -> Result<(), PeerNetError> {
+    fn handshake(
+        self_keypair: &KeyPair,
+        endpoint: &mut Self::Endpoint,
+    ) -> Result<(), PeerNetError> {
         match endpoint {
-            Endpoint::Tcp(endpoint) => TcpTransport::handshake(endpoint),
-            Endpoint::Quic(endpoint) => QuicTransport::handshake(endpoint),
+            Endpoint::Tcp(endpoint) => TcpTransport::handshake(self_keypair, endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::handshake(self_keypair, endpoint),
         }
     }
 }
@@ -170,10 +185,15 @@ pub trait Transport {
     type Endpoint;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
-    fn start_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
+    fn start_listener(
+        &mut self,
+        self_keypair: KeyPair,
+        address: SocketAddr,
+    ) -> Result<(), PeerNetError>;
     /// Try to connect to a peer
     fn try_connect(
         &mut self,
+        self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         config: &Self::OutConnectionConfig,
@@ -182,5 +202,6 @@ pub trait Transport {
     fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError>;
     fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError>;
-    fn handshake(endpoint: &mut Self::Endpoint) -> Result<(), PeerNetError>;
+    fn handshake(self_keypair: &KeyPair, endpoint: &mut Self::Endpoint)
+        -> Result<(), PeerNetError>;
 }

@@ -6,6 +6,7 @@ use std::{
 };
 
 use crossbeam::channel::{unbounded, Sender};
+use massa_signature::KeyPair;
 
 use crate::transports::{Endpoint, InternalTransportType};
 
@@ -26,6 +27,7 @@ pub(crate) struct Peer {
 }
 
 struct PeerWorker<'a> {
+    self_keypair: KeyPair,
     endpoint: &'a mut Endpoint,
 }
 
@@ -35,15 +37,19 @@ enum PeerMessage {
 }
 
 impl Peer {
-    pub(crate) fn new(mut endpoint: Endpoint) -> Peer {
+    pub(crate) fn new(self_keypair: KeyPair, mut endpoint: Endpoint) -> Peer {
         //TODO: Bounded
         let (tx, rx) = unbounded();
         let handler = spawn(move || {
             let peer_worker = PeerWorker {
                 endpoint: &mut endpoint,
+                self_keypair,
             };
             //HANDSHAKE
-            peer_worker.endpoint.handshake().unwrap();
+            peer_worker
+                .endpoint
+                .handshake(&peer_worker.self_keypair)
+                .unwrap();
             //MAIN LOOP
             loop {
                 match rx.recv() {

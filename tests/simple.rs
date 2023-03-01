@@ -18,7 +18,7 @@ fn simple() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair.get_public_key()),
+        self_keypair: keypair.clone(),
         initial_peer_list: Vec::new(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -42,7 +42,7 @@ fn two_peers_tcp() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair1.get_public_key()),
+        self_keypair: keypair1.clone(),
         initial_peer_list: Vec::new(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -54,7 +54,7 @@ fn two_peers_tcp() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair2.get_public_key()),
+        self_keypair: keypair2.clone(),
         initial_peer_list: Vec::new(),
     };
     let mut manager2 = PeerNetManager::new(config);
@@ -79,7 +79,7 @@ fn two_peers_quic() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair1.get_public_key()),
+        self_keypair: keypair1.clone(),
         initial_peer_list: Vec::new(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -91,8 +91,8 @@ fn two_peers_quic() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
+        self_keypair: keypair2.clone(),
         initial_peer_list: Vec::new(),
-        peer_id: PeerId::from_public_key(keypair2.get_public_key()),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2

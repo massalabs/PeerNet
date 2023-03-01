@@ -16,4 +16,6 @@ pub enum PeerNetError {
     SendError(String),
     /// Error when trying to receive a message from a peer
     ReceiveError(String),
+    /// Error when trying to perform a handshake with a peer
+    HandshakeError(String),
 }
