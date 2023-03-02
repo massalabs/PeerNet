@@ -195,6 +195,7 @@ impl Transport for QuicTransport {
                                                     data_receiver: recv_rx,
                                                     data_sender: send_tx,
                                                 }),
+                                                peer_db.config.message_handlers.clone()
                                             );
                                             peer_db.peers.push(peer);
                                         }
@@ -376,6 +377,7 @@ impl Transport for QuicTransport {
                             data_sender: send_tx,
                             data_receiver: recv_rx,
                         }),
+                        peer_db.config.message_handlers.clone()
                     );
                     peer_db.peers.push(peer);
                 }

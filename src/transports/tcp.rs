@@ -97,6 +97,7 @@ impl Transport for TcpTransport {
                                     let peer = Peer::new(
                                         self_keypair.clone(),
                                         Endpoint::Tcp(TcpEndpoint { address, stream }),
+                                        peer_db.config.message_handlers.clone()
                                     );
                                     peer_db.peers.push(peer);
                                 }
@@ -139,6 +140,7 @@ impl Transport for TcpTransport {
                             address,
                             stream: connection,
                         }),
+                        peer_db.config.message_handlers.clone()
                     );
                     peer_db.peers.push(peer);
                 }

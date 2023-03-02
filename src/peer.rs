@@ -9,7 +9,7 @@ use crossbeam::channel::{unbounded, Sender};
 use massa_signature::KeyPair;
 use parking_lot::RwLock;
 
-use crate::transports::{Endpoint, InternalTransportType};
+use crate::{transports::{Endpoint, InternalTransportType}, handlers::MessageHandlers};
 
 pub struct PeerMetadata {
     // The IP address of the peer
@@ -35,7 +35,7 @@ struct PeerWorker<'a> {
 
 
 impl Peer {
-    pub(crate) fn new(self_keypair: KeyPair, mut endpoint: Endpoint) -> Peer {
+    pub(crate) fn new(self_keypair: KeyPair, mut endpoint: Endpoint, handlers: MessageHandlers) -> Peer {
         //TODO: Bounded
         let write_channel = Arc::new(RwLock::new(None));
         let write_channel_clone = write_channel.clone();
@@ -52,7 +52,8 @@ impl Peer {
                 loop {
                     match write_rx.recv() {
                         Ok(data) => {
-                            //TODO: Send. Not trivial because when read s
+                            //TODO: Send. Not trivial because when read/write socket you need to have the mutable
+                            //ref each time and so you can't split them in two different thread
                             //endpoint.send(&data).unwrap()
                         },
                         Err(err) => {
