@@ -2,11 +2,12 @@
 
 use std::{
     net::SocketAddr,
-    thread::{spawn, JoinHandle},
+    thread::{spawn, JoinHandle}, sync::Arc,
 };
 
 use crossbeam::channel::{unbounded, Sender};
 use massa_signature::KeyPair;
+use parking_lot::RwLock;
 
 use crate::transports::{Endpoint, InternalTransportType};
 
@@ -20,43 +21,64 @@ pub struct PeerMetadata {
 }
 
 pub(crate) struct Peer {
-    // The socket connected with the peer
-    // TODO
+    // Peer thread handler
     thread_handler: Option<JoinHandle<()>>,
-    thread_sender: Sender<PeerMessage>,
+    // if handshake passed then the channel with write thread is created
+    write_channel: Arc<RwLock<Option<Sender<Vec<u8>>>>>
 }
 
 struct PeerWorker<'a> {
     self_keypair: KeyPair,
     endpoint: &'a mut Endpoint,
+    write_thread_handle: Option<JoinHandle<()>>
 }
 
-enum PeerMessage {
-    //TODO: Don't need this the crossbeam channel already disconnect himself
-    Stop,
-}
 
 impl Peer {
     pub(crate) fn new(self_keypair: KeyPair, mut endpoint: Endpoint) -> Peer {
         //TODO: Bounded
-        let (tx, rx) = unbounded();
+        let write_channel = Arc::new(RwLock::new(None));
+        let write_channel_clone = write_channel.clone();
         let handler = spawn(move || {
+            //HANDSHAKE
+            endpoint
+                .handshake(&self_keypair)
+                .unwrap();
+
+            // SPAWN WRITING THREAD
+            //TODO: Bound
+            let (write_tx, write_rx) = unbounded::<Vec<u8>>();
+            let write_thread_handle = std::thread::spawn(move || {
+                loop {
+                    match write_rx.recv() {
+                        Ok(data) => {
+                            //TODO: Send. Not trivial because when read s
+                            //endpoint.send(&data).unwrap()
+                        },
+                        Err(err) => {
+                            println!("err in writer thread: {}", err);
+                            return;
+                        }
+                    }
+                }
+            });
+            {
+                let mut write_write_channel = write_channel_clone.write();
+                *write_write_channel = Some(write_tx);
+            }
             let peer_worker = PeerWorker {
                 endpoint: &mut endpoint,
                 self_keypair,
+                write_thread_handle: Some(write_thread_handle)
             };
-            //HANDSHAKE
-            peer_worker
-                .endpoint
-                .handshake(&peer_worker.self_keypair)
-                .unwrap();
             //MAIN LOOP
             loop {
-                match rx.recv() {
-                    Ok(PeerMessage::Stop) => {
-                        break;
+                match endpoint.receive() {
+                    Ok(data) => {
+                        println!("Peer: Received {} bytes", data.len());
                     }
                     Err(_) => {
+                        println!("Peer stop");
                         return;
                     }
                 }
@@ -64,7 +86,7 @@ impl Peer {
         });
         Peer {
             thread_handler: Some(handler),
-            thread_sender: tx,
+            write_channel
         }
     }
 }
