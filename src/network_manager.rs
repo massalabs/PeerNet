@@ -72,6 +72,9 @@ impl PeerNetManager {
             InternalTransportType::from_transport_type(transport_type, self.peer_db.clone())
         });
         transport.stop_listener(addr)?;
+        let mut peer_db = self.peer_db.write();
+        peer_db.nb_in_connections = 0;
+        peer_db.nb_out_connections = 0;
         Ok(())
     }
 
@@ -102,5 +105,10 @@ impl PeerNetManager {
             out_connection_config.into(),
         )?;
         Ok(())
+    }
+
+    /// Get the nb_in_connections of manager
+    pub fn nb_in_connections(&self) -> usize {
+        self.peer_db.read().nb_in_connections
     }
 }

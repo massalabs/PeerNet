@@ -90,16 +90,18 @@ impl Transport for TcpTransport {
                                 //TODO: Error handling
                                 //TODO: Use rate limiting
                                 let (stream, address) = server.accept().unwrap();
-                                println!("New connection");
                                 let mut peer_db = peer_db.write();
                                 if peer_db.nb_in_connections < peer_db.config.max_in_connections {
+                                    println!("New connection");
                                     peer_db.nb_in_connections += 1;
                                     let peer = Peer::new(
                                         self_keypair.clone(),
                                         Endpoint::Tcp(TcpEndpoint { address, stream }),
-                                        peer_db.config.message_handlers.clone()
+                                        peer_db.config.message_handlers.clone(),
                                     );
                                     peer_db.peers.push(peer);
+                                } else {
+                                    println!("Connection attempt by {}  : max_in_connections reached", address);
                                 }
                             }
                             STOP_LISTENER => {
@@ -128,7 +130,7 @@ impl Transport for TcpTransport {
             move || {
                 //TODO: Rate limiting
                 let Ok(connection) = TcpStream::connect_timeout(&address, timeout) else {
-                return;
+                    return;
                 };
                 println!("Connected to {}", address);
                 let mut peer_db = peer_db.write();
@@ -140,7 +142,7 @@ impl Transport for TcpTransport {
                             address,
                             stream: connection,
                         }),
-                        peer_db.config.message_handlers.clone()
+                        peer_db.config.message_handlers.clone(),
                     );
                     peer_db.peers.push(peer);
                 }
