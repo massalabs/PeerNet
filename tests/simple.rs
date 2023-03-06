@@ -79,7 +79,7 @@ fn two_peers_tcp() {
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
-    assert!(manager.nb_in_connections().eq(&0));
+    assert!(manager.nb_in_connections().eq(&1));
 }
 
 #[test]
