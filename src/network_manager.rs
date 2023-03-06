@@ -72,9 +72,6 @@ impl PeerNetManager {
             InternalTransportType::from_transport_type(transport_type, self.peer_db.clone())
         });
         transport.stop_listener(addr)?;
-        let mut peer_db = self.peer_db.write();
-        peer_db.nb_in_connections = 0;
-        peer_db.nb_out_connections = 0;
         Ok(())
     }
 
