@@ -53,14 +53,12 @@ impl Peer {
             // SPAWN WRITING THREAD
             //TODO: Bound
             let (write_tx, write_rx) = unbounded::<Vec<u8>>();
+            let mut write_endpoint = endpoint.clone();
             let write_thread_handle = std::thread::spawn(move || {
                 loop {
                     match write_rx.recv() {
                         Ok(data) => {
-                            //TODO: Send. Not trivial because when read/write socket you need to have the mutable
-                            //ref each time and so you can't split them in two different thread
-                            //CLONE SOCKET
-                            //endpoint.send(&data).unwrap()
+                            write_endpoint.send(&data).unwrap()
                         }
                         Err(err) => {
                             println!("err in writer thread: {}", err);
@@ -78,7 +76,6 @@ impl Peer {
                 self_keypair,
                 write_thread_handle: Some(write_thread_handle),
             };
-            //MAIN LOOP
             loop {
                 match endpoint.receive() {
                     Ok(data) => {

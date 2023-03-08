@@ -38,6 +38,15 @@ pub struct TcpEndpoint {
     pub stream: TcpStream,
 }
 
+impl Clone for TcpEndpoint {
+    fn clone(&self) -> Self {
+        TcpEndpoint {
+            address: self.address,
+            stream: self.stream.try_clone().unwrap(),
+        }
+    }
+}
+
 impl TcpTransport {
     pub fn new(peer_db: SharedPeerDB) -> TcpTransport {
         TcpTransport {

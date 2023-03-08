@@ -9,6 +9,7 @@ use super::quic::QuicEndpoint;
 use super::tcp::TcpEndpoint;
 use super::{quic::QuicTransport, tcp::TcpTransport, Transport};
 
+#[derive(Clone)]
 pub(crate) enum Endpoint {
     Tcp(TcpEndpoint),
     Quic(QuicEndpoint),

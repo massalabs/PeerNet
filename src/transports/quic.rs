@@ -45,6 +45,7 @@ pub(crate) enum QuicInternalMessage {
     Data(Vec<u8>),
 }
 
+#[derive(Clone)]
 pub(crate) struct QuicEndpoint {
     pub data_sender: channel::Sender<QuicInternalMessage>,
     pub data_receiver: channel::Receiver<QuicInternalMessage>,
