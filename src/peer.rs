@@ -2,14 +2,18 @@
 
 use std::{
     net::SocketAddr,
-    thread::{spawn, JoinHandle}, sync::Arc,
+    sync::Arc,
+    thread::{spawn, JoinHandle},
 };
 
 use crossbeam::channel::{unbounded, Sender};
 use massa_signature::KeyPair;
 use parking_lot::RwLock;
 
-use crate::{transports::{Endpoint, InternalTransportType}, handlers::MessageHandlers};
+use crate::{
+    handlers::MessageHandlers,
+    transports::{endpoint::Endpoint, InternalTransportType},
+};
 
 pub struct PeerMetadata {
     // The IP address of the peer
@@ -24,26 +28,27 @@ pub(crate) struct Peer {
     // Peer thread handler
     thread_handler: Option<JoinHandle<()>>,
     // if handshake passed then the channel with write thread is created
-    write_channel: Arc<RwLock<Option<Sender<Vec<u8>>>>>
+    write_channel: Arc<RwLock<Option<Sender<Vec<u8>>>>>,
 }
 
 struct PeerWorker<'a> {
     self_keypair: KeyPair,
     endpoint: &'a mut Endpoint,
-    write_thread_handle: Option<JoinHandle<()>>
+    write_thread_handle: Option<JoinHandle<()>>,
 }
 
-
 impl Peer {
-    pub(crate) fn new(self_keypair: KeyPair, mut endpoint: Endpoint, handlers: MessageHandlers) -> Peer {
+    pub(crate) fn new(
+        self_keypair: KeyPair,
+        mut endpoint: Endpoint,
+        handlers: MessageHandlers,
+    ) -> Peer {
         //TODO: Bounded
         let write_channel = Arc::new(RwLock::new(None));
         let write_channel_clone = write_channel.clone();
         let handler = spawn(move || {
             //HANDSHAKE
-            endpoint
-                .handshake(&self_keypair)
-                .unwrap();
+            endpoint.handshake(&self_keypair).unwrap();
 
             // SPAWN WRITING THREAD
             //TODO: Bound
@@ -54,8 +59,9 @@ impl Peer {
                         Ok(data) => {
                             //TODO: Send. Not trivial because when read/write socket you need to have the mutable
                             //ref each time and so you can't split them in two different thread
+                            //CLONE SOCKET
                             //endpoint.send(&data).unwrap()
-                        },
+                        }
                         Err(err) => {
                             println!("err in writer thread: {}", err);
                             return;
@@ -70,7 +76,7 @@ impl Peer {
             let peer_worker = PeerWorker {
                 endpoint: &mut endpoint,
                 self_keypair,
-                write_thread_handle: Some(write_thread_handle)
+                write_thread_handle: Some(write_thread_handle),
             };
             //MAIN LOOP
             loop {
@@ -87,7 +93,7 @@ impl Peer {
         });
         Peer {
             thread_handler: Some(handler),
-            write_channel
+            write_channel,
         }
     }
 }

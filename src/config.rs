@@ -5,7 +5,7 @@
 
 use massa_signature::KeyPair;
 
-use crate::{peer::PeerMetadata, handlers::MessageHandlers};
+use crate::{handlers::MessageHandlers, peer::PeerMetadata};
 
 /// Struct containing the configuration for the PeerNet manager.
 pub struct PeerNetConfiguration {
@@ -19,5 +19,5 @@ pub struct PeerNetConfiguration {
     pub initial_peer_list: Vec<PeerMetadata>,
     /// Message handlers (id, sender that should be listen in the thread that manage the messages)
     /// The handlers are in the conf because they should be define at compilation time and can't be changed at runtime
-    pub message_handlers: MessageHandlers
+    pub message_handlers: MessageHandlers,
 }

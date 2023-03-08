@@ -13,12 +13,9 @@ use crate::transports::Endpoint;
 use super::Transport;
 
 use crossbeam::sync::WaitGroup;
-use massa_hash::Hash;
-use massa_signature::{KeyPair, PublicKey, Signature};
+use massa_signature::KeyPair;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
-use rand::rngs::StdRng;
-use rand::{RngCore, SeedableRng};
 
 pub(crate) struct TcpTransport {
     pub peer_db: SharedPeerDB,
@@ -97,7 +94,7 @@ impl Transport for TcpTransport {
                                     let peer = Peer::new(
                                         self_keypair.clone(),
                                         Endpoint::Tcp(TcpEndpoint { address, stream }),
-                                        peer_db.config.message_handlers.clone()
+                                        peer_db.config.message_handlers.clone(),
                                     );
                                     peer_db.peers.push(peer);
                                 }
@@ -140,7 +137,7 @@ impl Transport for TcpTransport {
                             address,
                             stream: connection,
                         }),
-                        peer_db.config.message_handlers.clone()
+                        peer_db.config.message_handlers.clone(),
                     );
                     peer_db.peers.push(peer);
                 }
@@ -164,43 +161,6 @@ impl Transport for TcpTransport {
         handle
             .join()
             .expect(&format!("Couldn't join listener for address {}", address));
-        Ok(())
-    }
-
-    fn handshake(
-        self_keypair: &KeyPair,
-        endpoint: &mut Self::Endpoint,
-    ) -> Result<(), PeerNetError> {
-        //TODO: Add version in handshake not here now because no here in quic
-        let mut self_random_bytes = [0u8; 32];
-        StdRng::from_entropy().fill_bytes(&mut self_random_bytes);
-        let self_random_hash = Hash::compute_from(&self_random_bytes);
-        let mut buf = [0u8; 64];
-        buf[..32].copy_from_slice(&self_random_bytes);
-        buf[32..].copy_from_slice(self_keypair.get_public_key().to_bytes());
-
-        Self::send(endpoint, &buf)?;
-        let received = Self::receive(endpoint)?;
-        let other_random_bytes: &[u8; 32] = received.as_slice()[..32].try_into().unwrap();
-        let other_public_key = PublicKey::from_bytes(received[32..].try_into().unwrap()).unwrap();
-
-        // sign their random bytes
-        let other_random_hash = Hash::compute_from(other_random_bytes);
-        let self_signature = self_keypair.sign(&other_random_hash).unwrap();
-
-        buf.copy_from_slice(&self_signature.to_bytes());
-
-        Self::send(endpoint, &buf)?;
-        let received = Self::receive(endpoint)?;
-
-        let other_signature =
-            Signature::from_bytes(received.as_slice().try_into().unwrap()).unwrap();
-
-        // check their signature
-        other_public_key
-            .verify_signature(&self_random_hash, &other_signature)
-            .map_err(|err| PeerNetError::HandshakeError(err.to_string()))?;
-        println!("Handshake finished");
         Ok(())
     }
 

@@ -20,7 +20,7 @@ fn simple() {
         max_out_connections: 20,
         self_keypair: keypair.clone(),
         initial_peer_list: Vec::new(),
-        message_handlers: Default::default()
+        message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -45,7 +45,7 @@ fn two_peers_tcp() {
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
         initial_peer_list: Vec::new(),
-        message_handlers: Default::default()
+        message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -58,7 +58,7 @@ fn two_peers_tcp() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         initial_peer_list: Vec::new(),
-        message_handlers: Default::default()
+        message_handlers: Default::default(),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
@@ -84,7 +84,7 @@ fn two_peers_quic() {
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
         initial_peer_list: Vec::new(),
-        message_handlers: Default::default()
+        message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -97,7 +97,7 @@ fn two_peers_quic() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         initial_peer_list: Vec::new(),
-        message_handlers: Default::default()
+        message_handlers: Default::default(),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
