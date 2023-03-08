@@ -135,6 +135,11 @@ impl PeerNetManager {
         )?;
         Ok(())
     }
+
+    /// Get the nb_in_connections of manager
+    pub fn nb_in_connections(&self) -> usize {
+        self.active_connections.read().nb_in_connections
+    }
 }
 
 impl Drop for PeerNetManager {

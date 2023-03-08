@@ -32,6 +32,10 @@ fn simple() {
     for client in clients {
         client.join().unwrap();
     }
+
+    // we have max_in_connections = 10
+    assert!(manager.nb_in_connections().eq(&10));
+
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
         .unwrap();
@@ -74,6 +78,7 @@ fn two_peers_tcp() {
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
+    assert!(manager.nb_in_connections().eq(&1));
 }
 
 #[test]

@@ -113,7 +113,6 @@ impl Transport for TcpTransport {
                                 //TODO: Error handling
                                 //TODO: Use rate limiting
                                 let (stream, address) = server.accept().unwrap();
-                                println!("New connection");
                                 {
                                     let mut active_connections = active_connections.write();
                                     if active_connections.nb_in_connections
@@ -121,9 +120,11 @@ impl Transport for TcpTransport {
                                     {
                                         active_connections.nb_in_connections += 1;
                                     } else {
+                                        println!("Connection attempt by {}  : max_in_connections reached", address);
                                         continue;
                                     }
                                 }
+                                println!("New connection");
                                 new_peer(
                                     self_keypair.clone(),
                                     Endpoint::Tcp(TcpEndpoint { address, stream }),
