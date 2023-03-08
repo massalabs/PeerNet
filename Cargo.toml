@@ -1,0 +1,14 @@
+[package]
+name = "peernet"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# https://github.com/rust-lang/socket2/issues/378
+[dependencies]
+parking_lot = "0.12"
+crossbeam = "0.8"
+quiche = "0.16"
+enum_delegate = "0.2.0"
+mio = { version = "0.8", features = ["os-poll", "net"] }
+massa_signature = { git = "https://github.com/massalabs/massa", package = "massa_signature" }
