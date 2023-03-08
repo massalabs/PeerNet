@@ -1,6 +1,5 @@
 mod util;
 use std::{thread::sleep, time::Duration};
-use std::ops::Deref;
 
 use massa_signature::KeyPair;
 use peernet::{

@@ -138,7 +138,7 @@ impl PeerNetManager {
 
     /// Get the nb_in_connections of manager
     pub fn nb_in_connections(&self) -> usize {
-        self.peer_db.read().nb_in_connections
+        self.active_connections.read().nb_in_connections
     }
 }
 
