@@ -4,6 +4,7 @@ use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
 use crate::error::PeerNetError;
+use crate::peer_id::PeerId;
 
 use super::quic::QuicEndpoint;
 use super::tcp::TcpEndpoint;
@@ -29,7 +30,7 @@ impl Endpoint {
         }
     }
 
-    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair) -> Result<(), PeerNetError> {
+    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair) -> Result<PeerId, PeerNetError> {
         //TODO: Add version in handshake
         let mut self_random_bytes = [0u8; 32];
         StdRng::from_entropy().fill_bytes(&mut self_random_bytes);
@@ -60,6 +61,15 @@ impl Endpoint {
             .verify_signature(&self_random_hash, &other_signature)
             .map_err(|err| PeerNetError::HandshakeError(err.to_string()))?;
         println!("Handshake finished");
-        Ok(())
+        Ok(PeerId::from_public_key(other_public_key))
+    }
+
+    pub fn shutdown(&mut self) {
+        match self {
+            Endpoint::Tcp(endpoint) => endpoint.shutdown(),
+            Endpoint::Quic(endpoint) => endpoint.shutdown(),
+        }
     }
 }
+
+//TODO: Create trait for endpoint and match naming convention

@@ -3,6 +3,15 @@ use std::{
     time::Duration,
 };
 
+use crossbeam::channel::Receiver;
+use peernet::{handlers::MessageHandler, peer_id::PeerId};
+
+pub fn create_basic_handler() -> (Receiver<(PeerId, Vec<u8>)>, MessageHandler) {
+    let (tx, rx) = crossbeam::channel::unbounded();
+    let handler = MessageHandler::new(tx);
+    (rx, handler)
+}
+
 pub fn create_clients(nb_clients: usize) -> Vec<JoinHandle<()>> {
     let mut clients = Vec::new();
     for _ in 0..nb_clients {

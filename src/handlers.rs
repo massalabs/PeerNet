@@ -6,14 +6,13 @@ use crate::{error::PeerNetError, peer_id::PeerId};
 
 #[derive(Clone)]
 pub struct MessageHandler {
-    // TODO: Add priority
     sender: Sender<(PeerId, Vec<u8>)>,
 }
 
 impl MessageHandler {
     // Create a message handler
     // Args:
-    // * sender: the sender of the channel used by peers to dispatch messages received from the network
+    // * sender: the sender of the channel used by peer connection to dispatch messages received from the network
     pub fn new(sender: Sender<(PeerId, Vec<u8>)>) -> MessageHandler {
         MessageHandler { sender }
     }

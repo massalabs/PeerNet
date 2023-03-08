@@ -5,8 +5,9 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use crate::error::PeerNetError;
-use crate::network_manager::SharedPeerDB;
-use crate::peer::Peer;
+use crate::handlers::MessageHandlers;
+use crate::network_manager::{SharedActiveConnections, SharedPeerDB};
+use crate::peer::new_peer;
 use crate::peer_id::PeerId;
 use crate::transports::Endpoint;
 
@@ -19,6 +20,8 @@ use mio::{Events, Interest, Poll, Token, Waker};
 
 pub(crate) struct TcpTransport {
     pub peer_db: SharedPeerDB,
+    pub active_connections: SharedActiveConnections,
+    pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<()>)>,
 }
@@ -47,12 +50,24 @@ impl Clone for TcpEndpoint {
     }
 }
 
+impl TcpEndpoint {
+    pub fn shutdown(&mut self) {
+        let _ = self.stream.shutdown(std::net::Shutdown::Both);
+    }
+}
+
 impl TcpTransport {
-    pub fn new(peer_db: SharedPeerDB) -> TcpTransport {
+    pub fn new(
+        peer_db: SharedPeerDB,
+        active_connections: SharedActiveConnections,
+        message_handlers: MessageHandlers,
+    ) -> TcpTransport {
         TcpTransport {
             peer_db,
+            active_connections,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
+            message_handlers,
         }
     }
 }
@@ -72,7 +87,9 @@ impl Transport for TcpTransport {
         let waker = Waker::new(poll.registry(), STOP_LISTENER)
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let listener_handle: JoinHandle<()> = std::thread::spawn({
+            let active_connections = self.active_connections.clone();
             let peer_db = self.peer_db.clone();
+            let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
                     .expect(&format!("Can't bind TCP transport to address {}", address));
@@ -97,16 +114,23 @@ impl Transport for TcpTransport {
                                 //TODO: Use rate limiting
                                 let (stream, address) = server.accept().unwrap();
                                 println!("New connection");
-                                let mut peer_db = peer_db.write();
-                                if peer_db.nb_in_connections < peer_db.config.max_in_connections {
-                                    peer_db.nb_in_connections += 1;
-                                    let peer = Peer::new(
-                                        self_keypair.clone(),
-                                        Endpoint::Tcp(TcpEndpoint { address, stream }),
-                                        peer_db.config.message_handlers.clone(),
-                                    );
-                                    peer_db.peers.push(peer);
+                                {
+                                    let mut active_connections = active_connections.write();
+                                    if active_connections.nb_in_connections
+                                        < active_connections.max_in_connections
+                                    {
+                                        active_connections.nb_in_connections += 1;
+                                    } else {
+                                        continue;
+                                    }
                                 }
+                                new_peer(
+                                    self_keypair.clone(),
+                                    Endpoint::Tcp(TcpEndpoint { address, stream }),
+                                    message_handlers.clone(),
+                                    peer_db.clone(),
+                                    active_connections.clone(),
+                                );
                             }
                             STOP_LISTENER => {
                                 return;
@@ -129,27 +153,34 @@ impl Transport for TcpTransport {
         _config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
         std::thread::spawn({
-            let peer_db = self.peer_db.clone();
+            let active_connections = self.active_connections.clone();
             let wg = self.out_connection_attempts.clone();
+            let message_handlers = self.message_handlers.clone();
+            let peer_db = self.peer_db.clone();
             move || {
                 //TODO: Rate limiting
-                let Ok(connection) = TcpStream::connect_timeout(&address, timeout) else {
+                let Ok(stream) = TcpStream::connect_timeout(&address, timeout) else {
                 return;
                 };
                 println!("Connected to {}", address);
-                let mut peer_db = peer_db.write();
-                if peer_db.nb_out_connections < peer_db.config.max_out_connections {
-                    peer_db.nb_out_connections += 1;
-                    let peer = Peer::new(
-                        self_keypair.clone(),
-                        Endpoint::Tcp(TcpEndpoint {
-                            address,
-                            stream: connection,
-                        }),
-                        peer_db.config.message_handlers.clone(),
-                    );
-                    peer_db.peers.push(peer);
+
+                {
+                    let mut active_connections = active_connections.write();
+                    if active_connections.nb_out_connections
+                        < active_connections.max_out_connections
+                    {
+                        active_connections.nb_out_connections += 1;
+                    } else {
+                        return;
+                    }
                 }
+                new_peer(
+                    self_keypair.clone(),
+                    Endpoint::Tcp(TcpEndpoint { address, stream }),
+                    message_handlers.clone(),
+                    peer_db.clone(),
+                    active_connections.clone(),
+                );
                 drop(wg);
             }
         });

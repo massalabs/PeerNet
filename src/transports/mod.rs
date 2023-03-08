@@ -4,7 +4,11 @@
 
 use std::{net::SocketAddr, time::Duration};
 
-use crate::{error::PeerNetError, network_manager::SharedPeerDB};
+use crate::{
+    error::PeerNetError,
+    handlers::MessageHandlers,
+    network_manager::{SharedActiveConnections, SharedPeerDB},
+};
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
 
@@ -129,11 +133,21 @@ impl Transport for InternalTransportType {
 impl InternalTransportType {
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
+        active_connections: SharedActiveConnections,
         peer_db: SharedPeerDB,
+        message_handlers: MessageHandlers,
     ) -> Self {
         match transport_type {
-            TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(peer_db)),
-            TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(peer_db)),
+            TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
+                peer_db,
+                active_connections,
+                message_handlers,
+            )),
+            TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(
+                peer_db,
+                active_connections,
+                message_handlers,
+            )),
         }
     }
 }
