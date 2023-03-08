@@ -19,5 +19,5 @@ pub enum PeerNetError {
     /// Error when trying to perform a handshake with a peer
     HandshakeError(String),
     /// Error when communicating with an handler
-    HandlerError(String)
+    HandlerError(String),
 }

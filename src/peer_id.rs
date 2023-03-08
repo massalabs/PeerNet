@@ -5,7 +5,7 @@ use massa_signature::{PublicKey, PUBLIC_KEY_SIZE_BYTES};
 use crate::error::PeerNetError;
 
 /// Representation of a peer id
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct PeerId {
     /// The public key of the peer
     /// TODO: Offer multiple possibilities

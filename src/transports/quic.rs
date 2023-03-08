@@ -12,7 +12,11 @@ use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
 
 use crate::{
-    error::PeerNetError, network_manager::SharedPeerDB, peer::Peer, peer_id::PeerId,
+    error::PeerNetError,
+    handlers::MessageHandlers,
+    network_manager::{SharedActiveConnections, SharedPeerDB},
+    peer::new_peer,
+    peer_id::PeerId,
     transports::Endpoint,
 };
 
@@ -23,6 +27,8 @@ const STOP_LISTENER: Token = Token(10);
 
 pub(crate) struct QuicTransport {
     pub peer_db: SharedPeerDB,
+    pub active_connections: SharedActiveConnections,
+    pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<()>)>,
     //(quiche::Connection, data_receiver, data_sender, is_established)
@@ -42,13 +48,22 @@ pub(crate) struct QuicTransport {
 }
 
 pub(crate) enum QuicInternalMessage {
-    HandshakeFinished,
     Data(Vec<u8>),
+    Shutdown,
 }
 
+#[derive(Clone)]
 pub(crate) struct QuicEndpoint {
     pub data_sender: channel::Sender<QuicInternalMessage>,
     pub data_receiver: channel::Receiver<QuicInternalMessage>,
+}
+
+impl QuicEndpoint {
+    pub fn shutdown(&mut self) {
+        self.data_sender
+            .send(QuicInternalMessage::Shutdown)
+            .unwrap();
+    }
 }
 
 #[derive(Clone)]
@@ -59,12 +74,18 @@ pub struct QuicOutConnectionConfig {
 }
 
 impl QuicTransport {
-    pub fn new(peer_db: SharedPeerDB) -> QuicTransport {
+    pub fn new(
+        peer_db: SharedPeerDB,
+        active_connections: SharedActiveConnections,
+        message_handlers: MessageHandlers,
+    ) -> QuicTransport {
         QuicTransport {
             peer_db,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
+            active_connections,
+            message_handlers,
         }
     }
 }
@@ -99,9 +120,12 @@ impl Transport for QuicTransport {
             .load_priv_key_from_pem_file("./src/cert.key")
             .unwrap();
         config.set_application_protos(&[b"massa/1.0"]).unwrap();
+        config.enable_dgram(true, 10, 10);
 
         let listener_handle = std::thread::spawn({
+            let active_connections = self.active_connections.clone();
             let peer_db = self.peer_db.clone();
+            let message_handlers = self.message_handlers.clone();
             let server = server.try_clone().unwrap();
             move || {
                 let mut socket = MioUdpSocket::from_std(server);
@@ -175,41 +199,58 @@ impl Transport for QuicTransport {
                                         )
                                         .unwrap();
 
-                                        let mut peer_db = peer_db.write();
-                                        if peer_db.nb_in_connections
-                                            < peer_db.config.max_in_connections
                                         {
-                                            peer_db.nb_in_connections += 1;
-                                            let (send_tx, send_rx) = channel::bounded(10000);
-                                            let (recv_tx, recv_rx) = channel::bounded(10000);
+                                            let mut active_connections = active_connections.write();
+                                            if active_connections.nb_in_connections
+                                                < active_connections.max_in_connections
                                             {
-                                                let mut connections = connections.write();
-                                                connections.insert(
-                                                    from_addr,
-                                                    (connection, send_rx, recv_tx, false),
-                                                );
+                                                active_connections.nb_in_connections += 1;
+                                            } else {
+                                                continue;
                                             }
-                                            let peer = Peer::new(
-                                                self_keypair.clone(),
-                                                Endpoint::Quic(QuicEndpoint {
-                                                    data_receiver: recv_rx,
-                                                    data_sender: send_tx,
-                                                }),
-                                                peer_db.config.message_handlers.clone()
-                                            );
-                                            peer_db.peers.push(peer);
                                         }
+                                        let (send_tx, send_rx) = channel::bounded(10000);
+                                        let (recv_tx, recv_rx) = channel::bounded(10000);
+                                        {
+                                            let mut connections = connections.write();
+                                            connections.insert(
+                                                from_addr,
+                                                (connection, send_rx, recv_tx, false),
+                                            );
+                                        }
+                                        new_peer(
+                                            self_keypair.clone(),
+                                            Endpoint::Quic(QuicEndpoint {
+                                                data_receiver: recv_rx,
+                                                data_sender: send_tx,
+                                            }),
+                                            message_handlers.clone(),
+                                            peer_db.clone(),
+                                            active_connections.clone(),
+                                        );
                                     }
                                     {
                                         let mut connections = connections.write();
                                         //TODO: Handle if the peer wasn't created because no place it will fail
-                                        let (connection, _, _, _) =
+                                        let (connection, _, sender, is_established) =
                                             connections.get_mut(&from_addr).unwrap();
                                         let recv_info = quiche::RecvInfo {
                                             from: from_addr,
                                             to: address,
                                         };
                                         connection.recv(&mut buf[..num_recv], recv_info).unwrap();
+                                        if *is_established {
+                                            let mut dgram_buf = [0; 512];
+                                            while let Ok(len) =
+                                                connection.dgram_recv(&mut dgram_buf)
+                                            {
+                                                sender
+                                                    .send(QuicInternalMessage::Data(
+                                                        dgram_buf[..len].to_vec(),
+                                                    ))
+                                                    .unwrap();
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -226,36 +267,29 @@ impl Transport for QuicTransport {
                     {
                         let mut connections = connections.write();
                         let mut buf = [0; 65507];
-                        for (address, (connection, send_rx, recv_tx, is_established)) in
+                        for (address, (connection, send_rx, _, is_established)) in
                             connections.iter_mut()
                         {
                             if !*is_established {
                                 if connection.is_established() {
                                     println!("server {}: Connection established", address);
                                     *is_established = true;
-                                    recv_tx
-                                        .send(QuicInternalMessage::HandshakeFinished)
-                                        .unwrap();
                                 }
                             }
-                            while let Ok(data) = send_rx.try_recv() {
-                                match data {
-                                    QuicInternalMessage::Data(data) => {
-                                        if *is_established {
-                                            let sent =
-                                                connection.stream_send(1, &data, true).unwrap();
-                                            println!(
-                                                "server {}: Sent {} bytes on stream 1",
-                                                address, sent
-                                            );
-                                        } else {
-                                            println!(
-                                                "server {}: Connection not established",
-                                                address
-                                            );
+                            if *is_established {
+                                while let Ok(data) = send_rx.try_recv() {
+                                    match data {
+                                        QuicInternalMessage::Data(data) => {
+                                            //TODO: Use stream send didn't know how to use it
+                                            let _ = connection.dgram_send(&data);
+                                        }
+                                        QuicInternalMessage::Shutdown => {
+                                            println!("server {}: Connection closed", address);
+                                            //TODO: Close
+                                            //connection.close(app, err, reason)
+                                            break;
                                         }
                                     }
-                                    QuicInternalMessage::HandshakeFinished => {}
                                 }
                             }
                             loop {
@@ -315,7 +349,9 @@ impl Transport for QuicTransport {
         };
         let socket = socket.try_clone().unwrap();
         std::thread::spawn({
+            let active_connections = self.active_connections.clone();
             let peer_db = self.peer_db.clone();
+            let message_handlers = self.message_handlers.clone();
             let wg = self.out_connection_attempts.clone();
             move || {
                 let mut out = [0; 65507];
@@ -329,6 +365,7 @@ impl Transport for QuicTransport {
                 quiche_config
                     .set_application_protos(&[b"massa/1.0"])
                     .unwrap();
+                quiche_config.enable_dgram(true, 10, 10);
                 //TODO: random bytes
                 let scid = [0; quiche::MAX_CONN_ID_LEN];
                 let scid = quiche::ConnectionId::from_ref(&scid);
@@ -360,27 +397,31 @@ impl Transport for QuicTransport {
                         return;
                     }
                 }
-
-                let mut peer_db = peer_db.write();
-                if peer_db.nb_out_connections < peer_db.config.max_out_connections {
-                    peer_db.nb_out_connections += 1;
-                    //TODO: Config
-                    let (send_tx, send_rx) = channel::bounded(10000);
-                    let (recv_tx, recv_rx) = channel::bounded(10000);
+                //TODO: Config
+                let (send_tx, send_rx) = channel::bounded(10000);
+                let (recv_tx, recv_rx) = channel::bounded(10000);
+                {
+                    let mut active_connections = active_connections.write();
+                    if active_connections.nb_out_connections
+                        < active_connections.max_out_connections
                     {
-                        let mut connections = connections.write();
-                        connections.insert(address, (conn, send_rx, recv_tx, false));
+                        active_connections.nb_out_connections += 1;
+                        {
+                            let mut connections = connections.write();
+                            connections.insert(address, (conn, send_rx, recv_tx, false));
+                        }
                     }
-                    let peer = Peer::new(
-                        self_keypair.clone(),
-                        Endpoint::Quic(QuicEndpoint {
-                            data_sender: send_tx,
-                            data_receiver: recv_rx,
-                        }),
-                        peer_db.config.message_handlers.clone()
-                    );
-                    peer_db.peers.push(peer);
                 }
+                new_peer(
+                    self_keypair.clone(),
+                    Endpoint::Quic(QuicEndpoint {
+                        data_receiver: recv_rx,
+                        data_sender: send_tx,
+                    }),
+                    message_handlers.clone(),
+                    peer_db.clone(),
+                    active_connections.clone(),
+                );
                 drop(wg);
             }
         });
@@ -413,28 +454,15 @@ impl Transport for QuicTransport {
     }
 
     fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
-        endpoint
+        let data = endpoint
             .data_receiver
             .recv()
             .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?;
-        Ok(Vec::new())
-    }
-
-    fn handshake(
-        _self_keypair: &KeyPair,
-        endpoint: &mut Self::Endpoint,
-    ) -> Result<(), PeerNetError> {
-        // In quic handshake is done in the background, so we just wait for the handshake to be finished
-        match endpoint
-            .data_receiver
-            .recv()
-            .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?
-        {
-            QuicInternalMessage::HandshakeFinished => {
-                println!("Handshake finished");
-                Ok(())
+        match data {
+            QuicInternalMessage::Data(data) => Ok(data),
+            QuicInternalMessage::Shutdown => {
+                Err(PeerNetError::ReceiveError("Connection closed".to_string()))
             }
-            _ => Err(PeerNetError::ReceiveError("Unexpected message".to_string())),
         }
     }
 }

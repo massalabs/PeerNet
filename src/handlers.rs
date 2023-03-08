@@ -2,25 +2,26 @@ use std::collections::HashMap;
 
 use crossbeam::channel::Sender;
 
-use crate::{peer_id::PeerId, error::PeerNetError};
+use crate::{error::PeerNetError, peer_id::PeerId};
 
 #[derive(Clone)]
 pub struct MessageHandler {
-    // TODO: Add priority
-    sender: Sender<(PeerId, Vec<u8>)>
+    sender: Sender<(PeerId, Vec<u8>)>,
 }
 
 impl MessageHandler {
     // Create a message handler
     // Args:
-    // * sender: the sender of the channel used by peers to dispatch messages received from the network
+    // * sender: the sender of the channel used by peer connection to dispatch messages received from the network
     pub fn new(sender: Sender<(PeerId, Vec<u8>)>) -> MessageHandler {
         MessageHandler { sender }
     }
 
     pub(crate) fn send_message(&self, message: (PeerId, Vec<u8>)) -> Result<(), PeerNetError> {
         //TODO: Add timeout
-        self.sender.send(message).map_err(|err| PeerNetError::HandlerError(err.to_string()))
+        self.sender
+            .send(message)
+            .map_err(|err| PeerNetError::HandlerError(err.to_string()))
     }
 }
 

@@ -5,23 +5,23 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use crate::error::PeerNetError;
-use crate::network_manager::SharedPeerDB;
-use crate::peer::Peer;
+use crate::handlers::MessageHandlers;
+use crate::network_manager::{SharedActiveConnections, SharedPeerDB};
+use crate::peer::new_peer;
 use crate::peer_id::PeerId;
 use crate::transports::Endpoint;
 
 use super::Transport;
 
 use crossbeam::sync::WaitGroup;
-use massa_hash::Hash;
-use massa_signature::{KeyPair, PublicKey, Signature};
+use massa_signature::KeyPair;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
-use rand::rngs::StdRng;
-use rand::{RngCore, SeedableRng};
 
 pub(crate) struct TcpTransport {
     pub peer_db: SharedPeerDB,
+    pub active_connections: SharedActiveConnections,
+    pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<()>)>,
 }
@@ -41,12 +41,33 @@ pub struct TcpEndpoint {
     pub stream: TcpStream,
 }
 
+impl Clone for TcpEndpoint {
+    fn clone(&self) -> Self {
+        TcpEndpoint {
+            address: self.address,
+            stream: self.stream.try_clone().unwrap(),
+        }
+    }
+}
+
+impl TcpEndpoint {
+    pub fn shutdown(&mut self) {
+        let _ = self.stream.shutdown(std::net::Shutdown::Both);
+    }
+}
+
 impl TcpTransport {
-    pub fn new(peer_db: SharedPeerDB) -> TcpTransport {
+    pub fn new(
+        peer_db: SharedPeerDB,
+        active_connections: SharedActiveConnections,
+        message_handlers: MessageHandlers,
+    ) -> TcpTransport {
         TcpTransport {
             peer_db,
+            active_connections,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
+            message_handlers,
         }
     }
 }
@@ -66,7 +87,9 @@ impl Transport for TcpTransport {
         let waker = Waker::new(poll.registry(), STOP_LISTENER)
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let listener_handle: JoinHandle<()> = std::thread::spawn({
+            let active_connections = self.active_connections.clone();
             let peer_db = self.peer_db.clone();
+            let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
                     .expect(&format!("Can't bind TCP transport to address {}", address));
@@ -90,19 +113,25 @@ impl Transport for TcpTransport {
                                 //TODO: Error handling
                                 //TODO: Use rate limiting
                                 let (stream, address) = server.accept().unwrap();
-                                let mut peer_db = peer_db.write();
-                                if peer_db.nb_in_connections < peer_db.config.max_in_connections {
-                                    println!("New connection");
-                                    peer_db.nb_in_connections += 1;
-                                    let peer = Peer::new(
-                                        self_keypair.clone(),
-                                        Endpoint::Tcp(TcpEndpoint { address, stream }),
-                                        peer_db.config.message_handlers.clone(),
-                                    );
-                                    peer_db.peers.push(peer);
-                                } else {
-                                    println!("Connection attempt by {}  : max_in_connections reached", address);
+                                {
+                                    let mut active_connections = active_connections.write();
+                                    if active_connections.nb_in_connections
+                                        < active_connections.max_in_connections
+                                    {
+                                        active_connections.nb_in_connections += 1;
+                                    } else {
+                                        println!("Connection attempt by {}  : max_in_connections reached", address);
+                                        continue;
+                                    }
                                 }
+                                println!("New connection");
+                                new_peer(
+                                    self_keypair.clone(),
+                                    Endpoint::Tcp(TcpEndpoint { address, stream }),
+                                    message_handlers.clone(),
+                                    peer_db.clone(),
+                                    active_connections.clone(),
+                                );
                             }
                             STOP_LISTENER => {
                                 return;
@@ -125,27 +154,34 @@ impl Transport for TcpTransport {
         _config: &Self::OutConnectionConfig,
     ) -> Result<(), PeerNetError> {
         std::thread::spawn({
-            let peer_db = self.peer_db.clone();
+            let active_connections = self.active_connections.clone();
             let wg = self.out_connection_attempts.clone();
+            let message_handlers = self.message_handlers.clone();
+            let peer_db = self.peer_db.clone();
             move || {
                 //TODO: Rate limiting
-                let Ok(connection) = TcpStream::connect_timeout(&address, timeout) else {
-                    return;
+                let Ok(stream) = TcpStream::connect_timeout(&address, timeout) else {
+                return;
                 };
                 println!("Connected to {}", address);
-                let mut peer_db = peer_db.write();
-                if peer_db.nb_out_connections < peer_db.config.max_out_connections {
-                    peer_db.nb_out_connections += 1;
-                    let peer = Peer::new(
-                        self_keypair.clone(),
-                        Endpoint::Tcp(TcpEndpoint {
-                            address,
-                            stream: connection,
-                        }),
-                        peer_db.config.message_handlers.clone(),
-                    );
-                    peer_db.peers.push(peer);
+
+                {
+                    let mut active_connections = active_connections.write();
+                    if active_connections.nb_out_connections
+                        < active_connections.max_out_connections
+                    {
+                        active_connections.nb_out_connections += 1;
+                    } else {
+                        return;
+                    }
                 }
+                new_peer(
+                    self_keypair.clone(),
+                    Endpoint::Tcp(TcpEndpoint { address, stream }),
+                    message_handlers.clone(),
+                    peer_db.clone(),
+                    active_connections.clone(),
+                );
                 drop(wg);
             }
         });
@@ -166,43 +202,6 @@ impl Transport for TcpTransport {
         handle
             .join()
             .expect(&format!("Couldn't join listener for address {}", address));
-        Ok(())
-    }
-
-    fn handshake(
-        self_keypair: &KeyPair,
-        endpoint: &mut Self::Endpoint,
-    ) -> Result<(), PeerNetError> {
-        //TODO: Add version in handshake not here now because no here in quic
-        let mut self_random_bytes = [0u8; 32];
-        StdRng::from_entropy().fill_bytes(&mut self_random_bytes);
-        let self_random_hash = Hash::compute_from(&self_random_bytes);
-        let mut buf = [0u8; 64];
-        buf[..32].copy_from_slice(&self_random_bytes);
-        buf[32..].copy_from_slice(self_keypair.get_public_key().to_bytes());
-
-        Self::send(endpoint, &buf)?;
-        let received = Self::receive(endpoint)?;
-        let other_random_bytes: &[u8; 32] = received.as_slice()[..32].try_into().unwrap();
-        let other_public_key = PublicKey::from_bytes(received[32..].try_into().unwrap()).unwrap();
-
-        // sign their random bytes
-        let other_random_hash = Hash::compute_from(other_random_bytes);
-        let self_signature = self_keypair.sign(&other_random_hash).unwrap();
-
-        buf.copy_from_slice(&self_signature.to_bytes());
-
-        Self::send(endpoint, &buf)?;
-        let received = Self::receive(endpoint)?;
-
-        let other_signature =
-            Signature::from_bytes(received.as_slice().try_into().unwrap()).unwrap();
-
-        // check their signature
-        other_public_key
-            .verify_signature(&self_random_hash, &other_signature)
-            .map_err(|err| PeerNetError::HandshakeError(err.to_string()))?;
-        println!("Handshake finished");
         Ok(())
     }
 
