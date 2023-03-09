@@ -37,9 +37,13 @@ impl SendChannels {
         let hander_id_bytes = handler_id.to_be_bytes();
         data.splice(0..0, hander_id_bytes);
         if high_priority {
-            self.high_priority.send(data).unwrap();
+            self.high_priority
+                .send(data)
+                .map_err(|err| PeerNetError::SendError(err.to_string()))?;
         } else {
-            self.low_priority.send(data).unwrap();
+            self.low_priority
+                .send(data)
+                .map_err(|err| PeerNetError::SendError(err.to_string()))?;
         }
         Ok(())
     }
@@ -76,10 +80,11 @@ pub(crate) fn new_peer(
     _peer_db: SharedPeerDB,
     active_connections: SharedActiveConnections,
 ) {
-    //TODO: Bounded
+    //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     spawn(move || {
         //HANDSHAKE
         let peer_id = endpoint.handshake(&self_keypair).unwrap();
+        //TODO: Bounded
 
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
         let (high_write_tx, high_write_rx) = unbounded::<Vec<u8>>();
