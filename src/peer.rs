@@ -1,11 +1,12 @@
 //! Every information about a peer (not used for now)
 
-use std::{net::SocketAddr, thread::spawn, time::Duration, fmt::Debug};
+use std::{fmt::Debug, net::SocketAddr, thread::spawn, time::Duration};
 
 use crossbeam::channel::{unbounded, RecvTimeoutError, Sender, TryRecvError};
 use massa_signature::KeyPair;
 
 use crate::{
+    error::PeerNetError,
     handlers::MessageHandlers,
     network_manager::{SharedActiveConnections, SharedPeerDB},
     transports::{endpoint::Endpoint, InternalTransportType},
@@ -21,8 +22,27 @@ pub struct PeerMetadata {
 }
 
 pub struct SendChannels {
-    pub low_priority: Sender<Vec<u8>>,
-    pub high_priority: Sender<Vec<u8>>,
+    low_priority: Sender<Vec<u8>>,
+    high_priority: Sender<Vec<u8>>,
+}
+
+impl SendChannels {
+    pub fn send(
+        &self,
+        handler_id: u64,
+        data: Vec<u8>,
+        high_priority: bool,
+    ) -> Result<(), PeerNetError> {
+        let mut data = data;
+        let hander_id_bytes = handler_id.to_be_bytes();
+        data.splice(0..0, hander_id_bytes);
+        if high_priority {
+            self.high_priority.send(data).unwrap();
+        } else {
+            self.low_priority.send(data).unwrap();
+        }
+        Ok(())
+    }
 }
 
 pub struct PeerConnection {
@@ -124,11 +144,17 @@ pub(crate) fn new_peer(
                         return;
                     }
                     println!("Received data from peer: {:?}", data.len());
-                    //TODO: Real ids
+                    let Ok(handler_id) = data[0..8].try_into() else {
+                        println!("Peer err received message couldn't determine handler id");
+                        continue;
+                    };
+                    let handler_id = u64::from_be_bytes(handler_id);
+                    let data = data[8..].to_vec();
                     message_handlers
-                        .get_handler(0)
+                        .get_handler(handler_id)
                         .unwrap()
-                        .send_message((peer_id.clone(), data)).unwrap();
+                        .send_message((peer_id.clone(), data))
+                        .unwrap();
                 }
                 Err(err) => {
                     println!("Peer err {:?}", err);

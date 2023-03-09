@@ -63,9 +63,9 @@ fn two_peers_tcp_with_one_handler() {
         let mut connections = active_connections.write();
         for (peer_id, connection) in connections.connections.iter_mut() {
             println!("Sending message to {:?}", peer_id);
-            connection.send_channels.high_priority.send(
-                    vec![1, 2, 3],
-                )
+            connection
+                .send_channels
+                .send(0, vec![1, 2, 3], true)
                 .unwrap();
         }
         println!("Connections: {:?}", connections);
