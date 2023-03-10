@@ -5,7 +5,7 @@
 
 use massa_signature::KeyPair;
 
-use crate::{handlers::MessageHandlers, peer::PeerMetadata};
+use crate::{handlers::MessageHandlers, transports::endpoint::Endpoint, network_manager::{ActiveConnections, HandshakeFunction}, error::PeerNetError, peer_id::PeerId};
 
 /// Struct containing the configuration for the PeerNet manager.
 pub struct PeerNetConfiguration {
@@ -15,9 +15,10 @@ pub struct PeerNetConfiguration {
     pub max_out_connections: usize,
     /// Our peer id
     pub self_keypair: KeyPair,
-    /// Initial peer list
-    pub initial_peer_list: Vec<PeerMetadata>,
     /// Message handlers (id, sender that should be listen in the thread that manage the messages)
     /// The handlers are in the conf because they should be define at compilation time and can't be changed at runtime
     pub message_handlers: MessageHandlers,
+    /// Optional function to trigger at handshake
+    /// (local keypair, endpoint to the peer, remote peer_id, active_connections) 
+    pub handshake_function: Option<&'static HandshakeFunction>,
 }

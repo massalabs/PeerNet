@@ -12,15 +12,8 @@ use crate::{
     error::PeerNetError,
     peer::PeerConnection,
     peer_id::PeerId,
-    transports::{InternalTransportType, OutConnectionConfig, Transport, TransportType}, announcement::Announcement,
+    transports::{InternalTransportType, OutConnectionConfig, Transport, TransportType, endpoint::Endpoint}, handlers::MessageHandlers,
 };
-
-pub struct PeerDB {
-    //TODO: Add state of the peer (banned, trusted, ...)
-    pub peers: HashMap<PeerId, Announcement>,
-}
-
-pub(crate) type SharedPeerDB = Arc<RwLock<PeerDB>>;
 
 #[derive(Debug)]
 pub struct ActiveConnections {
@@ -34,13 +27,16 @@ pub struct ActiveConnections {
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
 
+pub type HandshakeFunction = dyn Fn(&KeyPair, &mut Endpoint, &HashMap<SocketAddr, TransportType>, &MessageHandlers) -> Result<PeerId, PeerNetError> + Sync;
 pub(crate) type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
 pub struct PeerNetManager {
     pub config: PeerNetConfiguration,
-    peer_db: SharedPeerDB,
     pub active_connections: SharedActiveConnections,
+    // (local keypair, endpoint to the peer, remote peer_id, active_connections) 
+    //TODO: Maybe make a type
+    pub handshake_function: Option<&'static HandshakeFunction>,
     self_keypair: KeyPair,
     transports: HashMap<TransportType, InternalTransportType>,
 }
@@ -49,9 +45,6 @@ impl PeerNetManager {
     /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
     pub fn new(config: PeerNetConfiguration) -> PeerNetManager {
         let self_keypair = config.self_keypair.clone();
-        let peer_db = Arc::new(RwLock::new(PeerDB {
-            peers: Default::default(),
-        }));
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_in_connections: 0,
             nb_out_connections: 0,
@@ -61,8 +54,8 @@ impl PeerNetManager {
             listeners: Default::default(),
         }));
         PeerNetManager {
+            handshake_function: config.handshake_function.clone(),
             config,
-            peer_db,
             self_keypair,
             transports: Default::default(),
             active_connections,
@@ -80,7 +73,7 @@ impl PeerNetManager {
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.peer_db.clone(),
+                self.handshake_function.clone(),
                 self.config.message_handlers.clone(),
             )
         });
@@ -99,7 +92,7 @@ impl PeerNetManager {
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.peer_db.clone(),
+                self.handshake_function.clone(),
                 self.config.message_handlers.clone(),
             )
         });
@@ -125,7 +118,7 @@ impl PeerNetManager {
                 InternalTransportType::from_transport_type(
                     TransportType::from_out_connection_config(&out_connection_config),
                     self.active_connections.clone(),
-                    self.peer_db.clone(),
+                    self.handshake_function.clone(),
                     self.config.message_handlers.clone(),
                 )
             });

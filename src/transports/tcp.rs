@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::error::PeerNetError;
 use crate::handlers::MessageHandlers;
-use crate::network_manager::{SharedActiveConnections, SharedPeerDB};
+use crate::network_manager::{SharedActiveConnections, HandshakeFunction};
 use crate::peer::new_peer;
 use crate::peer_id::PeerId;
 use crate::transports::Endpoint;
@@ -19,8 +19,8 @@ use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 
 pub(crate) struct TcpTransport {
-    pub peer_db: SharedPeerDB,
     pub active_connections: SharedActiveConnections,
+    pub handshake_function: Option<&'static HandshakeFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<()>)>,
@@ -58,13 +58,13 @@ impl TcpEndpoint {
 
 impl TcpTransport {
     pub fn new(
-        peer_db: SharedPeerDB,
         active_connections: SharedActiveConnections,
+        handshake_function: Option<&'static HandshakeFunction>,
         message_handlers: MessageHandlers,
     ) -> TcpTransport {
         TcpTransport {
-            peer_db,
             active_connections,
+            handshake_function,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
             message_handlers,
@@ -88,7 +88,7 @@ impl Transport for TcpTransport {
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let listener_handle: JoinHandle<()> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let peer_db = self.peer_db.clone();
+            let handshake_function = self.handshake_function.clone();
             let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
@@ -121,6 +121,7 @@ impl Transport for TcpTransport {
                                         active_connections.nb_in_connections += 1;
                                     } else {
                                         println!("Connection attempt by {}  : max_in_connections reached", address);
+
                                         continue;
                                     }
                                 }
@@ -128,8 +129,8 @@ impl Transport for TcpTransport {
                                 new_peer(
                                     self_keypair.clone(),
                                     Endpoint::Tcp(TcpEndpoint { address, stream }),
+                                    handshake_function.clone(),
                                     message_handlers.clone(),
-                                    peer_db.clone(),
                                     active_connections.clone(),
                                 );
                             }
@@ -161,9 +162,9 @@ impl Transport for TcpTransport {
     ) -> Result<(), PeerNetError> {
         std::thread::spawn({
             let active_connections = self.active_connections.clone();
+            let handshake_function = self.handshake_function.clone();
             let wg = self.out_connection_attempts.clone();
             let message_handlers = self.message_handlers.clone();
-            let peer_db = self.peer_db.clone();
             move || {
                 //TODO: Rate limiting
                 let Ok(stream) = TcpStream::connect_timeout(&address, timeout) else {
@@ -184,8 +185,8 @@ impl Transport for TcpTransport {
                 new_peer(
                     self_keypair.clone(),
                     Endpoint::Tcp(TcpEndpoint { address, stream }),
+                    handshake_function.clone(),
                     message_handlers.clone(),
-                    peer_db.clone(),
                     active_connections.clone(),
                 );
                 drop(wg);

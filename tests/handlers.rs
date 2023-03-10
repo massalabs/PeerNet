@@ -7,7 +7,7 @@ use peernet::{
     handlers::MessageHandlers,
     network_manager::PeerNetManager,
     peer_id::PeerId,
-    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
+    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType}, internal_handlers::peer_management::{handshake, PeerManagementHandler},
 };
 use util::create_basic_handler;
 
@@ -32,7 +32,7 @@ fn two_peers_tcp_with_one_handler() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
-        initial_peer_list: Vec::new(),
+        handshake_function: None,
         message_handlers: message_handlers.clone(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -44,7 +44,7 @@ fn two_peers_tcp_with_one_handler() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
-        initial_peer_list: Vec::new(),
+        handshake_function: None,
         message_handlers,
     };
     let mut manager2 = PeerNetManager::new(config);
@@ -71,6 +71,50 @@ fn two_peers_tcp_with_one_handler() {
         println!("Connections: {:?}", connections);
     }
     std::thread::sleep(std::time::Duration::from_secs(5));
+    manager
+        .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .unwrap();
+}
+
+
+#[test]
+fn two_peers_tcp_with_peer_management_handler() {
+    let keypair2 = KeyPair::generate();
+    let (handler, message_handler) = PeerManagementHandler::new(Default::default());
+    let keypair2_clone = keypair2.clone();
+    let mut message_handlers: MessageHandlers = Default::default();
+    message_handlers.add_handler(0, message_handler);
+    let keypair1 = KeyPair::generate();
+    let config = PeerNetConfiguration {
+        max_in_connections: 10,
+        max_out_connections: 20,
+        self_keypair: keypair1.clone(),
+        handshake_function: Some(&handshake),
+        message_handlers: message_handlers.clone(),
+    };
+    let mut manager = PeerNetManager::new(config);
+    manager
+        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .unwrap();
+
+    let config = PeerNetConfiguration {
+        max_in_connections: 10,
+        max_out_connections: 20,
+        self_keypair: keypair2.clone(),
+        handshake_function: Some(&handshake),
+        message_handlers,
+    };
+    let mut manager2 = PeerNetManager::new(config);
+    manager2
+        .try_connect(
+            "127.0.0.1:8081".parse().unwrap(),
+            Duration::from_secs(3),
+            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {
+                identity: PeerId::from_public_key(keypair2.get_public_key()),
+            }),
+        )
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(10));
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();

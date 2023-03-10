@@ -22,4 +22,6 @@ pub enum PeerNetError {
     HandlerError(String),
     /// Error when signing a message
     SignError(String),
+    /// Error invalid message
+    InvalidMessage
 }

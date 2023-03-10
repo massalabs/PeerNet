@@ -8,18 +8,9 @@ use massa_signature::KeyPair;
 use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
-    network_manager::{SharedActiveConnections, SharedPeerDB},
-    transports::{endpoint::Endpoint, InternalTransportType}, announcement::Announcement,
+    network_manager::{SharedActiveConnections, HandshakeFunction},
+    transports::{endpoint::Endpoint, InternalTransportType},
 };
-
-pub struct PeerMetadata {
-    // The IP address of the peer
-    _address: SocketAddr,
-    // The public key of the peer
-    _public_key: String,
-    // InternalTransportType type
-    _transport: InternalTransportType,
-}
 
 pub struct SendChannels {
     low_priority: Sender<Vec<u8>>,
@@ -76,8 +67,8 @@ impl Debug for PeerConnection {
 pub(crate) fn new_peer(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
+    handshake_function: Option<&'static HandshakeFunction>,
     message_handlers: MessageHandlers,
-    peer_db: SharedPeerDB,
     active_connections: SharedActiveConnections,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
@@ -86,10 +77,13 @@ pub(crate) fn new_peer(
             let active_connections = active_connections.read();
             active_connections.listeners.clone()
         };
-        //TODO: Build announcement message with now timestamp and pass it to the handshake.
         //HANDSHAKE
-        let (peer_id, announcement) = endpoint.handshake(&self_keypair, Announcement::new(listeners, &self_keypair).unwrap()).unwrap();
-        println!("announcement: {:?}", announcement);
+        let peer_id = if let Some(handshake_function) = handshake_function {
+            handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers).unwrap()
+        } else {
+            endpoint.handshake(&self_keypair).unwrap()
+        };
+        //TODO: Send to peer handler the announcement. Should be generic (function to send message after the handshake)
         //TODO: Bounded
 
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
@@ -109,10 +103,6 @@ pub(crate) fn new_peer(
                     },
                 },
             );
-        }
-        {
-            let mut peer_db = peer_db.write();
-            peer_db.peers.insert(peer_id.clone(), announcement);
         }
         // SPAWN WRITING THREAD
         //TODO: Bound

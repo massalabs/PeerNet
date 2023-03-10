@@ -14,7 +14,7 @@ use parking_lot::RwLock;
 use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
-    network_manager::{SharedActiveConnections, SharedPeerDB},
+    network_manager::{SharedActiveConnections, HandshakeFunction},
     peer::new_peer,
     peer_id::PeerId,
     transports::Endpoint,
@@ -26,8 +26,8 @@ const NEW_PACKET_SERVER: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
 pub(crate) struct QuicTransport {
-    pub peer_db: SharedPeerDB,
     pub active_connections: SharedActiveConnections,
+    pub handshake_function: Option<&'static HandshakeFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<()>)>,
@@ -53,9 +53,9 @@ pub(crate) enum QuicInternalMessage {
 }
 
 #[derive(Clone)]
-pub(crate) struct QuicEndpoint {
-    pub data_sender: channel::Sender<QuicInternalMessage>,
-    pub data_receiver: channel::Receiver<QuicInternalMessage>,
+pub struct QuicEndpoint {
+    pub(crate) data_sender: channel::Sender<QuicInternalMessage>,
+    pub(crate) data_receiver: channel::Receiver<QuicInternalMessage>,
 }
 
 impl QuicEndpoint {
@@ -75,13 +75,13 @@ pub struct QuicOutConnectionConfig {
 
 impl QuicTransport {
     pub fn new(
-        peer_db: SharedPeerDB,
         active_connections: SharedActiveConnections,
+        handshake_function: Option<&'static HandshakeFunction>,
         message_handlers: MessageHandlers,
     ) -> QuicTransport {
         QuicTransport {
-            peer_db,
             out_connection_attempts: WaitGroup::new(),
+            handshake_function,
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
@@ -124,8 +124,8 @@ impl Transport for QuicTransport {
 
         let listener_handle = std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let peer_db = self.peer_db.clone();
             let message_handlers = self.message_handlers.clone();
+            let handshake_function = self.handshake_function.clone();
             let server = server.try_clone().unwrap();
             move || {
                 let mut socket = MioUdpSocket::from_std(server);
@@ -224,8 +224,8 @@ impl Transport for QuicTransport {
                                                 data_receiver: recv_rx,
                                                 data_sender: send_tx,
                                             }),
+                                            handshake_function.clone(),
                                             message_handlers.clone(),
-                                            peer_db.clone(),
                                             active_connections.clone(),
                                         );
                                     }
@@ -356,9 +356,9 @@ impl Transport for QuicTransport {
         let socket = socket.try_clone().unwrap();
         std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let peer_db = self.peer_db.clone();
             let message_handlers = self.message_handlers.clone();
             let wg = self.out_connection_attempts.clone();
+            let handshake_function = self.handshake_function.clone();
             move || {
                 let mut out = [0; 65507];
                 println!("Connecting to {}", address);
@@ -424,8 +424,8 @@ impl Transport for QuicTransport {
                         data_receiver: recv_rx,
                         data_sender: send_tx,
                     }),
+                    handshake_function.clone(),
                     message_handlers.clone(),
-                    peer_db.clone(),
                     active_connections.clone(),
                 );
                 drop(wg);

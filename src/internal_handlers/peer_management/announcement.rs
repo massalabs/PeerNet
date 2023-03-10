@@ -1,7 +1,7 @@
 use std::{net::{SocketAddr, IpAddr}, time::{UNIX_EPOCH, SystemTime}, collections::HashMap};
 
 use massa_hash::Hash;
-use massa_signature::{Signature, KeyPair};
+use massa_signature::{Signature, KeyPair, SIGNATURE_SIZE_BYTES};
 
 use crate::{transports::TransportType, error::PeerNetError, peer_id::PeerId};
 
@@ -90,7 +90,7 @@ impl Announcement {
                     timestamp,
                     signature,
                     serialized: bytes[..i].to_vec(),
-                }
+                },
             ) 
         } else {
             Err(PeerNetError::HandshakeError("Invalid signature".to_string()))

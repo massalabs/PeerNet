@@ -55,7 +55,7 @@
 //! ```
 //!
 
-mod announcement;
+pub mod internal_handlers;
 
 pub mod config;
 pub mod error;
