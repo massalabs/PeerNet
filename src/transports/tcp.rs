@@ -142,6 +142,12 @@ impl Transport for TcpTransport {
                 }
             }
         });
+        {
+            let mut active_connections = self.active_connections.write();
+            active_connections
+                .listeners
+                .insert(address, super::TransportType::Tcp);
+        }
         self.listeners.insert(address, (waker, listener_handle));
         Ok(())
     }
@@ -196,6 +202,10 @@ impl Transport for TcpTransport {
                     "Can't find listener for address {}",
                     address
                 )))?;
+        {
+            let mut active_connections = self.active_connections.write();
+            active_connections.listeners.remove(&address);
+        }
         waker
             .wake()
             .map_err(|e| PeerNetError::ListenerError(e.to_string()))?;

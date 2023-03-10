@@ -3,6 +3,7 @@ use massa_signature::{KeyPair, PublicKey, Signature};
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
+use crate::announcement::Announcement;
 use crate::error::PeerNetError;
 use crate::peer_id::PeerId;
 
@@ -30,7 +31,7 @@ impl Endpoint {
         }
     }
 
-    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair) -> Result<PeerId, PeerNetError> {
+    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair, listeners_announcement: Announcement) -> Result<(PeerId, Announcement), PeerNetError> {
         //TODO: Add version in handshake
         let mut self_random_bytes = [0u8; 32];
         StdRng::from_entropy().fill_bytes(&mut self_random_bytes);
@@ -60,8 +61,13 @@ impl Endpoint {
         other_public_key
             .verify_signature(&self_random_hash, &other_signature)
             .map_err(|err| PeerNetError::HandshakeError(err.to_string()))?;
+
+        let other_peer_id = PeerId::from_public_key(other_public_key);
+        self.send(&listeners_announcement.to_bytes())?;
+        let received = self.receive()?;
+        let listeners = Announcement::from_bytes(&received, &other_peer_id)?;
         println!("Handshake finished");
-        Ok(PeerId::from_public_key(other_public_key))
+        Ok((other_peer_id, listeners))
     }
 
     pub fn shutdown(&mut self) {

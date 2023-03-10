@@ -9,7 +9,7 @@ use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
     network_manager::{SharedActiveConnections, SharedPeerDB},
-    transports::{endpoint::Endpoint, InternalTransportType},
+    transports::{endpoint::Endpoint, InternalTransportType}, announcement::Announcement,
 };
 
 pub struct PeerMetadata {
@@ -77,13 +77,19 @@ pub(crate) fn new_peer(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
     message_handlers: MessageHandlers,
-    _peer_db: SharedPeerDB,
+    peer_db: SharedPeerDB,
     active_connections: SharedActiveConnections,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     spawn(move || {
+        let listeners = {
+            let active_connections = active_connections.read();
+            active_connections.listeners.clone()
+        };
+        //TODO: Build announcement message with now timestamp and pass it to the handshake.
         //HANDSHAKE
-        let peer_id = endpoint.handshake(&self_keypair).unwrap();
+        let (peer_id, announcement) = endpoint.handshake(&self_keypair, Announcement::new(listeners, &self_keypair).unwrap()).unwrap();
+        println!("announcement: {:?}", announcement);
         //TODO: Bounded
 
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
@@ -104,11 +110,10 @@ pub(crate) fn new_peer(
                 },
             );
         }
-        //TODO: Add to peer db
-        // {
-        //     let mut peer_db = peer_db.write();
-        //     peer_db.peers.insert(endpoint, PeerState::ESTABLISHED(peer_id));
-        // }
+        {
+            let mut peer_db = peer_db.write();
+            peer_db.peers.insert(peer_id.clone(), announcement);
+        }
         // SPAWN WRITING THREAD
         //TODO: Bound
         let mut write_endpoint = endpoint.clone();

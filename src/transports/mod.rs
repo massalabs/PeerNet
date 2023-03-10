@@ -23,9 +23,10 @@ pub use tcp::TcpOutConnectionConfig;
 /// Define the different transports available
 /// TODO: Maybe try to fusion with the InternalTransportType enum above
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
+#[repr(u8)]
 pub enum TransportType {
-    Tcp,
-    Quic,
+    Tcp = 0,
+    Quic = 1,
 }
 
 impl TransportType {

@@ -318,6 +318,12 @@ impl Transport for QuicTransport {
                 }
             }
         });
+        {
+            let mut active_connections = self.active_connections.write();
+            active_connections
+                .listeners
+                .insert(address, super::TransportType::Quic);
+        }
         self.listeners.insert(
             address,
             (waker, server.try_clone().unwrap(), listener_handle),
@@ -436,6 +442,10 @@ impl Transport for QuicTransport {
                     "Can't find listener for address {}",
                     address
                 )))?;
+        {
+            let mut active_connections = self.active_connections.write();
+            active_connections.listeners.remove(&address);
+        }
         waker
             .wake()
             .map_err(|e| PeerNetError::ListenerError(e.to_string()))?;

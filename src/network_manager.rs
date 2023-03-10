@@ -12,12 +12,12 @@ use crate::{
     error::PeerNetError,
     peer::PeerConnection,
     peer_id::PeerId,
-    transports::{InternalTransportType, OutConnectionConfig, Transport, TransportType},
+    transports::{InternalTransportType, OutConnectionConfig, Transport, TransportType}, announcement::Announcement,
 };
 
 pub struct PeerDB {
-    //TODO: Peerlist. HashMap<NodeID, (état(banni, fiable), derniere_annonce + timestamp + signature, copie de l’annonce)>
-    pub peers: HashMap<PeerId, ()>,
+    //TODO: Add state of the peer (banned, trusted, ...)
+    pub peers: HashMap<PeerId, Announcement>,
 }
 
 pub(crate) type SharedPeerDB = Arc<RwLock<PeerDB>>;
@@ -31,6 +31,7 @@ pub struct ActiveConnections {
     /// Number of peers we want to have in OUT connection
     pub max_out_connections: usize,
     pub connections: HashMap<PeerId, PeerConnection>,
+    pub listeners: HashMap<SocketAddr, TransportType>,
 }
 
 pub(crate) type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
@@ -57,6 +58,7 @@ impl PeerNetManager {
             max_in_connections: config.max_in_connections,
             max_out_connections: config.max_out_connections,
             connections: Default::default(),
+            listeners: Default::default(),
         }));
         PeerNetManager {
             config,

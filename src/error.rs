@@ -20,4 +20,6 @@ pub enum PeerNetError {
     HandshakeError(String),
     /// Error when communicating with an handler
     HandlerError(String),
+    /// Error when signing a message
+    SignError(String),
 }
