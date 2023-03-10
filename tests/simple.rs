@@ -20,6 +20,7 @@ fn simple() {
         max_out_connections: 20,
         self_keypair: keypair.clone(),
         handshake_function: None,
+        fallback_function: None,
         message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -49,6 +50,7 @@ fn two_peers_tcp() {
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
         handshake_function: None,
+        fallback_function: None,
         message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -62,6 +64,7 @@ fn two_peers_tcp() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         handshake_function: None,
+        fallback_function: None,
         message_handlers: Default::default(),
     };
     let mut manager2 = PeerNetManager::new(config);
@@ -89,6 +92,7 @@ fn two_peers_quic() {
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
         handshake_function: None,
+        fallback_function: None,
         message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -102,6 +106,7 @@ fn two_peers_quic() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         handshake_function: None,
+        fallback_function: None,
         message_handlers: Default::default(),
     };
     let mut manager2 = PeerNetManager::new(config);

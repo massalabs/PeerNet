@@ -5,7 +5,7 @@ use massa_signature::KeyPair;
 use peernet::{
     config::PeerNetConfiguration,
     handlers::MessageHandlers,
-    internal_handlers::peer_management::{handshake, PeerManagementHandler},
+    internal_handlers::peer_management::{fallback_function, handshake, PeerManagementHandler},
     network_manager::PeerNetManager,
     peer_id::PeerId,
     transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
@@ -34,6 +34,7 @@ fn two_peers_tcp_with_one_handler() {
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
         handshake_function: None,
+        fallback_function: None,
         message_handlers: message_handlers.clone(),
     };
     let mut manager = PeerNetManager::new(config);
@@ -46,6 +47,7 @@ fn two_peers_tcp_with_one_handler() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         handshake_function: None,
+        fallback_function: None,
         message_handlers,
     };
     let mut manager2 = PeerNetManager::new(config);
@@ -90,11 +92,12 @@ fn two_peers_tcp_with_peer_management_handler() {
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
         handshake_function: Some(&handshake),
+        fallback_function: Some(&fallback_function),
         message_handlers: message_handlers.clone(),
     };
     let mut manager = PeerNetManager::new(config);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .start_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
 
     let config = PeerNetConfiguration {
@@ -102,12 +105,13 @@ fn two_peers_tcp_with_peer_management_handler() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         handshake_function: Some(&handshake),
+        fallback_function: Some(&fallback_function),
         message_handlers,
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
         .try_connect(
-            "127.0.0.1:8081".parse().unwrap(),
+            "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
             &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {
                 identity: PeerId::from_public_key(keypair2.get_public_key()),
@@ -116,6 +120,6 @@ fn two_peers_tcp_with_peer_management_handler() {
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(10));
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .stop_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
 }

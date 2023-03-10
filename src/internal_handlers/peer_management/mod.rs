@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, thread::JoinHandle};
+use std::{collections::HashMap, net::SocketAddr, thread::JoinHandle, time::Duration};
 
 use crossbeam::channel::Receiver;
 use massa_hash::Hash;
@@ -108,7 +108,6 @@ impl PeerManagementHandler {
             }
             loop {
                 let (peer_id, message) = receiver.recv().unwrap();
-
                 println!("Received message from peer: {:?}", peer_id);
                 println!("Message: {:?}", message);
             }
@@ -129,7 +128,7 @@ pub fn handshake(
     message_handlers: &MessageHandlers,
 ) -> Result<PeerId, PeerNetError> {
     let mut buf = PeerId::from_public_key(keypair.get_public_key()).to_bytes();
-    //TODO: Add version in handshake
+    //TODO: Add version in announce
     let listeners_announcement = Announcement::new(listeners.clone(), keypair).unwrap();
     buf.extend_from_slice(&listeners_announcement.to_bytes());
     endpoint.send(&buf)?;
@@ -174,4 +173,27 @@ pub fn handshake(
 
     println!("Handshake finished");
     Ok(peer_id)
+}
+
+pub fn fallback_function(
+    keypair: &KeyPair,
+    endpoint: &mut Endpoint,
+    listeners: &HashMap<SocketAddr, TransportType>,
+    message_handlers: &MessageHandlers,
+) -> Result<(), PeerNetError> {
+    //TODO: Fix this clone
+    let keypair = keypair.clone();
+    let mut endpoint = endpoint.clone();
+    let listeners = listeners.clone();
+    let message_handlers = message_handlers.clone();
+    std::thread::spawn(move || {
+        let mut buf = PeerId::from_public_key(keypair.get_public_key()).to_bytes();
+        //TODO: Add version in announce
+        let listeners_announcement = Announcement::new(listeners.clone(), &keypair).unwrap();
+        buf.extend_from_slice(&listeners_announcement.to_bytes());
+        endpoint.send(&buf).unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        endpoint.shutdown();
+    });
+    Ok(())
 }
