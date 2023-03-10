@@ -23,5 +23,5 @@ pub enum PeerNetError {
     /// Error when signing a message
     SignError(String),
     /// Error invalid message
-    InvalidMessage
+    InvalidMessage,
 }

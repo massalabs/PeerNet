@@ -8,7 +8,7 @@ use massa_signature::KeyPair;
 use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
-    network_manager::{SharedActiveConnections, HandshakeFunction},
+    network_manager::{HandshakeFunction, SharedActiveConnections},
     transports::{endpoint::Endpoint, InternalTransportType},
 };
 

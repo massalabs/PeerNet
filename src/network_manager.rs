@@ -10,9 +10,12 @@ use parking_lot::RwLock;
 use crate::{
     config::PeerNetConfiguration,
     error::PeerNetError,
+    handlers::MessageHandlers,
     peer::PeerConnection,
     peer_id::PeerId,
-    transports::{InternalTransportType, OutConnectionConfig, Transport, TransportType, endpoint::Endpoint}, handlers::MessageHandlers,
+    transports::{
+        endpoint::Endpoint, InternalTransportType, OutConnectionConfig, Transport, TransportType,
+    },
 };
 
 #[derive(Debug)]
@@ -26,17 +29,31 @@ pub struct ActiveConnections {
     pub connections: HashMap<PeerId, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
-
-pub type HandshakeFunction = dyn Fn(&KeyPair, &mut Endpoint, &HashMap<SocketAddr, TransportType>, &MessageHandlers) -> Result<PeerId, PeerNetError> + Sync;
+// Send some data to a peer that we didn't accept his connection
+pub type FallbackFunction = dyn Fn(
+        &KeyPair,
+        &mut Endpoint,
+        &HashMap<SocketAddr, TransportType>,
+        &MessageHandlers,
+    ) -> Result<(), PeerNetError>
+    + Sync;
+pub type HandshakeFunction = dyn Fn(
+        &KeyPair,
+        &mut Endpoint,
+        &HashMap<SocketAddr, TransportType>,
+        &MessageHandlers,
+    ) -> Result<PeerId, PeerNetError>
+    + Sync;
 pub(crate) type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
 pub struct PeerNetManager {
     pub config: PeerNetConfiguration,
     pub active_connections: SharedActiveConnections,
-    // (local keypair, endpoint to the peer, remote peer_id, active_connections) 
+    // (local keypair, endpoint to the peer, remote peer_id, active_connections)
     //TODO: Maybe make a type
-    pub handshake_function: Option<&'static HandshakeFunction>,
+    handshake_function: Option<&'static HandshakeFunction>,
+    fallback_function: Option<&'static FallbackFunction>,
     self_keypair: KeyPair,
     transports: HashMap<TransportType, InternalTransportType>,
 }
@@ -55,6 +72,7 @@ impl PeerNetManager {
         }));
         PeerNetManager {
             handshake_function: config.handshake_function.clone(),
+            fallback_function: config.fallback_function.clone(),
             config,
             self_keypair,
             transports: Default::default(),
@@ -74,6 +92,7 @@ impl PeerNetManager {
                 transport_type,
                 self.active_connections.clone(),
                 self.handshake_function.clone(),
+                self.fallback_function.clone(),
                 self.config.message_handlers.clone(),
             )
         });
@@ -93,6 +112,7 @@ impl PeerNetManager {
                 transport_type,
                 self.active_connections.clone(),
                 self.handshake_function.clone(),
+                self.fallback_function.clone(),
                 self.config.message_handlers.clone(),
             )
         });
@@ -119,6 +139,7 @@ impl PeerNetManager {
                     TransportType::from_out_connection_config(&out_connection_config),
                     self.active_connections.clone(),
                     self.handshake_function.clone(),
+                    self.fallback_function.clone(),
                     self.config.message_handlers.clone(),
                 )
             });

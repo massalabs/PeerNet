@@ -5,9 +5,10 @@ use massa_signature::KeyPair;
 use peernet::{
     config::PeerNetConfiguration,
     handlers::MessageHandlers,
+    internal_handlers::peer_management::{handshake, PeerManagementHandler},
     network_manager::PeerNetManager,
     peer_id::PeerId,
-    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType}, internal_handlers::peer_management::{handshake, PeerManagementHandler},
+    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 use util::create_basic_handler;
 
@@ -75,7 +76,6 @@ fn two_peers_tcp_with_one_handler() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 }
-
 
 #[test]
 fn two_peers_tcp_with_peer_management_handler() {

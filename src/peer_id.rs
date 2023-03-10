@@ -1,7 +1,7 @@
 //! Definition of the PeerId type
 
 use massa_hash::Hash;
-use massa_signature::{PublicKey, PUBLIC_KEY_SIZE_BYTES, Signature};
+use massa_signature::{PublicKey, Signature, PUBLIC_KEY_SIZE_BYTES};
 
 use crate::error::PeerNetError;
 
@@ -33,11 +33,7 @@ impl PeerId {
     }
 
     /// Verify a signature
-    pub fn verify_signature(
-        &self,
-        hash: &Hash,
-        signature: &Signature,
-    ) -> Result<(), PeerNetError> {
+    pub fn verify_signature(&self, hash: &Hash, signature: &Signature) -> Result<(), PeerNetError> {
         self.public_key
             .verify_signature(hash, signature)
             .map_err(|err| PeerNetError::PeerIdError(err.to_string()))

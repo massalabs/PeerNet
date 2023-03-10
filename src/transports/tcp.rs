@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::error::PeerNetError;
 use crate::handlers::MessageHandlers;
-use crate::network_manager::{SharedActiveConnections, HandshakeFunction};
+use crate::network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections};
 use crate::peer::new_peer;
 use crate::peer_id::PeerId;
 use crate::transports::Endpoint;
@@ -21,6 +21,7 @@ use mio::{Events, Interest, Poll, Token, Waker};
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
     pub handshake_function: Option<&'static HandshakeFunction>,
+    pub fallback_function: Option<&'static FallbackFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<()>)>,
@@ -60,11 +61,13 @@ impl TcpTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
         handshake_function: Option<&'static HandshakeFunction>,
+        fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
     ) -> TcpTransport {
         TcpTransport {
             active_connections,
             handshake_function,
+            fallback_function,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
             message_handlers,
@@ -89,6 +92,7 @@ impl Transport for TcpTransport {
         let listener_handle: JoinHandle<()> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let handshake_function = self.handshake_function.clone();
+            let fallback_function = self.fallback_function;
             let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
@@ -113,6 +117,7 @@ impl Transport for TcpTransport {
                                 //TODO: Error handling
                                 //TODO: Use rate limiting
                                 let (stream, address) = server.accept().unwrap();
+                                let mut endpoint = Endpoint::Tcp(TcpEndpoint { address, stream });
                                 {
                                     let mut active_connections = active_connections.write();
                                     if active_connections.nb_in_connections
@@ -121,14 +126,22 @@ impl Transport for TcpTransport {
                                         active_connections.nb_in_connections += 1;
                                     } else {
                                         println!("Connection attempt by {}  : max_in_connections reached", address);
-
+                                        if let Some(fallback_function) = fallback_function {
+                                            fallback_function(
+                                                &self_keypair,
+                                                &mut endpoint,
+                                                &active_connections.listeners,
+                                                &message_handlers,
+                                            )
+                                            .unwrap();
+                                        }
                                         continue;
                                     }
                                 }
                                 println!("New connection");
                                 new_peer(
                                     self_keypair.clone(),
-                                    Endpoint::Tcp(TcpEndpoint { address, stream }),
+                                    endpoint,
                                     handshake_function.clone(),
                                     message_handlers.clone(),
                                     active_connections.clone(),

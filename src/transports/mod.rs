@@ -7,7 +7,10 @@ use std::{net::SocketAddr, time::Duration};
 use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
-    network_manager::{SharedActiveConnections, HandshakeFunction, ActiveConnections}, peer_id::PeerId,
+    network_manager::{
+        ActiveConnections, FallbackFunction, HandshakeFunction, SharedActiveConnections,
+    },
+    peer_id::PeerId,
 };
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
@@ -136,17 +139,20 @@ impl<'a> InternalTransportType {
         transport_type: TransportType,
         active_connections: SharedActiveConnections,
         handshake_function: Option<&'static HandshakeFunction>,
+        fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
     ) -> Self {
         match transport_type {
             TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
                 active_connections,
                 handshake_function,
+                fallback_function,
                 message_handlers,
             )),
             TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(
                 active_connections,
                 handshake_function,
+                fallback_function,
                 message_handlers,
             )),
         }
