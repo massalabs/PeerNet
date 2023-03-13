@@ -89,7 +89,6 @@ pub(crate) fn new_peer(
         } else {
             endpoint.handshake(&self_keypair).unwrap()
         };
-        //TODO: Send to peer handler the announcement. Should be generic (function to send message after the handshake)
         //TODO: Bounded
 
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();

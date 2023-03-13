@@ -50,8 +50,6 @@ pub(crate) type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 pub struct PeerNetManager {
     pub config: PeerNetConfiguration,
     pub active_connections: SharedActiveConnections,
-    // (local keypair, endpoint to the peer, remote peer_id, active_connections)
-    //TODO: Maybe make a type
     handshake_function: Option<&'static HandshakeFunction>,
     fallback_function: Option<&'static FallbackFunction>,
     self_keypair: KeyPair,
