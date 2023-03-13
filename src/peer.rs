@@ -81,17 +81,16 @@ pub(crate) fn new_peer(
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = match endpoint.receive().unwrap()[0] {
-            0 => endpoint.handshake(&self_keypair).unwrap(),
-            1 => {
-                if let Some(handshake_function) = handshake_function {
-                    handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers)
-                        .unwrap()
-                } else {
-                    panic!("Handshake required but no handshake function provided");
+        let peer_id = if let Some(handshake_function) = handshake_function {
+            match handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers) {
+                Ok(peer_id) => peer_id,
+                Err(err) => {
+                    println!("Handshake error: {:#?}", err);
+                    return;
                 }
             }
-            _ => panic!("Invalid handshake"),
+        } else {
+            endpoint.handshake(&self_keypair).unwrap()
         };
 
         //TODO: Bounded
