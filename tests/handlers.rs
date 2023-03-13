@@ -9,10 +9,15 @@ use peernet::{
         fallback_function, handshake, InitialPeers, PeerManagementHandler,
     },
     network_manager::PeerNetManager,
+    peer::HandshakeHandler,
     peer_id::PeerId,
     transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 use util::create_basic_handler;
+
+#[derive(Clone)]
+struct EmptyHandshake;
+impl HandshakeHandler for EmptyHandshake {}
 
 #[test]
 fn two_peers_tcp_with_one_handler() {
@@ -35,7 +40,7 @@ fn two_peers_tcp_with_one_handler() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
-        handshake_function: None,
+        handshake_handler: EmptyHandshake {},
         fallback_function: None,
         message_handlers: message_handlers.clone(),
     };
@@ -48,7 +53,7 @@ fn two_peers_tcp_with_one_handler() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
-        handshake_function: None,
+        handshake_handler: EmptyHandshake {},
         fallback_function: None,
         message_handlers,
     };
@@ -90,7 +95,7 @@ fn two_peers_tcp_with_peer_management_handler() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
-        handshake_function: Some(&handshake),
+        handshake_handler: EmptyHandshake {},
         fallback_function: Some(&fallback_function),
         message_handlers: message_handlers.clone(),
     };
@@ -113,7 +118,7 @@ fn two_peers_tcp_with_peer_management_handler() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
-        handshake_function: Some(&handshake),
+        handshake_handler: EmptyHandshake {},
         fallback_function: Some(&fallback_function),
         message_handlers,
     };
