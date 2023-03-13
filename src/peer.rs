@@ -2,7 +2,10 @@
 
 use std::{fmt::Debug, net::SocketAddr, thread::spawn, time::Duration};
 
-use crossbeam::{channel::{unbounded, RecvTimeoutError, Sender, TryRecvError}, select};
+use crossbeam::{
+    channel::{unbounded, RecvTimeoutError, Sender, TryRecvError},
+    select,
+};
 use massa_signature::KeyPair;
 
 use crate::{
@@ -78,17 +81,19 @@ pub(crate) fn new_peer(
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = if let Some(handshake_function) = handshake_function {
-            match handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers) {
-                Ok(peer_id) => peer_id,
-                Err(err) => {
-                    println!("Handshake error: {:#?}", err);
-                    return;
+        let peer_id = match endpoint.receive().unwrap()[0] {
+            0 => endpoint.handshake(&self_keypair).unwrap(),
+            1 => {
+                if let Some(handshake_function) = handshake_function {
+                    handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers)
+                        .unwrap()
+                } else {
+                    panic!("Handshake required but no handshake function provided");
                 }
             }
-        } else {
-            endpoint.handshake(&self_keypair).unwrap()
+            _ => panic!("Invalid handshake"),
         };
+
         //TODO: Bounded
 
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
@@ -112,43 +117,41 @@ pub(crate) fn new_peer(
         // SPAWN WRITING THREAD
         //TODO: Bound
         let mut write_endpoint = endpoint.clone();
-        let write_thread_handle = std::thread::spawn(move || {
-            loop {
-                match high_write_rx.try_recv() {
-                    Ok(data) => {
-                        println!("writer thread: high priority message received");
-                        write_endpoint.send(&data).unwrap();
-                        continue;
-                    }
-                    Err(TryRecvError::Empty) => {}
-                    Err(TryRecvError::Disconnected) => {
-                        println!("writer thread: disconnected");
-                        return;
-                    }
+        let write_thread_handle = std::thread::spawn(move || loop {
+            match high_write_rx.try_recv() {
+                Ok(data) => {
+                    println!("writer thread: high priority message received");
+                    write_endpoint.send(&data).unwrap();
+                    continue;
                 }
-                select! {
-                    recv(low_write_rx) -> msg => {
-                        match msg {
-                            Ok(data) => {
-                                println!("writer thread: low priority message received");
-                                write_endpoint.send(&data).unwrap();
-                            }
-                            Err(_) => {
-                                println!("writer thread: disconnected");
-                                return;
-                            }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    println!("writer thread: disconnected");
+                    return;
+                }
+            }
+            select! {
+                recv(low_write_rx) -> msg => {
+                    match msg {
+                        Ok(data) => {
+                            println!("writer thread: low priority message received");
+                            write_endpoint.send(&data).unwrap();
+                        }
+                        Err(_) => {
+                            println!("writer thread: disconnected");
+                            return;
                         }
                     }
-                    recv(high_write_rx) -> msg => {
-                        match msg {
-                            Ok(data) => {
-                                println!("writer thread: high priority message received");
-                                write_endpoint.send(&data).unwrap();
-                            }
-                            Err(_) => {
-                                println!("writer thread: disconnected");
-                                return;
-                            }
+                }
+                recv(high_write_rx) -> msg => {
+                    match msg {
+                        Ok(data) => {
+                            println!("writer thread: high priority message received");
+                            write_endpoint.send(&data).unwrap();
+                        }
+                        Err(_) => {
+                            println!("writer thread: disconnected");
+                            return;
                         }
                     }
                 }
