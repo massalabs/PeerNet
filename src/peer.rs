@@ -116,6 +116,7 @@ pub(crate) fn new_peer(
         // SPAWN WRITING THREAD
         //TODO: Bound
         let mut write_endpoint = endpoint.clone();
+        // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn(move || loop {
             match high_write_rx.try_recv() {
                 Ok(data) => {

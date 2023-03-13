@@ -88,6 +88,8 @@ pub fn empty_handshake(
     _listeners: &HashMap<SocketAddr, TransportType>,
     _message_handlers: &MessageHandlers,
 ) -> Result<PeerId, PeerNetError> {
+    //endpoint.receive()?;
+    //ADd peer db
     Ok(PeerId::from_public_key(keypair.get_public_key()))
 }
 
