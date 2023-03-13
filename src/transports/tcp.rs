@@ -7,7 +7,7 @@ use std::time::Duration;
 use crate::error::PeerNetError;
 use crate::handlers::MessageHandlers;
 use crate::network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections};
-use crate::peer::new_peer;
+use crate::peer::{new_peer, HandshakeHandler};
 use crate::peer_id::PeerId;
 use crate::transports::Endpoint;
 
@@ -20,7 +20,6 @@ use mio::{Events, Interest, Poll, Token, Waker};
 
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
-    pub handshake_function: Option<&'static HandshakeFunction>,
     pub fallback_function: Option<&'static FallbackFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
@@ -57,13 +56,11 @@ impl TcpEndpoint {
 impl TcpTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
-        handshake_function: Option<&'static HandshakeFunction>,
         fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
     ) -> TcpTransport {
         TcpTransport {
             active_connections,
-            handshake_function,
             fallback_function,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
@@ -77,10 +74,11 @@ impl Transport for TcpTransport {
 
     type Endpoint = TcpEndpoint;
 
-    fn start_listener(
+    fn start_listener<T: HandshakeHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
+        handshake_handler: T
     ) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let mut events = Events::with_capacity(128);
@@ -88,7 +86,6 @@ impl Transport for TcpTransport {
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let listener_handle: JoinHandle<()> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let handshake_function = self.handshake_function.clone();
             let fallback_function = self.fallback_function;
             let message_handlers = self.message_handlers.clone();
             move || {
@@ -139,7 +136,7 @@ impl Transport for TcpTransport {
                                 new_peer(
                                     self_keypair.clone(),
                                     endpoint,
-                                    handshake_function.clone(),
+                                    handshake_handler.clone(),
                                     message_handlers.clone(),
                                     active_connections.clone(),
                                 );
@@ -163,16 +160,16 @@ impl Transport for TcpTransport {
         Ok(())
     }
 
-    fn try_connect(
+    fn try_connect<T: HandshakeHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         _config: &Self::OutConnectionConfig,
+        handshake_handler: T,
     ) -> Result<(), PeerNetError> {
         std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let handshake_function = self.handshake_function.clone();
             let wg = self.out_connection_attempts.clone();
             let message_handlers = self.message_handlers.clone();
             move || {
@@ -195,7 +192,7 @@ impl Transport for TcpTransport {
                 new_peer(
                     self_keypair.clone(),
                     Endpoint::Tcp(TcpEndpoint { address, stream }),
-                    handshake_function.clone(),
+                    handshake_handler.clone(),
                     message_handlers.clone(),
                     active_connections.clone(),
                 );

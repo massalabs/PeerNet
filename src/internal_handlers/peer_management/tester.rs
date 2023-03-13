@@ -10,10 +10,15 @@ use crate::{
     internal_handlers::peer_management::{announcement::Announcement, PeerInfo},
     network_manager::PeerNetManager,
     peer_id::PeerId,
+    peer::HandshakeHandler,
     transports::{endpoint::Endpoint, OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 
 use super::{PeerDB, SharedPeerDB};
+
+#[derive(Clone)]
+pub struct EmptyHandshake;
+impl HandshakeHandler for EmptyHandshake {}
 
 pub struct Tester {
     handler: Option<JoinHandle<()>>,
@@ -26,8 +31,7 @@ impl Tester {
             let (_announcement_handle, announcement_handler) =
                 AnnouncementHandler::new(peer_db.clone());
             message_handlers.add_handler(0, MessageHandler::new(announcement_handler));
-            let mut config = PeerNetConfiguration::default();
-            config.handshake_function = Some(&empty_handshake);
+            let mut config = PeerNetConfiguration::default(EmptyHandshake {});
             config.fallback_function = Some(&empty_fallback);
             config.max_out_connections = 1;
             config.message_handlers = message_handlers;
@@ -80,17 +84,6 @@ impl AnnouncementHandler {
             sender,
         )
     }
-}
-
-pub fn empty_handshake(
-    keypair: &KeyPair,
-    _endpoint: &mut Endpoint,
-    _listeners: &HashMap<SocketAddr, TransportType>,
-    _message_handlers: &MessageHandlers,
-) -> Result<PeerId, PeerNetError> {
-    //endpoint.receive()?;
-    //ADd peer db
-    Ok(PeerId::from_public_key(keypair.get_public_key()))
 }
 
 pub fn empty_fallback(
