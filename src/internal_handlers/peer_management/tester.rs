@@ -9,8 +9,8 @@ use crate::{
     handlers::{MessageHandler, MessageHandlers},
     internal_handlers::peer_management::{announcement::Announcement, PeerInfo},
     network_manager::PeerNetManager,
-    peer_id::PeerId,
     peer::HandshakeHandler,
+    peer_id::PeerId,
     transports::{endpoint::Endpoint, OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 

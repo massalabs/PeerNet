@@ -1,7 +1,7 @@
 //! Every information about a peer (not used for now)
 
-use std::{fmt::Debug, net::SocketAddr, thread::spawn};
 use std::collections::HashMap;
+use std::{fmt::Debug, net::SocketAddr, thread::spawn};
 
 use crossbeam::{
     channel::{unbounded, Sender, TryRecvError},
@@ -11,23 +11,21 @@ use massa_signature::KeyPair;
 
 use crate::{
     error::PeerNetError,
-    peer_id::PeerId,
     handlers::MessageHandlers,
     network_manager::SharedActiveConnections,
+    peer_id::PeerId,
     transports::{endpoint::Endpoint, TransportType},
 };
 
-pub trait HandshakeHandler : Send + Clone + 'static {
-    fn perform_handshake(&mut self, keypair: &KeyPair, endpoint: &mut Endpoint, listeners: &HashMap<SocketAddr, TransportType>, handlers: &MessageHandlers) -> Result<PeerId, PeerNetError> {
+pub trait HandshakeHandler: Send + Clone + 'static {
+    fn perform_handshake(
+        &mut self,
+        keypair: &KeyPair,
+        endpoint: &mut Endpoint,
+        listeners: &HashMap<SocketAddr, TransportType>,
+        handlers: &MessageHandlers,
+    ) -> Result<PeerId, PeerNetError> {
         endpoint.handshake(&keypair)
-    }
-}
-
-#[derive(Clone)]
-pub struct EmptyHandshake;
-impl HandshakeHandler for EmptyHandshake {
-    fn perform_handshake(&mut self, keypair: &KeyPair, endpoint: &mut Endpoint, listeners: &HashMap<SocketAddr, TransportType>, handlers: &MessageHandlers) -> Result<PeerId, PeerNetError> {
-        Ok(PeerId::from_public_key(keypair.get_public_key()))
     }
 }
 
@@ -97,7 +95,9 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = handshake_handler.perform_handshake(&self_keypair, &mut endpoint, &listeners, &message_handlers).unwrap();
+        let peer_id = handshake_handler
+            .perform_handshake(&self_keypair, &mut endpoint, &listeners, &message_handlers)
+            .unwrap();
 
         //TODO: Bounded
 

@@ -10,8 +10,8 @@ use crate::{
     network_manager::{
         ActiveConnections, FallbackFunction, HandshakeFunction, SharedActiveConnections,
     },
-    peer_id::PeerId,
     peer::HandshakeHandler,
+    peer_id::PeerId,
 };
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};

@@ -11,7 +11,7 @@ use crate::{
     config::PeerNetConfiguration,
     error::PeerNetError,
     handlers::MessageHandlers,
-    peer::{PeerConnection, HandshakeHandler},
+    peer::{HandshakeHandler, PeerConnection},
     peer_id::PeerId,
     transports::{
         endpoint::Endpoint, InternalTransportType, OutConnectionConfig, Transport, TransportType,
@@ -93,7 +93,11 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
                 self.config.message_handlers.clone(),
             )
         });
-        transport.start_listener(self.self_keypair.clone(), addr, self.handshake_handler.clone())?;
+        transport.start_listener(
+            self.self_keypair.clone(),
+            addr,
+            self.handshake_handler.clone(),
+        )?;
         Ok(())
     }
 

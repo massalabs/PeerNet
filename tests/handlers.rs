@@ -9,8 +9,8 @@ use peernet::{
         fallback_function, handshake, InitialPeers, PeerManagementHandler,
     },
     network_manager::PeerNetManager,
-    peer_id::PeerId,
     peer::HandshakeHandler,
+    peer_id::PeerId,
     transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 use util::create_basic_handler;

@@ -78,7 +78,7 @@ impl Transport for TcpTransport {
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
-        handshake_handler: T
+        handshake_handler: T,
     ) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let mut events = Events::with_capacity(128);

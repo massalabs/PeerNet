@@ -5,8 +5,8 @@ use massa_signature::KeyPair;
 use peernet::{
     config::PeerNetConfiguration,
     network_manager::PeerNetManager,
-    peer_id::PeerId,
     peer::HandshakeHandler,
+    peer_id::PeerId,
     transports::{
         OutConnectionConfig, QuicOutConnectionConfig, TcpOutConnectionConfig, TransportType,
     },

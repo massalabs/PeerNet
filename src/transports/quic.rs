@@ -348,7 +348,11 @@ impl Transport for QuicTransport {
                 .get(&config.local_addr)
                 .expect("Listener not found")
         } else {
-            self.start_listener(self_keypair.clone(), config.local_addr, handshake_handler.clone())?;
+            self.start_listener(
+                self_keypair.clone(),
+                config.local_addr,
+                handshake_handler.clone(),
+            )?;
             //TODO: Make things more elegant with waker etc
             std::thread::sleep(Duration::from_millis(100));
             self.listeners

@@ -5,12 +5,7 @@
 
 use massa_signature::KeyPair;
 
-use crate::{
-    handlers::MessageHandlers,
-    network_manager::FallbackFunction,
-    peer::HandshakeHandler,
-};
-
+use crate::{handlers::MessageHandlers, network_manager::FallbackFunction, peer::HandshakeHandler};
 
 /// Struct containing the configuration for the PeerNet manager.
 pub struct PeerNetConfiguration<T: HandshakeHandler> {
