@@ -132,7 +132,7 @@ pub(crate) fn new_peer(
                     Ok(data) => {
                         println!("writer thread: low priority message received");
                         write_endpoint.send(&data).unwrap()
-                    },
+                    }
                     Err(TryRecvError::Disconnected) => {
                         println!("writer thread: disconnected");
                         return;
