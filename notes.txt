@@ -1,0 +1,2 @@
+- Pour le cote envoie de message par workflow. Soit le worflow thread connait les channels vers tout les peers et envoie direct mais du coup quand ya un nouveau peer qui se connecte faut en informer les workflow thread (etat partagée possible).
+ Soit le workflow thread envoie a un thread qui reparti mais c'est un emssage de plus

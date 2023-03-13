@@ -6,7 +6,9 @@ use peernet::{
     config::PeerNetConfiguration,
     network_manager::PeerNetManager,
     peer_id::PeerId,
-    transports::{OutConnectionConfig, QuicOutConnectionConfig, TransportType},
+    transports::{
+        OutConnectionConfig, QuicOutConnectionConfig, TcpOutConnectionConfig, TransportType,
+    },
 };
 use util::create_clients;
 
@@ -16,8 +18,10 @@ fn simple() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair.get_public_key()),
-        initial_peer_list: Vec::new(),
+        self_keypair: keypair.clone(),
+        handshake_function: None,
+        fallback_function: None,
+        message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -29,6 +33,10 @@ fn simple() {
     for client in clients {
         client.join().unwrap();
     }
+
+    // we have max_in_connections = 10
+    assert!(manager.nb_in_connections().eq(&10));
+
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
         .unwrap();
@@ -40,8 +48,10 @@ fn two_peers_tcp() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair1.get_public_key()),
-        initial_peer_list: Vec::new(),
+        self_keypair: keypair1.clone(),
+        handshake_function: None,
+        fallback_function: None,
+        message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -52,21 +62,24 @@ fn two_peers_tcp() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair2.get_public_key()),
-        initial_peer_list: Vec::new(),
+        self_keypair: keypair2.clone(),
+        handshake_function: None,
+        fallback_function: None,
+        message_handlers: Default::default(),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(()),
+            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {}),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
+    assert!(manager.nb_in_connections().eq(&1));
 }
 
 #[test]
@@ -75,8 +88,10 @@ fn two_peers_quic() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        peer_id: PeerId::from_public_key(keypair1.get_public_key()),
-        initial_peer_list: Vec::new(),
+        self_keypair: keypair1.clone(),
+        handshake_function: None,
+        fallback_function: None,
+        message_handlers: Default::default(),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -87,22 +102,24 @@ fn two_peers_quic() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        initial_peer_list: Vec::new(),
-        peer_id: PeerId::from_public_key(keypair2.get_public_key()),
+        self_keypair: keypair2.clone(),
+        handshake_function: None,
+        fallback_function: None,
+        message_handlers: Default::default(),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
         .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
-            Duration::from_secs(3),
+            Duration::from_secs(5),
             //TODO: Use the one in manager instead of asking. Need a wrapper structure ?
             &mut OutConnectionConfig::Quic(QuicOutConnectionConfig {
-                identity: PeerId::from_public_key(keypair2.get_public_key()),
+                identity: PeerId::from_public_key(keypair1.get_public_key()),
                 local_addr: "127.0.0.1:8083".parse().unwrap(),
             }),
         )
         .unwrap();
-    std::thread::sleep(std::time::Duration::from_secs(3));
+    std::thread::sleep(std::time::Duration::from_secs(5));
     manager
         .stop_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
