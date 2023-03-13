@@ -72,9 +72,7 @@ fn two_peers_tcp() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {
-                identity: PeerId::from_public_key(keypair2.get_public_key()),
-            }),
+            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {}),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));

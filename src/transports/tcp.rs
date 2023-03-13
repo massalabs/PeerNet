@@ -31,10 +31,7 @@ const NEW_CONNECTION: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
 #[derive(Clone)]
-pub struct TcpOutConnectionConfig {
-    // the peer we want to connect to
-    pub identity: PeerId,
-}
+pub struct TcpOutConnectionConfig;
 
 //TODO: IN/OUT different types because TCP ports are not reliable
 pub struct TcpEndpoint {

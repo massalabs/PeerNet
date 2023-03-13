@@ -30,3 +30,16 @@ pub struct PeerNetConfiguration {
     /// Optional function to trigger when we receive a connection from a peer and we don't accept it
     pub fallback_function: Option<&'static FallbackFunction>,
 }
+
+impl Default for PeerNetConfiguration {
+    fn default() -> Self {
+        PeerNetConfiguration {
+            max_in_connections: 0,
+            max_out_connections: 0,
+            self_keypair: KeyPair::generate(),
+            message_handlers: MessageHandlers::default(),
+            handshake_function: None,
+            fallback_function: None,
+        }
+    }
+}

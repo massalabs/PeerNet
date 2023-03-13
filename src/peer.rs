@@ -45,7 +45,7 @@ pub struct PeerConnection {
     pub send_channels: SendChannels,
     //TODO: Should be only the field that allow to shutdown the connection. As it's
     //transport specific, it should be a wrapped type `ShutdownHandle`
-    endpoint: Endpoint,
+    pub endpoint: Endpoint,
 }
 
 impl PeerConnection {
@@ -79,7 +79,13 @@ pub(crate) fn new_peer(
         };
         //HANDSHAKE
         let peer_id = if let Some(handshake_function) = handshake_function {
-            handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers).unwrap()
+            match handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers) {
+                Ok(peer_id) => peer_id,
+                Err(err) => {
+                    println!("Handshake error: {:#?}", err);
+                    return;
+                }
+            }
         } else {
             endpoint.handshake(&self_keypair).unwrap()
         };
@@ -112,6 +118,7 @@ pub(crate) fn new_peer(
                 //TODO: Better priority handling
                 match high_write_rx.recv_timeout(Duration::from_millis(10)) {
                     Ok(data) => {
+                        println!("writer thread: high priority message received");
                         write_endpoint.send(&data).unwrap();
                         continue;
                     }
@@ -122,7 +129,10 @@ pub(crate) fn new_peer(
                     }
                 }
                 match low_write_rx.try_recv() {
-                    Ok(data) => write_endpoint.send(&data).unwrap(),
+                    Ok(data) => {
+                        println!("writer thread: low priority message received");
+                        write_endpoint.send(&data).unwrap()
+                    },
                     Err(TryRecvError::Disconnected) => {
                         println!("writer thread: disconnected");
                         return;

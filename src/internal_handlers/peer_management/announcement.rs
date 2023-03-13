@@ -12,7 +12,7 @@ use crate::{error::PeerNetError, peer_id::PeerId, transports::TransportType};
 #[derive(Clone, Debug)]
 pub struct Announcement {
     /// Listeners
-    listeners: HashMap<SocketAddr, TransportType>,
+    pub listeners: HashMap<SocketAddr, TransportType>,
     /// Timestamp
     timestamp: u128,
     /// serialized version
