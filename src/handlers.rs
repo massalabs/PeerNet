@@ -41,7 +41,7 @@ impl MessageHandlers {
         MessageHandlers(handlers)
     }
 
-    pub(crate) fn get_handler(&self, id: u64) -> Option<&MessageHandler> {
+    pub fn get_handler(&self, id: u64) -> Option<&MessageHandler> {
         self.0.get(&id)
     }
 }
