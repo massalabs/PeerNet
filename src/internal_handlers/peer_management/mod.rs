@@ -248,8 +248,7 @@ pub fn handshake(
     listeners: &HashMap<SocketAddr, TransportType>,
     message_handlers: &MessageHandlers,
 ) -> Result<PeerId, PeerNetError> {
-    let mut bytes = (0 as u64).to_be_bytes().to_vec();
-    bytes.extend_from_slice(&PeerId::from_public_key(keypair.get_public_key()).to_bytes());
+    let mut bytes = PeerId::from_public_key(keypair.get_public_key()).to_bytes();
     //TODO: Add version in announce
     let listeners_announcement = Announcement::new(listeners.clone(), keypair).unwrap();
     bytes.extend_from_slice(&listeners_announcement.to_bytes());
@@ -259,7 +258,7 @@ pub fn handshake(
     if received.is_empty() {
         return Err(PeerNetError::InvalidMessage);
     }
-    let mut offset = 8;
+    let mut offset = 0;
     //TODO: We use this to verify the signature before sending it to the handler.
     //This will be done also in the handler but as we are in the handshake we want to do it to invalid the handshake in case it fails.
     let peer_id = PeerId::from_bytes(&received[offset..offset + 32].try_into().unwrap())?;

@@ -1,9 +1,10 @@
 //! Every information about a peer (not used for now)
 
-use std::{fmt::Debug, net::SocketAddr, thread::spawn, time::Duration};
+use std::collections::HashMap;
+use std::{fmt::Debug, net::SocketAddr, thread::spawn};
 
 use crossbeam::{
-    channel::{unbounded, RecvTimeoutError, Sender, TryRecvError},
+    channel::{unbounded, Sender, TryRecvError},
     select,
 };
 use massa_signature::KeyPair;
@@ -11,9 +12,22 @@ use massa_signature::KeyPair;
 use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
-    network_manager::{HandshakeFunction, SharedActiveConnections},
-    transports::{endpoint::Endpoint, InternalTransportType},
+    network_manager::SharedActiveConnections,
+    peer_id::PeerId,
+    transports::{endpoint::Endpoint, TransportType},
 };
+
+pub trait HandshakeHandler: Send + Clone + 'static {
+    fn perform_handshake(
+        &mut self,
+        keypair: &KeyPair,
+        endpoint: &mut Endpoint,
+        listeners: &HashMap<SocketAddr, TransportType>,
+        handlers: &MessageHandlers,
+    ) -> Result<PeerId, PeerNetError> {
+        endpoint.handshake(&keypair)
+    }
+}
 
 pub struct SendChannels {
     low_priority: Sender<Vec<u8>>,
@@ -67,10 +81,10 @@ impl Debug for PeerConnection {
     }
 }
 
-pub(crate) fn new_peer(
+pub(crate) fn new_peer<T: HandshakeHandler>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
-    handshake_function: Option<&'static HandshakeFunction>,
+    mut handshake_handler: T,
     message_handlers: MessageHandlers,
     active_connections: SharedActiveConnections,
 ) {
@@ -81,17 +95,9 @@ pub(crate) fn new_peer(
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = if let Some(handshake_function) = handshake_function {
-            match handshake_function(&self_keypair, &mut endpoint, &listeners, &message_handlers) {
-                Ok(peer_id) => peer_id,
-                Err(err) => {
-                    println!("Handshake error: {:#?}", err);
-                    return;
-                }
-            }
-        } else {
-            endpoint.handshake(&self_keypair).unwrap()
-        };
+        let peer_id = handshake_handler
+            .perform_handshake(&self_keypair, &mut endpoint, &listeners, &message_handlers)
+            .unwrap();
 
         //TODO: Bounded
 

@@ -5,16 +5,10 @@
 
 use massa_signature::KeyPair;
 
-use crate::{
-    error::PeerNetError,
-    handlers::MessageHandlers,
-    network_manager::{ActiveConnections, FallbackFunction, HandshakeFunction},
-    peer_id::PeerId,
-    transports::endpoint::Endpoint,
-};
+use crate::{handlers::MessageHandlers, network_manager::FallbackFunction, peer::HandshakeHandler};
 
 /// Struct containing the configuration for the PeerNet manager.
-pub struct PeerNetConfiguration {
+pub struct PeerNetConfiguration<T: HandshakeHandler> {
     /// Number of peers we want to have in IN connection
     pub max_in_connections: usize,
     /// Number of peers we want to have in OUT connection
@@ -26,20 +20,20 @@ pub struct PeerNetConfiguration {
     pub message_handlers: MessageHandlers,
     /// Optional function to trigger at handshake
     /// (local keypair, endpoint to the peer, remote peer_id, active_connections)
-    pub handshake_function: Option<&'static HandshakeFunction>,
+    pub handshake_handler: T,
     /// Optional function to trigger when we receive a connection from a peer and we don't accept it
     pub fallback_function: Option<&'static FallbackFunction>,
 }
 
-impl Default for PeerNetConfiguration {
-    fn default() -> Self {
+impl<T: HandshakeHandler> PeerNetConfiguration<T> {
+    pub fn default(handshake_handler: T) -> Self {
         PeerNetConfiguration {
             max_in_connections: 0,
             max_out_connections: 0,
             self_keypair: KeyPair::generate(),
             message_handlers: MessageHandlers::default(),
-            handshake_function: None,
             fallback_function: None,
+            handshake_handler,
         }
     }
 }

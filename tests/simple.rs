@@ -5,12 +5,17 @@ use massa_signature::KeyPair;
 use peernet::{
     config::PeerNetConfiguration,
     network_manager::PeerNetManager,
+    peer::HandshakeHandler,
     peer_id::PeerId,
     transports::{
         OutConnectionConfig, QuicOutConnectionConfig, TcpOutConnectionConfig, TransportType,
     },
 };
 use util::create_clients;
+
+#[derive(Clone)]
+pub struct DefaultHandshake;
+impl HandshakeHandler for DefaultHandshake {}
 
 #[test]
 fn simple() {
@@ -19,9 +24,9 @@ fn simple() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair.clone(),
-        handshake_function: None,
         fallback_function: None,
         message_handlers: Default::default(),
+        handshake_handler: DefaultHandshake,
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -49,7 +54,7 @@ fn two_peers_tcp() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
-        handshake_function: None,
+        handshake_handler: DefaultHandshake {},
         fallback_function: None,
         message_handlers: Default::default(),
     };
@@ -63,9 +68,9 @@ fn two_peers_tcp() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
-        handshake_function: None,
         fallback_function: None,
         message_handlers: Default::default(),
+        handshake_handler: DefaultHandshake {},
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
@@ -89,9 +94,9 @@ fn two_peers_quic() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
-        handshake_function: None,
         fallback_function: None,
         message_handlers: Default::default(),
+        handshake_handler: DefaultHandshake {},
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -103,9 +108,9 @@ fn two_peers_quic() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
-        handshake_function: None,
         fallback_function: None,
         message_handlers: Default::default(),
+        handshake_handler: DefaultHandshake {},
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2

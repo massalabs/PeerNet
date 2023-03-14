@@ -11,7 +11,7 @@ use crate::{
     config::PeerNetConfiguration,
     error::PeerNetError,
     handlers::MessageHandlers,
-    peer::PeerConnection,
+    peer::{HandshakeHandler, PeerConnection},
     peer_id::PeerId,
     transports::{
         endpoint::Endpoint, InternalTransportType, OutConnectionConfig, Transport, TransportType,
@@ -47,18 +47,18 @@ pub type HandshakeFunction = dyn Fn(
 pub(crate) type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
-pub struct PeerNetManager {
-    pub config: PeerNetConfiguration,
+pub struct PeerNetManager<T: HandshakeHandler> {
+    pub config: PeerNetConfiguration<T>,
     pub active_connections: SharedActiveConnections,
-    handshake_function: Option<&'static HandshakeFunction>,
+    handshake_handler: T,
     fallback_function: Option<&'static FallbackFunction>,
     self_keypair: KeyPair,
     transports: HashMap<TransportType, InternalTransportType>,
 }
 
-impl PeerNetManager {
+impl<T: HandshakeHandler> PeerNetManager<T> {
     /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
-    pub fn new(config: PeerNetConfiguration) -> PeerNetManager {
+    pub fn new(config: PeerNetConfiguration<T>) -> PeerNetManager<T> {
         let self_keypair = config.self_keypair.clone();
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_in_connections: 0,
@@ -69,7 +69,7 @@ impl PeerNetManager {
             listeners: Default::default(),
         }));
         PeerNetManager {
-            handshake_function: config.handshake_function.clone(),
+            handshake_handler: config.handshake_handler.clone(),
             fallback_function: config.fallback_function.clone(),
             config,
             self_keypair,
@@ -89,12 +89,15 @@ impl PeerNetManager {
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.handshake_function.clone(),
                 self.fallback_function.clone(),
                 self.config.message_handlers.clone(),
             )
         });
-        transport.start_listener(self.self_keypair.clone(), addr)?;
+        transport.start_listener(
+            self.self_keypair.clone(),
+            addr,
+            self.handshake_handler.clone(),
+        )?;
         Ok(())
     }
 
@@ -109,7 +112,6 @@ impl PeerNetManager {
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.handshake_function.clone(),
                 self.fallback_function.clone(),
                 self.config.message_handlers.clone(),
             )
@@ -136,7 +138,6 @@ impl PeerNetManager {
                 InternalTransportType::from_transport_type(
                     TransportType::from_out_connection_config(&out_connection_config),
                     self.active_connections.clone(),
-                    self.handshake_function.clone(),
                     self.fallback_function.clone(),
                     self.config.message_handlers.clone(),
                 )
@@ -146,6 +147,7 @@ impl PeerNetManager {
             addr,
             timeout,
             out_connection_config.into(),
+            self.handshake_handler.clone(),
         )?;
         Ok(())
     }
@@ -156,7 +158,7 @@ impl PeerNetManager {
     }
 }
 
-impl Drop for PeerNetManager {
+impl<T: HandshakeHandler> Drop for PeerNetManager<T> {
     fn drop(&mut self) {
         {
             let mut active_connections = self.active_connections.write();

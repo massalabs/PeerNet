@@ -9,11 +9,38 @@ use crate::{
     handlers::{MessageHandler, MessageHandlers},
     internal_handlers::peer_management::{announcement::Announcement, PeerInfo},
     network_manager::PeerNetManager,
+    peer::HandshakeHandler,
     peer_id::PeerId,
     transports::{endpoint::Endpoint, OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 
 use super::{PeerDB, SharedPeerDB};
+
+#[derive(Clone)]
+pub struct EmptyHandshake {
+    peer_db: SharedPeerDB,
+}
+
+impl HandshakeHandler for EmptyHandshake {
+    fn perform_handshake(
+        &mut self,
+        _: &KeyPair,
+        endpoint: &mut Endpoint,
+        _: &HashMap<SocketAddr, TransportType>,
+        _: &MessageHandlers,
+    ) -> Result<PeerId, PeerNetError> {
+        let data = endpoint.receive()?;
+        let peer_id = PeerId::from_bytes(&data[..32].try_into().unwrap())?;
+        let announcement = Announcement::from_bytes(&data[32..], &peer_id)?;
+        self.peer_db.write().peers.insert(
+            peer_id.clone(),
+            PeerInfo {
+                last_announce: announcement,
+            },
+        );
+        Ok(peer_id)
+    }
+}
 
 pub struct Tester {
     handler: Option<JoinHandle<()>>,
@@ -22,15 +49,9 @@ pub struct Tester {
 impl Tester {
     pub fn new(peer_db: SharedPeerDB, listener: (SocketAddr, TransportType)) -> Self {
         let handle = std::thread::spawn(move || {
-            let mut message_handlers: MessageHandlers = Default::default();
-            let (_announcement_handle, announcement_handler) =
-                AnnouncementHandler::new(peer_db.clone());
-            message_handlers.add_handler(0, MessageHandler::new(announcement_handler));
-            let mut config = PeerNetConfiguration::default();
-            config.handshake_function = Some(&empty_handshake);
+            let mut config = PeerNetConfiguration::default(EmptyHandshake { peer_db });
             config.fallback_function = Some(&empty_fallback);
             config.max_out_connections = 1;
-            config.message_handlers = message_handlers;
             let mut network_manager = PeerNetManager::new(config);
             network_manager
                 .try_connect(
@@ -45,52 +66,6 @@ impl Tester {
             handler: Some(handle),
         }
     }
-}
-
-struct AnnouncementHandler {
-    join_handle: Option<JoinHandle<()>>,
-}
-
-impl AnnouncementHandler {
-    fn new(peer_db: SharedPeerDB) -> (Self, Sender<(PeerId, Vec<u8>)>) {
-        let (sender, receiver) = crossbeam::channel::unbounded::<(PeerId, Vec<u8>)>();
-        let handle = std::thread::spawn(move || match receiver.recv() {
-            Ok((_, message)) => {
-                let peer_id = PeerId::from_bytes(&message[..32].try_into().unwrap()).unwrap();
-                let announcement = Announcement::from_bytes(&message[32..], &peer_id).unwrap();
-                {
-                    let mut peer_db = peer_db.write();
-                    println!("Received announcement TESTER: {:?}", announcement);
-                    peer_db.peers.insert(
-                        peer_id,
-                        PeerInfo {
-                            last_announce: announcement,
-                        },
-                    );
-                }
-            }
-            Err(err) => {
-                println!("Error while receiving announcement: {}", err);
-            }
-        });
-        (
-            Self {
-                join_handle: Some(handle),
-            },
-            sender,
-        )
-    }
-}
-
-pub fn empty_handshake(
-    keypair: &KeyPair,
-    _endpoint: &mut Endpoint,
-    _listeners: &HashMap<SocketAddr, TransportType>,
-    _message_handlers: &MessageHandlers,
-) -> Result<PeerId, PeerNetError> {
-    //endpoint.receive()?;
-    //ADd peer db
-    Ok(PeerId::from_public_key(keypair.get_public_key()))
 }
 
 pub fn empty_fallback(

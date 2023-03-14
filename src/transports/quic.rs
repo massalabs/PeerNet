@@ -15,7 +15,7 @@ use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
     network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections},
-    peer::new_peer,
+    peer::{new_peer, HandshakeHandler},
     peer_id::PeerId,
     transports::Endpoint,
 };
@@ -27,7 +27,6 @@ const STOP_LISTENER: Token = Token(10);
 
 pub(crate) struct QuicTransport {
     pub active_connections: SharedActiveConnections,
-    pub handshake_function: Option<&'static HandshakeFunction>,
     pub fallback_function: Option<&'static FallbackFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
@@ -77,13 +76,11 @@ pub struct QuicOutConnectionConfig {
 impl QuicTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
-        handshake_function: Option<&'static HandshakeFunction>,
         fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
     ) -> QuicTransport {
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
-            handshake_function,
             fallback_function,
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
@@ -98,10 +95,11 @@ impl Transport for QuicTransport {
 
     type Endpoint = QuicEndpoint;
 
-    fn start_listener(
+    fn start_listener<T: HandshakeHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
+        handshake_handler: T,
     ) -> Result<(), PeerNetError> {
         let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         //TODO: Configurable capacity
@@ -128,7 +126,6 @@ impl Transport for QuicTransport {
         let listener_handle = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let message_handlers = self.message_handlers.clone();
-            let handshake_function = self.handshake_function.clone();
             let fallback_function = self.fallback_function.clone();
             let server = server.try_clone().unwrap();
             move || {
@@ -228,7 +225,7 @@ impl Transport for QuicTransport {
                                                 data_receiver: recv_rx,
                                                 data_sender: send_tx,
                                             }),
-                                            handshake_function.clone(),
+                                            handshake_handler.clone(),
                                             message_handlers.clone(),
                                             active_connections.clone(),
                                         );
@@ -335,12 +332,13 @@ impl Transport for QuicTransport {
         Ok(())
     }
 
-    fn try_connect(
+    fn try_connect<T: HandshakeHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         _timeout: Duration,
         config: &Self::OutConnectionConfig,
+        handshake_handler: T,
     ) -> Result<(), PeerNetError> {
         //TODO: Use timeout
         let config = config.clone();
@@ -350,7 +348,11 @@ impl Transport for QuicTransport {
                 .get(&config.local_addr)
                 .expect("Listener not found")
         } else {
-            self.start_listener(self_keypair.clone(), config.local_addr)?;
+            self.start_listener(
+                self_keypair.clone(),
+                config.local_addr,
+                handshake_handler.clone(),
+            )?;
             //TODO: Make things more elegant with waker etc
             std::thread::sleep(Duration::from_millis(100));
             self.listeners
@@ -362,7 +364,6 @@ impl Transport for QuicTransport {
             let active_connections = self.active_connections.clone();
             let message_handlers = self.message_handlers.clone();
             let wg = self.out_connection_attempts.clone();
-            let handshake_function = self.handshake_function.clone();
             move || {
                 let mut out = [0; 65507];
                 println!("Connecting to {}", address);
@@ -428,7 +429,7 @@ impl Transport for QuicTransport {
                         data_receiver: recv_rx,
                         data_sender: send_tx,
                     }),
-                    handshake_function.clone(),
+                    handshake_handler.clone(),
                     message_handlers.clone(),
                     active_connections.clone(),
                 );
