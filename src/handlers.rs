@@ -17,7 +17,7 @@ impl MessageHandler {
         MessageHandler { sender }
     }
 
-    pub(crate) fn send_message(&self, message: (PeerId, Vec<u8>)) -> Result<(), PeerNetError> {
+    pub fn send_message(&self, message: (PeerId, Vec<u8>)) -> Result<(), PeerNetError> {
         //TODO: Add timeout
         self.sender
             .send(message)
