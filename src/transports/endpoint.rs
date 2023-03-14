@@ -17,13 +17,13 @@ pub enum Endpoint {
 }
 
 impl Endpoint {
-    pub(crate) fn send(&mut self, data: &[u8]) -> Result<(), PeerNetError> {
+    pub fn send(&mut self, data: &[u8]) -> Result<(), PeerNetError> {
         match self {
             Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint, data),
             Endpoint::Quic(endpoint) => QuicTransport::send(endpoint, data),
         }
     }
-    pub(crate) fn receive(&mut self) -> Result<Vec<u8>, PeerNetError> {
+    pub fn receive(&mut self) -> Result<Vec<u8>, PeerNetError> {
         match self {
             Endpoint::Tcp(endpoint) => TcpTransport::receive(endpoint),
             Endpoint::Quic(endpoint) => QuicTransport::receive(endpoint),
