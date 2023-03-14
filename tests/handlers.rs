@@ -5,9 +5,6 @@ use peernet::types::KeyPair;
 use peernet::{
     config::PeerNetConfiguration,
     handlers::MessageHandlers,
-    internal_handlers::peer_management::{
-        fallback_function, handshake, InitialPeers, PeerManagementHandler,
-    },
     network_manager::PeerNetManager,
     peer::HandshakeHandler,
     peer_id::PeerId,
