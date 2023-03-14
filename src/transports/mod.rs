@@ -21,11 +21,12 @@ mod tcp;
 
 use massa_signature::KeyPair;
 pub use quic::QuicOutConnectionConfig;
+use serde::{Serialize, Deserialize};
 pub use tcp::TcpOutConnectionConfig;
 
 /// Define the different transports available
 /// TODO: Maybe try to fusion with the InternalTransportType enum above
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum TransportType {
     Tcp = 0,

@@ -520,6 +520,7 @@ dependencies = [
  "parking_lot",
  "quiche",
  "rand 0.8.5",
+ "serde",
 ]
 
 [[package]]
