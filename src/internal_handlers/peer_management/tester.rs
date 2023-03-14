@@ -17,8 +17,30 @@ use crate::{
 use super::{PeerDB, SharedPeerDB};
 
 #[derive(Clone)]
-pub struct EmptyHandshake;
-impl HandshakeHandler for EmptyHandshake {}
+pub struct EmptyHandshake {
+    peer_db: SharedPeerDB,
+}
+
+impl HandshakeHandler for EmptyHandshake {
+    fn perform_handshake(
+        &mut self,
+        keypair: &KeyPair,
+        endpoint: &mut Endpoint,
+        _: &HashMap<SocketAddr, TransportType>,
+        _: &MessageHandlers,
+    ) -> Result<PeerId, PeerNetError> {
+        let id = PeerId::from_public_key(keypair.get_public_key());
+        let announcement_data = endpoint.receive()?;
+        let announcement = Announcement::from_bytes(&announcement_data[..32], &id)?;
+        self.peer_db.write().peers.insert(
+            id.clone(),
+            PeerInfo {
+                last_announce: announcement,
+            },
+        );
+        Ok(id)
+    }
+}
 
 pub struct Tester {
     handler: Option<JoinHandle<()>>,
@@ -31,7 +53,7 @@ impl Tester {
             let (_announcement_handle, announcement_handler) =
                 AnnouncementHandler::new(peer_db.clone());
             message_handlers.add_handler(0, MessageHandler::new(announcement_handler));
-            let mut config = PeerNetConfiguration::default(EmptyHandshake {});
+            let mut config = PeerNetConfiguration::default(EmptyHandshake { peer_db });
             config.fallback_function = Some(&empty_fallback);
             config.max_out_connections = 1;
             config.message_handlers = message_handlers;

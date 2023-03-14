@@ -14,8 +14,8 @@ use peernet::{
 use util::create_clients;
 
 #[derive(Clone)]
-pub struct EmptyHandshake;
-impl HandshakeHandler for EmptyHandshake {}
+pub struct DefaultHandshake;
+impl HandshakeHandler for DefaultHandshake {}
 
 #[test]
 fn simple() {
@@ -26,7 +26,7 @@ fn simple() {
         self_keypair: keypair.clone(),
         fallback_function: None,
         message_handlers: Default::default(),
-        handshake_handler: EmptyHandshake,
+        handshake_handler: DefaultHandshake,
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -54,7 +54,7 @@ fn two_peers_tcp() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
-        handshake_handler: EmptyHandshake {},
+        handshake_handler: DefaultHandshake {},
         fallback_function: None,
         message_handlers: Default::default(),
     };
@@ -70,7 +70,7 @@ fn two_peers_tcp() {
         self_keypair: keypair2.clone(),
         fallback_function: None,
         message_handlers: Default::default(),
-        handshake_handler: EmptyHandshake {},
+        handshake_handler: DefaultHandshake {},
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
@@ -96,7 +96,7 @@ fn two_peers_quic() {
         self_keypair: keypair1.clone(),
         fallback_function: None,
         message_handlers: Default::default(),
-        handshake_handler: EmptyHandshake {},
+        handshake_handler: DefaultHandshake {},
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -110,7 +110,7 @@ fn two_peers_quic() {
         self_keypair: keypair2.clone(),
         fallback_function: None,
         message_handlers: Default::default(),
-        handshake_handler: EmptyHandshake {},
+        handshake_handler: DefaultHandshake {},
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
