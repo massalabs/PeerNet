@@ -258,7 +258,7 @@ pub fn handshake(
     if received.is_empty() {
         return Err(PeerNetError::InvalidMessage);
     }
-    let mut offset = 8;
+    let mut offset = 0;
     //TODO: We use this to verify the signature before sending it to the handler.
     //This will be done also in the handler but as we are in the handshake we want to do it to invalid the handshake in case it fails.
     let peer_id = PeerId::from_bytes(&received[offset..offset + 32].try_into().unwrap())?;
