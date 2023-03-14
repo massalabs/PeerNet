@@ -30,10 +30,11 @@ impl HandshakeHandler for EmptyHandshake {
         _: &MessageHandlers,
     ) -> Result<PeerId, PeerNetError> {
         let id = PeerId::from_public_key(keypair.get_public_key());
-        let announcement_data = endpoint.receive()?;
-        let announcement = Announcement::from_bytes(&announcement_data[..32], &id)?;
+        let data = endpoint.receive()?;
+        let peer_id = PeerId::from_bytes(&data[..32].try_into().unwrap())?;
+        let announcement = Announcement::from_bytes(&data[32..], &peer_id)?;
         self.peer_db.write().peers.insert(
-            id.clone(),
+            peer_id,
             PeerInfo {
                 last_announce: announcement,
             },
@@ -49,14 +50,9 @@ pub struct Tester {
 impl Tester {
     pub fn new(peer_db: SharedPeerDB, listener: (SocketAddr, TransportType)) -> Self {
         let handle = std::thread::spawn(move || {
-            let mut message_handlers: MessageHandlers = Default::default();
-            let (_announcement_handle, announcement_handler) =
-                AnnouncementHandler::new(peer_db.clone());
-            message_handlers.add_handler(0, MessageHandler::new(announcement_handler));
             let mut config = PeerNetConfiguration::default(EmptyHandshake { peer_db });
             config.fallback_function = Some(&empty_fallback);
             config.max_out_connections = 1;
-            config.message_handlers = message_handlers;
             let mut network_manager = PeerNetManager::new(config);
             network_manager
                 .try_connect(
@@ -70,41 +66,6 @@ impl Tester {
         Self {
             handler: Some(handle),
         }
-    }
-}
-
-struct AnnouncementHandler {
-    join_handle: Option<JoinHandle<()>>,
-}
-
-impl AnnouncementHandler {
-    fn new(peer_db: SharedPeerDB) -> (Self, Sender<(PeerId, Vec<u8>)>) {
-        let (sender, receiver) = crossbeam::channel::unbounded::<(PeerId, Vec<u8>)>();
-        let handle = std::thread::spawn(move || match receiver.recv() {
-            Ok((_, message)) => {
-                let peer_id = PeerId::from_bytes(&message[..32].try_into().unwrap()).unwrap();
-                let announcement = Announcement::from_bytes(&message[32..], &peer_id).unwrap();
-                {
-                    let mut peer_db = peer_db.write();
-                    println!("Received announcement TESTER: {:?}", announcement);
-                    peer_db.peers.insert(
-                        peer_id,
-                        PeerInfo {
-                            last_announce: announcement,
-                        },
-                    );
-                }
-            }
-            Err(err) => {
-                println!("Error while receiving announcement: {}", err);
-            }
-        });
-        (
-            Self {
-                join_handle: Some(handle),
-            },
-            sender,
-        )
     }
 }
 
