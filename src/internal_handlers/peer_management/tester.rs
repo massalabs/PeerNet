@@ -24,22 +24,21 @@ pub struct EmptyHandshake {
 impl HandshakeHandler for EmptyHandshake {
     fn perform_handshake(
         &mut self,
-        keypair: &KeyPair,
+        _: &KeyPair,
         endpoint: &mut Endpoint,
         _: &HashMap<SocketAddr, TransportType>,
         _: &MessageHandlers,
     ) -> Result<PeerId, PeerNetError> {
-        let id = PeerId::from_public_key(keypair.get_public_key());
         let data = endpoint.receive()?;
         let peer_id = PeerId::from_bytes(&data[..32].try_into().unwrap())?;
         let announcement = Announcement::from_bytes(&data[32..], &peer_id)?;
         self.peer_db.write().peers.insert(
-            peer_id,
+            peer_id.clone(),
             PeerInfo {
                 last_announce: announcement,
             },
         );
-        Ok(id)
+        Ok(peer_id)
     }
 }
 
