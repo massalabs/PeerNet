@@ -13,8 +13,8 @@ use crate::transports::Endpoint;
 
 use super::Transport;
 
+use crate::types::KeyPair;
 use crossbeam::sync::WaitGroup;
-use massa_signature::KeyPair;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 

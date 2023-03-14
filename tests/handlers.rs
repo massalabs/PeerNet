@@ -1,7 +1,7 @@
 mod util;
 use std::{collections::HashMap, time::Duration};
 
-use massa_signature::KeyPair;
+use peernet::types::KeyPair;
 use peernet::{
     config::PeerNetConfiguration,
     handlers::MessageHandlers,

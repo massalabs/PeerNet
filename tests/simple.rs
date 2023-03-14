@@ -1,7 +1,7 @@
 mod util;
 use std::{thread::sleep, time::Duration};
 
-use massa_signature::KeyPair;
+use peernet::types::KeyPair;
 use peernet::{
     config::PeerNetConfiguration,
     network_manager::PeerNetManager,

@@ -3,11 +3,11 @@
 use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr, thread::spawn};
 
+use crate::types::KeyPair;
 use crossbeam::{
     channel::{unbounded, Sender, TryRecvError},
     select,
 };
-use massa_signature::KeyPair;
 
 use crate::{
     error::PeerNetError,

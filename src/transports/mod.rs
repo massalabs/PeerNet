@@ -20,7 +20,7 @@ pub mod endpoint;
 mod quic;
 mod tcp;
 
-use massa_signature::KeyPair;
+use crate::types::KeyPair;
 pub use quic::QuicOutConnectionConfig;
 use serde::{Serialize, Deserialize};
 pub use tcp::TcpOutConnectionConfig;

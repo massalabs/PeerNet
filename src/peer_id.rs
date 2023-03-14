@@ -1,7 +1,7 @@
 //! Definition of the PeerId type
 
+use crate::types::{PublicKey, Signature, PUBLIC_KEY_SIZE_BYTES};
 use massa_hash::Hash;
-use massa_signature::{PublicKey, Signature, PUBLIC_KEY_SIZE_BYTES};
 
 use crate::error::PeerNetError;
 

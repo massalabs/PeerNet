@@ -3,7 +3,7 @@
 //! ```rust
 //! use std::{thread::sleep, time::Duration};
 //!
-//! use massa_signature::KeyPair;
+//! use crate::types::KeyPair;
 //! use peernet::{
 //!    config::PeerNetConfiguration,
 //!    network_manager::PeerNetManager,
@@ -62,3 +62,4 @@ pub mod network_manager;
 pub mod peer;
 pub mod peer_id;
 pub mod transports;
+pub mod types;

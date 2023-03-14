@@ -6,8 +6,8 @@ use std::{
     time::Duration,
 };
 
+use crate::types::KeyPair;
 use crossbeam::{channel, sync::WaitGroup};
-use massa_signature::KeyPair;
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
 

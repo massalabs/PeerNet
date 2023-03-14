@@ -4,7 +4,7 @@
 
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
-use massa_signature::KeyPair;
+use crate::types::KeyPair;
 use parking_lot::RwLock;
 
 use crate::{
