@@ -1,10 +1,10 @@
 use massa_hash::Hash;
-use massa_signature::{KeyPair, PublicKey, Signature};
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
 use crate::error::PeerNetError;
 use crate::peer_id::PeerId;
+use crate::types::{KeyPair, PublicKey, Signature};
 
 use super::quic::QuicEndpoint;
 use super::tcp::TcpEndpoint;

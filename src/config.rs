@@ -3,7 +3,7 @@
 //! This module contains the configuration for the PeerNet manager.
 //! It regroups all the information needed to initialize a PeerNet manager.
 
-use massa_signature::KeyPair;
+use crate::types::KeyPair;
 
 use crate::{handlers::MessageHandlers, network_manager::FallbackFunction, peer::HandshakeHandler};
 
