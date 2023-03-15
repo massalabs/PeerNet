@@ -522,6 +522,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "stream_limiter",
+ "thiserror",
 ]
 
 [[package]]

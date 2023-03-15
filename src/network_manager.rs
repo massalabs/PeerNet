@@ -2,6 +2,7 @@
 //!
 //! It is the entry point of the library and is used to create and manage the transports and the peers.
 
+use std::thread::JoinHandle;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::types::KeyPair;
@@ -9,7 +10,7 @@ use parking_lot::RwLock;
 
 use crate::{
     config::PeerNetConfiguration,
-    error::PeerNetError,
+    error::PeerNetResult,
     handlers::MessageHandlers,
     peer::{HandshakeHandler, PeerConnection},
     peer_id::PeerId,
@@ -35,14 +36,14 @@ pub type FallbackFunction = dyn Fn(
         &mut Endpoint,
         &HashMap<SocketAddr, TransportType>,
         &MessageHandlers,
-    ) -> Result<(), PeerNetError>
+    ) -> PeerNetResult<()>
     + Sync;
 pub type HandshakeFunction = dyn Fn(
         &KeyPair,
         &mut Endpoint,
         &HashMap<SocketAddr, TransportType>,
         &MessageHandlers,
-    ) -> Result<PeerId, PeerNetError>
+    ) -> PeerNetResult<PeerId>
     + Sync;
 pub type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 
@@ -84,7 +85,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
         &mut self,
         transport_type: TransportType,
         addr: SocketAddr,
-    ) -> Result<(), PeerNetError> {
+    ) -> PeerNetResult<()> {
         let transport = self.transports.entry(transport_type).or_insert_with(|| {
             InternalTransportType::from_transport_type(
                 transport_type,
@@ -107,7 +108,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
         &mut self,
         transport_type: TransportType,
         addr: SocketAddr,
-    ) -> Result<(), PeerNetError> {
+    ) -> PeerNetResult<()> {
         let transport = self.transports.entry(transport_type).or_insert_with(|| {
             InternalTransportType::from_transport_type(
                 transport_type,
@@ -128,7 +129,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
         addr: SocketAddr,
         timeout: std::time::Duration,
         out_connection_config: &OutConnectionConfig,
-    ) -> Result<(), PeerNetError> {
+    ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let transport = self
             .transports
             .entry(TransportType::from_out_connection_config(
@@ -148,8 +149,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
             timeout,
             out_connection_config.into(),
             self.handshake_handler.clone(),
-        )?;
-        Ok(())
+        )
     }
 
     /// Get the nb_in_connections of manager
