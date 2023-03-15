@@ -95,9 +95,15 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = handshake_handler
-            .perform_handshake(&self_keypair, &mut endpoint, &listeners, &message_handlers)
-            .unwrap();
+        let peer_id = match handshake_handler
+            .perform_handshake(&self_keypair, &mut endpoint, &listeners, &message_handlers) {
+                Ok(peer_id) => peer_id,
+                Err(err) => {
+                    println!("Handshake error: {:?}", err);
+                    return;
+                }
+            };
+            
 
         //TODO: Bounded
 
