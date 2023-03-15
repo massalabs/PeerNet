@@ -1,5 +1,7 @@
 //! Error types for the PeerNet library
 
+use std::fmt::Display;
+
 //TODO: Increase consistency of error handling this structure has been created just to have a place to put the errors but not designed yet.
 /// Error types for the PeerNet library
 #[derive(Debug)]
@@ -24,4 +26,10 @@ pub enum PeerNetError {
     SignError(String),
     /// Error invalid message
     InvalidMessage,
+}
+
+impl Display for PeerNetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_string())
+    }
 }
