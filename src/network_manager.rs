@@ -44,7 +44,7 @@ pub type HandshakeFunction = dyn Fn(
         &MessageHandlers,
     ) -> Result<PeerId, PeerNetError>
     + Sync;
-pub(crate) type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
+pub type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
 pub struct PeerNetManager<T: HandshakeHandler> {
