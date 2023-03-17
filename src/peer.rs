@@ -128,12 +128,20 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
         // SPAWN WRITING THREAD
         //TODO: Bound
         let mut write_endpoint = endpoint.clone();
+        let write_active_connections = active_connections.clone();
+        let write_peer_id = peer_id.clone();
         // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn(move || loop {
             match high_write_rx.try_recv() {
                 Ok(data) => {
                     println!("writer thread: high priority message received");
-                    write_endpoint.send(&data).unwrap();
+                    if write_endpoint.send(&data).is_err() {
+                        write_active_connections
+                            .write()
+                            .connections
+                            .remove(&write_peer_id)
+                            .expect("Unable to remove peer id");
+                    }
                     continue;
                 }
                 Err(TryRecvError::Empty) => {}
@@ -147,7 +155,9 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                     match msg {
                         Ok(data) => {
                             println!("writer thread: low priority message received");
-                            write_endpoint.send(&data).unwrap();
+                            if write_endpoint.send(&data).is_err() {
+                                write_active_connections.write().connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                            }
                         }
                         Err(_) => {
                             println!("writer thread: disconnected");
@@ -159,7 +169,9 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                     match msg {
                         Ok(data) => {
                             println!("writer thread: high priority message received");
-                            write_endpoint.send(&data).unwrap();
+                            if write_endpoint.send(&data).is_err() {
+                                write_active_connections.write().connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                            }
                         }
                         Err(_) => {
                             println!("writer thread: disconnected");
