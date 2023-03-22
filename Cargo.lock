@@ -521,6 +521,7 @@ dependencies = [
  "quiche",
  "rand 0.8.5",
  "serde",
+ "stream_limiter",
 ]
 
 [[package]]
@@ -724,6 +725,11 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "stream_limiter"
+version = "1.0.0"
+source = "git+https://github.com/massalabs/stream_limiter#17dbc6efb47d6a46ad6540d56d81a70c1a9d68b0"
 
 [[package]]
 name = "subtle"
