@@ -111,6 +111,11 @@ impl Transport for TcpTransport {
                                 //TODO: Error handling
                                 //TODO: Use rate limiting
                                 let (stream, address) = server.accept().unwrap();
+                                if !active_connections.read().check_addr_accepted(&address) {
+                                    println!("Address {:?} refused", address);
+                                    continue;
+                                }
+                                println!("Address {:?}, accepted", address);
                                 let mut endpoint = Endpoint::Tcp(TcpEndpoint { address, stream });
                                 {
                                     let mut active_connections = active_connections.write();

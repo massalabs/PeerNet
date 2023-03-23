@@ -29,6 +29,21 @@ pub struct ActiveConnections {
     pub connections: HashMap<PeerId, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
+
+impl ActiveConnections {
+    /// Check if an address has to be refused or not
+    pub fn check_addr_accepted(&self, addr: &SocketAddr) -> bool {
+        if self.connections.is_empty() {
+            true
+        } else {
+            !self
+                .connections
+                .iter()
+                .any(|(_, connection)| connection.endpoint.get_target_addr().ip() != addr.ip())
+        }
+    }
+}
+
 // Send some data to a peer that we didn't accept his connection
 pub type FallbackFunction = dyn Fn(
         &KeyPair,

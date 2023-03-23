@@ -56,6 +56,7 @@ pub(crate) enum QuicInternalMessage {
 pub struct QuicEndpoint {
     pub(crate) data_sender: channel::Sender<QuicInternalMessage>,
     pub(crate) data_receiver: channel::Receiver<QuicInternalMessage>,
+    pub address: SocketAddr,
 }
 
 impl QuicEndpoint {
@@ -224,6 +225,7 @@ impl Transport for QuicTransport {
                                             Endpoint::Quic(QuicEndpoint {
                                                 data_receiver: recv_rx,
                                                 data_sender: send_tx,
+                                                address: address,
                                             }),
                                             handshake_handler.clone(),
                                             message_handlers.clone(),
@@ -428,6 +430,7 @@ impl Transport for QuicTransport {
                     Endpoint::Quic(QuicEndpoint {
                         data_receiver: recv_rx,
                         data_sender: send_tx,
+                        address: address,
                     }),
                     handshake_handler.clone(),
                     message_handlers.clone(),
