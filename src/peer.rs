@@ -103,7 +103,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                     return;
                 }
             };
-            
+
 
         //TODO: Bounded
 
@@ -141,6 +141,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                             .connections
                             .remove(&write_peer_id)
                             .expect("Unable to remove peer id");
+                        break;
                     }
                     continue;
                 }
@@ -157,6 +158,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                             println!("writer thread: low priority message received");
                             if write_endpoint.send(&data).is_err() {
                                 write_active_connections.write().connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                break;
                             }
                         }
                         Err(_) => {
@@ -171,6 +173,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                             println!("writer thread: high priority message received");
                             if write_endpoint.send(&data).is_err() {
                                 write_active_connections.write().connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                break;
                             }
                         }
                         Err(_) => {
@@ -189,7 +192,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                         println!("Peer stop");
                         {
                             let mut active_connections = active_connections.write();
-                            active_connections.connections.remove(&peer_id);
+                            active_connections.connections.remove(&peer_id).expect("Unable to remove peer id");
                         }
                         let _ = write_thread_handle.join();
                         return;
@@ -209,6 +212,10 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                 }
                 Err(err) => {
                     println!("Peer err {:?}", err);
+                    let mut active_connections = active_connections.write();
+                    active_connections.connections.remove(&peer_id).expect("Unable to remove peer id");
+                    let _ = write_thread_handle.join();
+                    return;
                 }
             }
         }
