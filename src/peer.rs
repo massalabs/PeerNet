@@ -190,10 +190,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                 Ok(data) => {
                     if data.is_empty() {
                         println!("Peer stop");
-                        {
-                            let mut active_connections = active_connections.write();
-                            active_connections.connections.remove(&peer_id).expect("Unable to remove peer id");
-                        }
+                        active_connections.write().connections.remove(&peer_id).expect("Unable to remove peer id");
                         let _ = write_thread_handle.join();
                         return;
                     }
@@ -212,8 +209,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                 }
                 Err(err) => {
                     println!("Peer err {:?}", err);
-                    let mut active_connections = active_connections.write();
-                    active_connections.connections.remove(&peer_id).expect("Unable to remove peer id");
+                    active_connections.write().connections.remove(&peer_id).expect("Unable to remove peer id");
                     let _ = write_thread_handle.join();
                     return;
                 }
