@@ -15,8 +15,6 @@ env:
   CARGO_BACKTRACE: full
   RUSTFLAGS: "--deny warnings"
 
-name: Check and Lint
-
 jobs:
   check:
     name: Check
