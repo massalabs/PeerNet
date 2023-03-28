@@ -4,6 +4,10 @@ on:
     branches:
       - main
 
+env:
+  CARGO_BACKTRACE: full
+  RUSTFLAGS: "--deny warnings"
+
 name: Check and Lint
 
 jobs:
@@ -52,3 +56,12 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
+
+  security_audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
