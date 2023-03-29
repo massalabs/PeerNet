@@ -17,6 +17,7 @@ use crate::types::KeyPair;
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
+use stream_limiter::Limiter;
 
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
@@ -28,6 +29,7 @@ pub(crate) struct TcpTransport {
 
 const NEW_CONNECTION: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
+const RATE_LIMIT: u128 = 10 * 1024;
 
 #[derive(Clone)]
 pub struct TcpOutConnectionConfig;
@@ -35,21 +37,25 @@ pub struct TcpOutConnectionConfig;
 //TODO: IN/OUT different types because TCP ports are not reliable
 pub struct TcpEndpoint {
     pub address: SocketAddr,
-    pub stream: TcpStream,
+    pub stream: Limiter<TcpStream>,
 }
 
 impl Clone for TcpEndpoint {
     fn clone(&self) -> Self {
         TcpEndpoint {
             address: self.address,
-            stream: self.stream.try_clone().unwrap(),
+            stream: Limiter::new(
+                self.stream.stream.try_clone().unwrap(),
+                RATE_LIMIT,
+                Duration::from_secs(1),
+            ),
         }
     }
 }
 
 impl TcpEndpoint {
     pub fn shutdown(&mut self) {
-        let _ = self.stream.shutdown(std::net::Shutdown::Both);
+        let _ = self.stream.stream.shutdown(std::net::Shutdown::Both);
     }
 }
 
@@ -109,14 +115,20 @@ impl Transport for TcpTransport {
                         match event.token() {
                             NEW_CONNECTION => {
                                 //TODO: Error handling
-                                //TODO: Use rate limiting
                                 let (stream, address) = server.accept().unwrap();
                                 if !active_connections.read().check_addr_accepted(&address) {
                                     println!("Address {:?} refused", address);
                                     continue;
                                 }
                                 println!("Address {:?}, accepted", address);
-                                let mut endpoint = Endpoint::Tcp(TcpEndpoint { address, stream });
+                                let mut endpoint = Endpoint::Tcp(TcpEndpoint {
+                                    address,
+                                    stream: Limiter::new(
+                                        stream,
+                                        RATE_LIMIT,
+                                        Duration::from_secs(1),
+                                    ),
+                                });
                                 {
                                     let mut active_connections = active_connections.write();
                                     if active_connections.nb_in_connections
@@ -178,10 +190,10 @@ impl Transport for TcpTransport {
             let wg = self.out_connection_attempts.clone();
             let message_handlers = self.message_handlers.clone();
             move || {
-                //TODO: Rate limiting
                 let Ok(stream) = TcpStream::connect_timeout(&address, timeout) else {
-                return;
+                    return;
                 };
+                let stream = Limiter::new(stream, RATE_LIMIT, Duration::from_secs(1));
                 println!("Connected to {}", address);
 
                 {
@@ -229,7 +241,6 @@ impl Transport for TcpTransport {
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError> {
-        //TODO: Rate limiting
         endpoint
             .stream
             .write(&data.len().to_le_bytes())
@@ -242,7 +253,6 @@ impl Transport for TcpTransport {
     }
 
     fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
-        //TODO: Rate limiting
         let mut len_bytes = [0u8; 8];
         endpoint
             .stream
