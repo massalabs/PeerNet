@@ -100,11 +100,17 @@ impl Transport for TcpTransport {
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut mio_server, NEW_CONNECTION, Interest::READABLE)
-                    .unwrap_or_else(|_| panic!("Can't register polling on TCP transport of address {}", address));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Can't register polling on TCP transport of address {}",
+                            address
+                        )
+                    });
                 loop {
                     // Poll Mio for events, blocking until we get an event.
-                    poll.poll(&mut events, None)
-                        .unwrap_or_else(|_| panic!("Can't poll TCP transport of address {}", address));
+                    poll.poll(&mut events, None).unwrap_or_else(|_| {
+                        panic!("Can't poll TCP transport of address {}", address)
+                    });
 
                     // Process each event.
                     for event in events.iter() {

@@ -25,7 +25,12 @@ use super::Transport;
 const NEW_PACKET_SERVER: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
-type QuicConnection = (quiche::Connection, channel::Receiver<QuicInternalMessage>, channel::Sender<QuicInternalMessage>, bool);
+type QuicConnection = (
+    quiche::Connection,
+    channel::Receiver<QuicInternalMessage>,
+    channel::Sender<QuicInternalMessage>,
+    bool,
+);
 type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
 
 pub(crate) struct QuicTransport {
@@ -124,14 +129,20 @@ impl Transport for QuicTransport {
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut socket, NEW_PACKET_SERVER, Interest::READABLE)
-                    .unwrap_or_else(|_| panic!("Can't register polling on QUIC transport of address {}",
-                        address));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Can't register polling on QUIC transport of address {}",
+                            address
+                        )
+                    });
                 let mut buf = [0; 65507];
                 loop {
                     // Poll Mio for events, blocking until we get an event.
                     //TODO: Configurable timeout (cf. https://github.com/cloudflare/quiche/blob/master/apps/src/bin/quiche-server.rs#L177)
                     poll.poll(&mut events, Some(Duration::from_millis(100)))
-                        .unwrap_or_else(|_| panic!("Can't poll QUIC transport of address {}", address));
+                        .unwrap_or_else(|_| {
+                            panic!("Can't poll QUIC transport of address {}", address)
+                        });
 
                     // Process each event.
                     for event in events.iter() {
