@@ -39,7 +39,7 @@ impl ActiveConnections {
             !self
                 .connections
                 .iter()
-                .any(|(_, connection)| connection.endpoint.get_target_addr().ip() != addr.ip())
+                .any(|(_, connection)| connection.endpoint.get_target_addr().ip() == addr.ip())
         }
     }
 }
