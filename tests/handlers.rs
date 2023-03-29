@@ -1,5 +1,5 @@
 mod util;
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use peernet::types::KeyPair;
 use peernet::{

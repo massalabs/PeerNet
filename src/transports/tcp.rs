@@ -6,9 +6,8 @@ use std::time::Duration;
 
 use crate::error::PeerNetError;
 use crate::handlers::MessageHandlers;
-use crate::network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections};
+use crate::network_manager::{FallbackFunction, SharedActiveConnections};
 use crate::peer::{new_peer, HandshakeHandler};
-use crate::peer_id::PeerId;
 use crate::transports::Endpoint;
 
 use super::Transport;

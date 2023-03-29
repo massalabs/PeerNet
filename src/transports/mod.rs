@@ -7,11 +7,8 @@ use std::{net::SocketAddr, time::Duration};
 use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
-    network_manager::{
-        ActiveConnections, FallbackFunction, HandshakeFunction, SharedActiveConnections,
-    },
+    network_manager::{FallbackFunction, SharedActiveConnections},
     peer::HandshakeHandler,
-    peer_id::PeerId,
 };
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};

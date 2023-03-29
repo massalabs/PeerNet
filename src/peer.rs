@@ -22,8 +22,8 @@ pub trait HandshakeHandler: Send + Clone + 'static {
         &mut self,
         keypair: &KeyPair,
         endpoint: &mut Endpoint,
-        listeners: &HashMap<SocketAddr, TransportType>,
-        handlers: &MessageHandlers,
+        _listeners: &HashMap<SocketAddr, TransportType>,
+        _handlers: &MessageHandlers,
     ) -> Result<PeerId, PeerNetError> {
         endpoint.handshake(&keypair)
     }
@@ -103,7 +103,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                     return;
                 }
             };
-            
+
 
         //TODO: Bounded
 

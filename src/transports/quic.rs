@@ -14,7 +14,7 @@ use parking_lot::RwLock;
 use crate::{
     error::PeerNetError,
     handlers::MessageHandlers,
-    network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections},
+    network_manager::{FallbackFunction, SharedActiveConnections},
     peer::{new_peer, HandshakeHandler},
     peer_id::PeerId,
     transports::Endpoint,
@@ -27,7 +27,7 @@ const STOP_LISTENER: Token = Token(10);
 
 pub(crate) struct QuicTransport {
     pub active_connections: SharedActiveConnections,
-    pub fallback_function: Option<&'static FallbackFunction>,
+    //pub fallback_function: Option<&'static FallbackFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<()>)>,
@@ -76,12 +76,12 @@ pub struct QuicOutConnectionConfig {
 impl QuicTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
-        fallback_function: Option<&'static FallbackFunction>,
+        _fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
     ) -> QuicTransport {
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
-            fallback_function,
+            //fallback_function,
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
@@ -126,7 +126,7 @@ impl Transport for QuicTransport {
         let listener_handle = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let message_handlers = self.message_handlers.clone();
-            let fallback_function = self.fallback_function.clone();
+            // let fallback_function = self.fallback_function.clone();
             let server = server.try_clone().unwrap();
             move || {
                 let mut socket = MioUdpSocket::from_std(server);
