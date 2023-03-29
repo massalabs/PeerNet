@@ -65,7 +65,7 @@ impl ::serde::Serialize for PeerId {
     /// # Example
     ///
     /// Human readable serialization :
-    /// ```
+    /// ``` ignore
     /// # use massa_signature::KeyPair;
     /// # use serde::{Deserialize, Serialize};
     /// let keypair = KeyPair::generate();

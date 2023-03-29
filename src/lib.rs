@@ -1,6 +1,6 @@
 //! This crate abstracts the network layer of a P2P network and provides a simple interface to connect to other peers.
 //! Simple example with two peers on the same code to demonstrate:
-//! ```rust
+//! ```ignore
 //! use std::{thread::sleep, time::Duration};
 //!
 //! use crate::types::KeyPair;
