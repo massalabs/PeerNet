@@ -210,7 +210,6 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                 Err(err) => {
                     println!("Peer err {:?}", err);
                     active_connections.write().connections.remove(&peer_id).expect("Unable to remove peer id");
-                    let _ = write_thread_handle.join();
                     return;
                 }
             }
