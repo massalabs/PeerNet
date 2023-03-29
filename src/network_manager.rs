@@ -31,7 +31,7 @@ pub struct ActiveConnections {
 }
 
 impl ActiveConnections {
-    /// Check if an address has to be refused or not
+    /// Check if a new connection from a specific address can be accepted or not
     pub fn check_addr_accepted(&self, addr: &SocketAddr) -> bool {
         if self.connections.is_empty() {
             true
