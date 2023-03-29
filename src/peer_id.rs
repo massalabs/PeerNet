@@ -1,8 +1,11 @@
 //! Definition of the PeerId type
 
-use crate::types::{Signature, PUBLIC_KEY_SIZE_BYTES, PublicKey};
+use crate::types::{PublicKey, Signature, PUBLIC_KEY_SIZE_BYTES};
 use massa_hash::Hash;
-use std::{fmt::{Display, Formatter}, str::FromStr};
+use std::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 use crate::error::PeerNetError;
 
@@ -57,7 +60,6 @@ impl FromStr for PeerId {
         })
     }
 }
-
 
 impl ::serde::Serialize for PeerId {
     /// `::serde::Serialize` trait for `PeerId`

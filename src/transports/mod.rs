@@ -19,7 +19,7 @@ mod tcp;
 
 use crate::types::KeyPair;
 pub use quic::QuicOutConnectionConfig;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 pub use tcp::TcpOutConnectionConfig;
 
 /// Define the different transports available
