@@ -70,7 +70,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
         }));
         PeerNetManager {
             handshake_handler: config.handshake_handler.clone(),
-            fallback_function: config.fallback_function.clone(),
+            fallback_function: config.fallback_function,
             config,
             self_keypair,
             transports: Default::default(),
@@ -89,7 +89,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.fallback_function.clone(),
+                self.fallback_function,
                 self.config.message_handlers.clone(),
             )
         });
@@ -112,7 +112,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.fallback_function.clone(),
+                self.fallback_function,
                 self.config.message_handlers.clone(),
             )
         });
@@ -132,13 +132,13 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
         let transport = self
             .transports
             .entry(TransportType::from_out_connection_config(
-                &out_connection_config,
+                out_connection_config,
             ))
             .or_insert_with(|| {
                 InternalTransportType::from_transport_type(
-                    TransportType::from_out_connection_config(&out_connection_config),
+                    TransportType::from_out_connection_config(out_connection_config),
                     self.active_connections.clone(),
-                    self.fallback_function.clone(),
+                    self.fallback_function,
                     self.config.message_handlers.clone(),
                 )
             });
@@ -146,7 +146,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
             self.self_keypair.clone(),
             addr,
             timeout,
-            out_connection_config.into(),
+            out_connection_config,
             self.handshake_handler.clone(),
         )?;
         Ok(())

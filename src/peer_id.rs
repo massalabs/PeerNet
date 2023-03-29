@@ -46,7 +46,7 @@ impl PeerId {
 
 impl Display for PeerId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.public_key.to_string())
+        write!(f, "{}", self.public_key)
     }
 }
 

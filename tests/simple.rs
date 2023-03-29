@@ -77,7 +77,7 @@ fn two_peers_tcp() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {}),
+            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -118,10 +118,10 @@ fn two_peers_quic() {
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(5),
             //TODO: Use the one in manager instead of asking. Need a wrapper structure ?
-            &mut OutConnectionConfig::Quic(QuicOutConnectionConfig {
+            &mut OutConnectionConfig::Quic(Box::new(QuicOutConnectionConfig {
                 identity: PeerId::from_public_key(keypair1.get_public_key()),
                 local_addr: "127.0.0.1:8083".parse().unwrap(),
-            }),
+            })),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(5));

@@ -30,6 +30,6 @@ pub enum PeerNetError {
 
 impl Display for PeerNetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_string())
+        write!(f, "{:?}", self)
     }
 }

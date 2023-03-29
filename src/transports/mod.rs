@@ -52,19 +52,19 @@ pub(crate) enum InternalTransportType {
 /// All configurations for out connection depending on the transport type
 #[derive(Clone)]
 pub enum OutConnectionConfig {
-    Tcp(TcpOutConnectionConfig),
-    Quic(QuicOutConnectionConfig),
+    Tcp(Box<TcpOutConnectionConfig>),
+    Quic(Box<QuicOutConnectionConfig>),
 }
 
 impl From<<TcpTransport as Transport>::OutConnectionConfig> for OutConnectionConfig {
     fn from(inner: TcpOutConnectionConfig) -> Self {
-        OutConnectionConfig::Tcp(inner)
+        OutConnectionConfig::Tcp(Box::new(inner))
     }
 }
 
 impl From<<QuicTransport as Transport>::OutConnectionConfig> for OutConnectionConfig {
     fn from(inner: QuicOutConnectionConfig) -> Self {
-        OutConnectionConfig::Quic(inner)
+        OutConnectionConfig::Quic(Box::new(inner))
     }
 }
 // TODO: Macroize this I don't use enum_dispatch or enum_delegate as it generates a lot of code
@@ -135,7 +135,7 @@ impl Transport for InternalTransportType {
     }
 }
 
-impl<'a> InternalTransportType {
+impl InternalTransportType {
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
         active_connections: SharedActiveConnections,

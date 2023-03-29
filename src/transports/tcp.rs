@@ -95,19 +95,16 @@ impl Transport for TcpTransport {
             let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
-                    .expect(&format!("Can't bind TCP transport to address {}", address));
+                    .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
                 let mut mio_server = MioTcpListener::from_std(server.try_clone().unwrap());
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut mio_server, NEW_CONNECTION, Interest::READABLE)
-                    .expect(&format!(
-                        "Can't register polling on TCP transport of address {}",
-                        address
-                    ));
+                    .unwrap_or_else(|_| panic!("Can't register polling on TCP transport of address {}", address));
                 loop {
                     // Poll Mio for events, blocking until we get an event.
                     poll.poll(&mut events, None)
-                        .expect(&format!("Can't poll TCP transport of address {}", address));
+                        .unwrap_or_else(|_| panic!("Can't poll TCP transport of address {}", address));
 
                     // Process each event.
                     for event in events.iter() {
@@ -230,7 +227,7 @@ impl Transport for TcpTransport {
             .map_err(|e| PeerNetError::ListenerError(e.to_string()))?;
         handle
             .join()
-            .expect(&format!("Couldn't join listener for address {}", address));
+            .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address));
         Ok(())
     }
 

@@ -25,6 +25,9 @@ use super::Transport;
 const NEW_PACKET_SERVER: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
+type QuicConnection = (quiche::Connection, channel::Receiver<QuicInternalMessage>, channel::Sender<QuicInternalMessage>, bool);
+type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
+
 pub(crate) struct QuicTransport {
     pub active_connections: SharedActiveConnections,
     //pub fallback_function: Option<&'static FallbackFunction>,
@@ -32,19 +35,7 @@ pub(crate) struct QuicTransport {
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<()>)>,
     //(quiche::Connection, data_receiver, data_sender, is_established)
-    pub connections: Arc<
-        RwLock<
-            HashMap<
-                SocketAddr,
-                (
-                    quiche::Connection,
-                    channel::Receiver<QuicInternalMessage>,
-                    channel::Sender<QuicInternalMessage>,
-                    bool,
-                ),
-            >,
-        >,
-    >,
+    pub connections: QuicConnectionsMap,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -108,7 +99,7 @@ impl Transport for QuicTransport {
             .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
         let connections = self.connections.clone();
         let server = UdpSocket::bind(address)
-            .expect(&format!("Can't bind QUIC transport to address {}", address));
+            .unwrap_or_else(|_| panic!("Can't bind QUIC transport to address {}", address));
         server.set_nonblocking(true).unwrap();
 
         let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
@@ -133,16 +124,14 @@ impl Transport for QuicTransport {
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut socket, NEW_PACKET_SERVER, Interest::READABLE)
-                    .expect(&format!(
-                        "Can't register polling on QUIC transport of address {}",
-                        address
-                    ));
+                    .unwrap_or_else(|_| panic!("Can't register polling on QUIC transport of address {}",
+                        address));
                 let mut buf = [0; 65507];
                 loop {
                     // Poll Mio for events, blocking until we get an event.
                     //TODO: Configurable timeout (cf. https://github.com/cloudflare/quiche/blob/master/apps/src/bin/quiche-server.rs#L177)
                     poll.poll(&mut events, Some(Duration::from_millis(100)))
-                        .expect(&format!("Can't poll QUIC transport of address {}", address));
+                        .unwrap_or_else(|_| panic!("Can't poll QUIC transport of address {}", address));
 
                     // Process each event.
                     for event in events.iter() {
@@ -271,11 +260,9 @@ impl Transport for QuicTransport {
                         for (address, (connection, send_rx, _, is_established)) in
                             connections.iter_mut()
                         {
-                            if !*is_established {
-                                if connection.is_established() {
-                                    println!("server {}: Connection established", address);
-                                    *is_established = true;
-                                }
+                            if !*is_established && connection.is_established() {
+                                println!("server {}: Connection established", address);
+                                *is_established = true;
                             }
                             if *is_established {
                                 while let Ok(data) = send_rx.try_recv() {
@@ -456,7 +443,7 @@ impl Transport for QuicTransport {
             .map_err(|e| PeerNetError::ListenerError(e.to_string()))?;
         handle
             .join()
-            .expect(&format!("Couldn't join listener for address {}", address));
+            .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address));
         Ok(())
     }
 

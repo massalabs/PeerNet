@@ -25,7 +25,7 @@ pub trait HandshakeHandler: Send + Clone + 'static {
         _listeners: &HashMap<SocketAddr, TransportType>,
         _handlers: &MessageHandlers,
     ) -> Result<PeerId, PeerNetError> {
-        endpoint.handshake(&keypair)
+        endpoint.handshake(keypair)
     }
 }
 
