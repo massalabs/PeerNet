@@ -1,35 +1,80 @@
 //! Error types for the PeerNet library
 
-use std::fmt::Display;
+use std::error::Error;
+use thiserror::Error;
 
-//TODO: Increase consistency of error handling this structure has been created just to have a place to put the errors but not designed yet.
-/// Error types for the PeerNet library
+use crate::transports::TransportErrorType;
+
+pub type PeerNetResult<T> = Result<T, PeerNetErrorData>;
+
 #[derive(Debug)]
 pub enum PeerNetError {
-    /// Error when trying to start/stop a listener
-    ListenerError(String),
-    /// PeerId error
-    PeerIdError(String),
-    /// Error when trying to connect to a peer with a configuration that don't match the transport type
+    ListenerError,
+    PeerIdError,
     WrongConfigType,
-    /// Error when trying to connect to a peer
-    PeerConnectionError(String),
-    /// Error when trying to send a message to a peer
-    SendError(String),
-    /// Error when trying to receive a message from a peer
-    ReceiveError(String),
-    /// Error when trying to perform a handshake with a peer
-    HandshakeError(String),
-    /// Error when communicating with an handler
-    HandlerError(String),
-    /// Error when signing a message
-    SignError(String),
-    /// Error invalid message
-    InvalidMessage,
+    PeerConnectionError,
+    SendError,
+    ReceiveError,
+    HandshakeError,
+    HandlerError,
+    SignError,
+    SocketError,
+    BoundReached,
+    TransportError(TransportErrorType),
 }
 
-impl Display for PeerNetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+impl PeerNetError {
+    /// Create a PeerNetErrorData from the variant
+    pub fn new<E: Error>(
+        self,
+        location: &'static str,
+        error: E,
+        add_msg: Option<String>,
+    ) -> PeerNetErrorData {
+        PeerNetErrorData {
+            location,
+            error_type: self,
+            error: Some(error.to_string()),
+            add_msg,
+        }
+    }
+
+    /// Create a PeerNetErrorData from scratch, not linked to any exterior error type
+    pub fn error(self, location: &'static str, add_msg: Option<String>) -> PeerNetErrorData {
+        PeerNetErrorData {
+            location,
+            error_type: self,
+            error: None,
+            add_msg,
+        }
+    }
+}
+
+/// Error types for the PeerNet library
+#[derive(Error, Debug)]
+pub struct PeerNetErrorData {
+    location: &'static str,
+    error_type: PeerNetError,
+    error: Option<String>,
+    add_msg: Option<String>,
+}
+
+impl std::fmt::Display for PeerNetErrorData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        writeln!(f, "Location: {}", self.location)?;
+        writeln!(f, "Error type: {:?}", self.error_type)?;
+        if let Some(ref err) = self.error {
+            writeln!(f, "Error: {:?}", err)?;
+        }
+        if let Some(ref msg) = self.add_msg {
+            writeln!(f, "Additionnal debug data: {}", msg)?;
+        }
+        Ok(())
+    }
+}
+
+impl From<TransportErrorType> for PeerNetError {
+    fn from(err: TransportErrorType) -> PeerNetError {
+        PeerNetError::TransportError(err)
     }
 }

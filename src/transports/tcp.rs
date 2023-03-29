@@ -4,7 +4,7 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use crate::error::PeerNetError;
+use crate::error::{PeerNetError, PeerNetResult};
 use crate::handlers::MessageHandlers;
 use crate::network_manager::{FallbackFunction, SharedActiveConnections};
 use crate::peer::{new_peer, HandshakeHandler};
@@ -18,12 +18,25 @@ use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use stream_limiter::Limiter;
 
+#[derive(Debug)]
+pub enum TcpError {
+    InitListener,
+    ConnectionError,
+    StopListener,
+}
+
+impl TcpError {
+    fn wrap(self) -> PeerNetError {
+        PeerNetError::TransportError(TransportErrorType::Tcp(self))
+    }
+}
+
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
     pub fallback_function: Option<&'static FallbackFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
-    pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<()>)>,
+    pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
 }
 
 const NEW_CONNECTION: Token = Token(0);
@@ -44,7 +57,10 @@ impl Clone for TcpEndpoint {
         TcpEndpoint {
             address: self.address,
             stream: Limiter::new(
-                self.stream.stream.try_clone().unwrap(),
+                self.stream.stream.try_clone().expect(&format!(
+                    "Unable to clone stream, when cloning TcpEndpoint {}",
+                    self.address
+                )),
                 RATE_LIMIT,
                 Duration::from_secs(1),
             ),
@@ -84,19 +100,23 @@ impl Transport for TcpTransport {
         self_keypair: KeyPair,
         address: SocketAddr,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError> {
-        let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
+    ) -> PeerNetResult<()> {
+        let mut poll =
+            Poll::new().map_err(|err| TcpError::InitListener.wrap().new("poll new", err, None))?;
         let mut events = Events::with_capacity(128);
         let waker = Waker::new(poll.registry(), STOP_LISTENER)
-            .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
-        let listener_handle: JoinHandle<()> = std::thread::spawn({
+            .map_err(|err| TcpError::InitListener.wrap().new("waker new", err, None))?;
+        let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let fallback_function = self.fallback_function;
             let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
-                    .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
-                let mut mio_server = MioTcpListener::from_std(server.try_clone().unwrap());
+                                .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
+                let mut mio_server = MioTcpListener::from_std(
+                    server.try_clone().expect("Unable to clone server socket"),
+                );
+
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut mio_server, NEW_CONNECTION, Interest::READABLE)
@@ -116,8 +136,13 @@ impl Transport for TcpTransport {
                     for event in events.iter() {
                         match event.token() {
                             NEW_CONNECTION => {
-                                //TODO: Error handling
-                                let (stream, address) = server.accept().unwrap();
+                                let (stream, address) = server.accept().map_err(|err| {
+                                    TcpError::ConnectionError.wrap().new(
+                                        "listener accept",
+                                        err,
+                                        None,
+                                    )
+                                })?;
                                 let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                     address,
                                     stream: Limiter::new(
@@ -140,8 +165,7 @@ impl Transport for TcpTransport {
                                                 &mut endpoint,
                                                 &active_connections.listeners,
                                                 &message_handlers,
-                                            )
-                                            .unwrap();
+                                            )?;
                                         }
                                         continue;
                                     }
@@ -156,7 +180,7 @@ impl Transport for TcpTransport {
                                 );
                             }
                             STOP_LISTENER => {
-                                return;
+                                return Ok(());
                             }
                             _ => {}
                         }
@@ -181,15 +205,19 @@ impl Transport for TcpTransport {
         timeout: Duration,
         _config: &Self::OutConnectionConfig,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError> {
-        std::thread::spawn({
+    ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
+        Ok(std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let wg = self.out_connection_attempts.clone();
             let message_handlers = self.message_handlers.clone();
             move || {
-                let Ok(stream) = TcpStream::connect_timeout(&address, timeout) else {
-                    return;
-                };
+                let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
+                    TcpError::ConnectionError.wrap().new(
+                        "try_connect stream connect",
+                        err,
+                        Some(format!("address: {}, timeout: {:?}", address, timeout)),
+                    )
+                })?;
                 let stream = Limiter::new(stream, RATE_LIMIT, Duration::from_secs(1));
                 println!("Connected to {}", address);
 
@@ -200,7 +228,14 @@ impl Transport for TcpTransport {
                     {
                         active_connections.nb_out_connections += 1;
                     } else {
-                        return;
+                        return Err(PeerNetError::BoundReached.error(
+                            "tcp try_connect max_out_conn",
+                            Some(format!(
+                                "max: {}, nb: {}",
+                                active_connections.max_out_connections,
+                                active_connections.nb_out_connections
+                            )),
+                        ))?;
                     }
                 }
                 new_peer(
@@ -211,56 +246,60 @@ impl Transport for TcpTransport {
                     active_connections.clone(),
                 );
                 drop(wg);
+                Ok(())
             }
-        });
-        Ok(())
+        }))
     }
 
-    fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
-        let (waker, handle) =
-            self.listeners
-                .remove(&address)
-                .ok_or(PeerNetError::ListenerError(format!(
-                    "Can't find listener for address {}",
-                    address
-                )))?;
+    fn stop_listener(&mut self, address: SocketAddr) -> PeerNetResult<()> {
+        let (waker, handle) = self.listeners.remove(&address).ok_or(
+            TcpError::StopListener
+                .wrap()
+                .error("rm addr", Some(format!("address: {}", address))),
+        )?;
         {
             let mut active_connections = self.active_connections.write();
             active_connections.listeners.remove(&address);
         }
         waker
             .wake()
-            .map_err(|e| PeerNetError::ListenerError(e.to_string()))?;
+            .map_err(|e| TcpError::StopListener.wrap().new("waker wake", e, None))?;
         handle
             .join()
-            .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address));
-        Ok(())
+            .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address))
     }
 
-    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError> {
+    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         endpoint
             .stream
             .write(&data.len().to_le_bytes())
-            .map_err(|err| PeerNetError::SendError(err.to_string()))?;
-        endpoint
-            .stream
-            .write(data)
-            .map_err(|err| PeerNetError::SendError(err.to_string()))?;
+            .map_err(|err| {
+                TcpError::ConnectionError.wrap().new(
+                    "send len write",
+                    err,
+                    Some(format!("{:?}", data.len().to_le_bytes())),
+                )
+            })?;
+        endpoint.stream.write(data).map_err(|err| {
+            TcpError::ConnectionError
+                .wrap()
+                .new("send data write", err, None)
+        })?;
         Ok(())
     }
 
-    fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
+    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         let mut len_bytes = [0u8; 8];
         endpoint
             .stream
             .read(&mut len_bytes)
-            .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?;
+            .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
         let len = usize::from_le_bytes(len_bytes);
         let mut data = vec![0u8; len];
         endpoint
             .stream
             .read(&mut data)
-            .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?;
+            .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
         Ok(data)
     }
 }

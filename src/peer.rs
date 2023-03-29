@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr, thread::spawn};
 
+use crate::error::{PeerNetError, PeerNetResult};
 use crate::types::KeyPair;
 use crossbeam::{
     channel::{unbounded, Sender, TryRecvError},
@@ -10,7 +11,6 @@ use crossbeam::{
 };
 
 use crate::{
-    error::PeerNetError,
     handlers::MessageHandlers,
     network_manager::SharedActiveConnections,
     peer_id::PeerId,
@@ -24,8 +24,8 @@ pub trait HandshakeHandler: Send + Clone + 'static {
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
         _handlers: &MessageHandlers,
-    ) -> Result<PeerId, PeerNetError> {
-        endpoint.handshake(keypair)
+    ) -> PeerNetResult<PeerId> {
+        endpoint.handshake(&keypair)
     }
 }
 
@@ -35,23 +35,18 @@ pub struct SendChannels {
 }
 
 impl SendChannels {
-    pub fn send(
-        &self,
-        handler_id: u64,
-        data: Vec<u8>,
-        high_priority: bool,
-    ) -> Result<(), PeerNetError> {
+    pub fn send(&self, handler_id: u64, data: Vec<u8>, high_priority: bool) -> PeerNetResult<()> {
         let mut data = data;
         let handler_id_bytes = handler_id.to_be_bytes();
         data.splice(0..0, handler_id_bytes);
         if high_priority {
             self.high_priority
                 .send(data)
-                .map_err(|err| PeerNetError::SendError(err.to_string()))?;
+                .map_err(|err| PeerNetError::SendError.new("sendchannels highprio", &err, None))?;
         } else {
             self.low_priority
                 .send(data)
-                .map_err(|err| PeerNetError::SendError(err.to_string()))?;
+                .map_err(|err| PeerNetError::SendError.new("sendchannels lowprio", &err, None))?;
         }
         Ok(())
     }

@@ -529,6 +529,7 @@ dependencies = [
  "serde",
  "serde_json",
  "stream_limiter",
+ "thiserror",
 ]
 
 [[package]]
