@@ -3,7 +3,7 @@ use std::{thread::sleep, time::Duration};
 
 use peernet::types::KeyPair;
 use peernet::{
-    config::PeerNetConfiguration,
+    config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::HandshakeHandler,
     peer_id::PeerId,
@@ -27,6 +27,7 @@ fn simple() {
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake,
+        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -58,6 +59,7 @@ fn two_peers_tcp() {
         handshake_handler: DefaultHandshake {},
         fallback_function: None,
         message_handlers: Default::default(),
+        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -72,6 +74,7 @@ fn two_peers_tcp() {
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
+        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager2 = PeerNetManager::new(config);
     sleep(Duration::from_secs(3));
@@ -99,6 +102,7 @@ fn two_peers_quic() {
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
+        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -113,6 +117,7 @@ fn two_peers_quic() {
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
+        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager2 = PeerNetManager::new(config);
     sleep(Duration::from_secs(3));

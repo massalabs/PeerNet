@@ -9,6 +9,7 @@ use crate::handlers::MessageHandlers;
 use crate::network_manager::{FallbackFunction, SharedActiveConnections};
 use crate::peer::{new_peer, HandshakeHandler};
 use crate::transports::Endpoint;
+use crate::config::PeerNetFeatures;
 
 use super::{Transport, TransportErrorType};
 
@@ -37,6 +38,7 @@ pub(crate) struct TcpTransport {
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
+    features: PeerNetFeatures,
 }
 
 const NEW_CONNECTION: Token = Token(0);
@@ -81,6 +83,7 @@ impl TcpTransport {
         active_connections: SharedActiveConnections,
         fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
+        features: PeerNetFeatures,
     ) -> TcpTransport {
         TcpTransport {
             active_connections,
@@ -88,6 +91,7 @@ impl TcpTransport {
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
             message_handlers,
+            features,
         }
     }
 }
@@ -112,6 +116,7 @@ impl Transport for TcpTransport {
             let active_connections = self.active_connections.clone();
             let fallback_function = self.fallback_function;
             let message_handlers = self.message_handlers.clone();
+            let reject_same_ip_addr = self.features.reject_same_ip_addr;
             move || {
                 let server = TcpListener::bind(address)
                     .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
@@ -145,7 +150,7 @@ impl Transport for TcpTransport {
                                         None,
                                     )
                                 })?;
-                                if !active_connections.read().check_addr_accepted(&address) {
+                                if reject_same_ip_addr && !active_connections.read().check_addr_accepted(&address) {
                                     println!("Address {:?} refused", address);
                                     continue;
                                 }
@@ -177,6 +182,7 @@ impl Transport for TcpTransport {
                                         }
                                         continue;
                                     }
+                                    active_connections.connection_queue.push(address);
                                 }
                                 println!("New connection");
                                 new_peer(

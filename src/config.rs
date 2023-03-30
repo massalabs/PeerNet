@@ -23,6 +23,8 @@ pub struct PeerNetConfiguration<T: HandshakeHandler> {
     pub handshake_handler: T,
     /// Optional function to trigger when we receive a connection from a peer and we don't accept it
     pub fallback_function: Option<&'static FallbackFunction>,
+    /// Optional features to enable for the manager
+    pub optionnal_features: PeerNetFeatures,
 }
 
 impl<T: HandshakeHandler> PeerNetConfiguration<T> {
@@ -34,6 +36,26 @@ impl<T: HandshakeHandler> PeerNetConfiguration<T> {
             message_handlers: MessageHandlers::default(),
             fallback_function: None,
             handshake_handler,
+            optionnal_features: PeerNetFeatures::default(),
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct PeerNetFeatures {
+    pub reject_same_ip_addr: bool,
+}
+
+impl Default for PeerNetFeatures {
+    fn default() -> PeerNetFeatures {
+        PeerNetFeatures {
+            reject_same_ip_addr: true
+        }
+    }
+}
+
+impl PeerNetFeatures {
+    pub fn set_reject_same_ip_addr(self, val: bool) -> PeerNetFeatures {
+        PeerNetFeatures { reject_same_ip_addr: val, ..self }
     }
 }

@@ -10,6 +10,7 @@ use crate::{
     handlers::MessageHandlers,
     network_manager::{FallbackFunction, SharedActiveConnections},
     peer::HandshakeHandler,
+    config::PeerNetFeatures,
 };
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
@@ -148,17 +149,20 @@ impl InternalTransportType {
         active_connections: SharedActiveConnections,
         fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
+        features: PeerNetFeatures,
     ) -> Self {
         match transport_type {
             TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
                 active_connections,
                 fallback_function,
                 message_handlers,
+                features,
             )),
             TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(
                 active_connections,
                 fallback_function,
                 message_handlers,
+                features,
             )),
         }
     }

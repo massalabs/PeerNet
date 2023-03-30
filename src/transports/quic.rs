@@ -18,6 +18,7 @@ use crate::{
     peer::{new_peer, HandshakeHandler},
     peer_id::PeerId,
     transports::{Endpoint, TransportErrorType},
+    config::PeerNetFeatures,
 };
 
 use super::Transport;
@@ -57,6 +58,7 @@ pub(crate) struct QuicTransport {
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
     //(quiche::Connection, data_receiver, data_sender, is_established)
     pub connections: QuicConnectionsMap,
+    features: PeerNetFeatures,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -91,6 +93,7 @@ impl QuicTransport {
         active_connections: SharedActiveConnections,
         _fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
+        features: PeerNetFeatures,
     ) -> QuicTransport {
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
@@ -99,6 +102,7 @@ impl QuicTransport {
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
             message_handlers,
+            features,
         }
     }
 }
@@ -166,6 +170,7 @@ impl Transport for QuicTransport {
             let message_handlers = self.message_handlers.clone();
             // let fallback_function = self.fallback_function.clone();
             let server = server.try_clone().unwrap();
+            let reject_same_ip_addr = self.features.reject_same_ip_addr;
             move || {
                 let mut socket = MioUdpSocket::from_std(server);
                 // Start listening for incoming connections.
@@ -223,7 +228,7 @@ impl Transport for QuicTransport {
                                         let connections = connections.read();
                                         !connections.contains_key(&from_addr)
                                     };
-                                    if new_connection {
+                                    if !reject_same_ip_addr || new_connection {
                                         println!(
                                             "server {}: New connection {}",
                                             address, from_addr
