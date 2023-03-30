@@ -19,7 +19,7 @@ pub fn create_clients(nb_clients: usize) -> Vec<JoinHandle<()>> {
         let client = std::thread::spawn(|| {
             let _ = std::net::TcpStream::connect("127.0.0.1:64850").unwrap();
         });
-        sleep(Duration::from_millis(10));
+        sleep(Duration::from_millis(100));
         clients.push(client);
     }
     clients
