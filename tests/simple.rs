@@ -33,8 +33,9 @@ fn simple() {
         .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    sleep(Duration::from_secs(6));
     let clients = create_clients(11);
-    sleep(Duration::from_secs(3));
+    sleep(Duration::from_secs(6));
     for client in clients {
         client.join().unwrap();
     }
