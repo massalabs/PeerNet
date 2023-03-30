@@ -33,7 +33,7 @@ fn simple() {
         .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
-    sleep(Duration::from_secs(6));
+    sleep(Duration::from_secs(3));
     let clients = create_clients(11);
     sleep(Duration::from_secs(6));
     for client in clients {
@@ -74,6 +74,7 @@ fn two_peers_tcp() {
         handshake_handler: DefaultHandshake {},
     };
     let mut manager2 = PeerNetManager::new(config);
+    sleep(Duration::from_secs(3));
     manager2
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
@@ -114,6 +115,7 @@ fn two_peers_quic() {
         handshake_handler: DefaultHandshake {},
     };
     let mut manager2 = PeerNetManager::new(config);
+    sleep(Duration::from_secs(3));
     manager2
         .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
