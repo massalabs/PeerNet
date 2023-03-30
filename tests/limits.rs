@@ -24,7 +24,7 @@ fn check_mutliple_connection_refused() {
         handshake_handler: DefaultHandshake {},
         fallback_function: None,
         message_handlers: Default::default(),
-        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -39,14 +39,14 @@ fn check_mutliple_connection_refused() {
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
-        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {}),
+            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -58,14 +58,14 @@ fn check_mutliple_connection_refused() {
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
-        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
     };
     let mut manager3 = PeerNetManager::new(config);
     manager3
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {}),
+            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));

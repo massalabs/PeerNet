@@ -40,7 +40,7 @@ fn two_peers_tcp_with_one_handler() {
         handshake_handler: EmptyHandshake {},
         fallback_function: None,
         message_handlers: message_handlers.clone(),
-        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -54,7 +54,7 @@ fn two_peers_tcp_with_one_handler() {
         handshake_handler: EmptyHandshake {},
         fallback_function: None,
         message_handlers,
-        optionnal_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2

@@ -36,7 +36,7 @@ impl<T: HandshakeHandler> PeerNetConfiguration<T> {
             message_handlers: MessageHandlers::default(),
             fallback_function: None,
             handshake_handler,
-            optionnal_features: PeerNetFeatures::default(),
+            optional_features: PeerNetFeatures::default(),
         }
     }
 }

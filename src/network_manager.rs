@@ -134,7 +134,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
                 self.active_connections.clone(),
                 self.fallback_function,
                 self.config.message_handlers.clone(),
-                self.config.optionnal_features.clone(),
+                self.config.optional_features.clone(),
             )
         });
         transport.start_listener(
@@ -158,7 +158,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
                 self.active_connections.clone(),
                 self.fallback_function,
                 self.config.message_handlers.clone(),
-                self.config.optionnal_features.clone(),
+                self.config.optional_features.clone(),
             )
         });
         transport.stop_listener(addr)?;
@@ -185,7 +185,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
                     self.active_connections.clone(),
                     self.fallback_function,
                     self.config.message_handlers.clone(),
-                    self.config.optionnal_features.clone(),
+                    self.config.optional_features.clone(),
                 )
             });
         transport.try_connect(
