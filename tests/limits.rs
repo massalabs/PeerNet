@@ -1,12 +1,10 @@
 // All the tests related to the limitations on the system.
 
 use peernet::{
-    config::{PeerNetFeatures, PeerNetConfiguration},
+    config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::HandshakeHandler,
-    transports::{
-        OutConnectionConfig, TcpOutConnectionConfig, TransportType,
-    },
+    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 use std::time::Duration;
 

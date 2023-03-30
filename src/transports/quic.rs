@@ -12,13 +12,13 @@ use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
 
 use crate::{
+    config::PeerNetFeatures,
     error::{PeerNetError, PeerNetResult},
     handlers::MessageHandlers,
     network_manager::{FallbackFunction, SharedActiveConnections},
     peer::{new_peer, HandshakeHandler},
     peer_id::PeerId,
     transports::{Endpoint, TransportErrorType},
-    config::PeerNetFeatures,
 };
 
 use super::Transport;
@@ -280,7 +280,7 @@ impl Transport for QuicTransport {
                                             Endpoint::Quic(QuicEndpoint {
                                                 data_receiver: recv_rx,
                                                 data_sender: send_tx,
-                                                address: address,
+                                                address,
                                             }),
                                             handshake_handler.clone(),
                                             message_handlers.clone(),
@@ -526,7 +526,7 @@ impl Transport for QuicTransport {
                     Endpoint::Quic(QuicEndpoint {
                         data_receiver: recv_rx,
                         data_sender: send_tx,
-                        address: address,
+                        address,
                     }),
                     handshake_handler.clone(),
                     message_handlers.clone(),

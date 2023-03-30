@@ -49,13 +49,17 @@ pub struct PeerNetFeatures {
 impl Default for PeerNetFeatures {
     fn default() -> PeerNetFeatures {
         PeerNetFeatures {
-            reject_same_ip_addr: true
+            reject_same_ip_addr: true,
         }
     }
 }
 
 impl PeerNetFeatures {
+    #[allow(clippy::needless_update)]
     pub fn set_reject_same_ip_addr(self, val: bool) -> PeerNetFeatures {
-        PeerNetFeatures { reject_same_ip_addr: val, ..self }
+        PeerNetFeatures {
+            reject_same_ip_addr: val,
+            ..self
+        }
     }
 }

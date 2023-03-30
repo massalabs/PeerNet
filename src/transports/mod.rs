@@ -6,11 +6,11 @@ use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
 use crate::{
+    config::PeerNetFeatures,
     error::{PeerNetError, PeerNetResult},
     handlers::MessageHandlers,
     network_manager::{FallbackFunction, SharedActiveConnections},
     peer::HandshakeHandler,
-    config::PeerNetFeatures,
 };
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};

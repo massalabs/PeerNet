@@ -4,12 +4,12 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use crate::config::PeerNetFeatures;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::handlers::MessageHandlers;
 use crate::network_manager::{FallbackFunction, SharedActiveConnections};
 use crate::peer::{new_peer, HandshakeHandler};
 use crate::transports::Endpoint;
-use crate::config::PeerNetFeatures;
 
 use super::{Transport, TransportErrorType};
 
@@ -150,12 +150,14 @@ impl Transport for TcpTransport {
                                         None,
                                     )
                                 })?;
-                                if reject_same_ip_addr && !active_connections.read().check_addr_accepted(&address) {
+                                if reject_same_ip_addr
+                                    && !active_connections.read().check_addr_accepted(&address)
+                                {
                                     println!("Address {:?} refused", address);
                                     continue;
                                 }
                                 println!("Address {:?}, accepted", address);
-                                
+
                                 let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                     address,
                                     stream: Limiter::new(
