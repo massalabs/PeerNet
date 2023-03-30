@@ -24,7 +24,7 @@ pub struct PeerNetConfiguration<T: HandshakeHandler> {
     /// Optional function to trigger when we receive a connection from a peer and we don't accept it
     pub fallback_function: Option<&'static FallbackFunction>,
     /// Optional features to enable for the manager
-    pub optionnal_features: PeerNetFeatures,
+    pub optional_features: PeerNetFeatures,
 }
 
 impl<T: HandshakeHandler> PeerNetConfiguration<T> {
