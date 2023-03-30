@@ -546,7 +546,7 @@ impl Transport for QuicTransport {
         waker
             .wake()
             .map_err(|e| QuicError::StopListener.wrap().new("waker wake", e, None))?;
-        handle
+        let _ = handle
             .join()
             .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address));
         Ok(())

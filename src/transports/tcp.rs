@@ -10,7 +10,7 @@ use crate::network_manager::{FallbackFunction, SharedActiveConnections};
 use crate::peer::{new_peer, HandshakeHandler};
 use crate::transports::Endpoint;
 
-use super::Transport;
+use super::{Transport, TransportErrorType};
 
 use crate::types::KeyPair;
 use crossbeam::sync::WaitGroup;
@@ -112,7 +112,7 @@ impl Transport for TcpTransport {
             let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
-                                .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
+                    .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
                 let mut mio_server = MioTcpListener::from_std(
                     server.try_clone().expect("Unable to clone server socket"),
                 );
