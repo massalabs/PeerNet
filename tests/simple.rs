@@ -30,9 +30,9 @@ fn simple() {
     };
     let mut manager = PeerNetManager::new(config);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
+        .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
-    //manager.start_listener(TransportType::Quic, "127.0.0.1:8081".parse().unwrap()).unwrap();
+    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     let clients = create_clients(11);
     sleep(Duration::from_secs(3));
     for client in clients {
@@ -43,7 +43,7 @@ fn simple() {
     assert!(manager.nb_in_connections().eq(&10));
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
+        .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
 }
 
