@@ -1,7 +1,7 @@
 //! Every information about a peer (not used for now)
 
 use std::collections::HashMap;
-use std::{fmt::Debug, net::SocketAddr, thread::spawn};
+use std::{fmt::Debug, net::SocketAddr};
 
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::types::KeyPair;
@@ -84,7 +84,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
     active_connections: SharedActiveConnections,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
-    spawn(move || {
+    std::thread::spawn(move || {
         let listeners = {
             let active_connections = active_connections.read();
             active_connections.listeners.clone()
