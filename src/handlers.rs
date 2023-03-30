@@ -22,7 +22,7 @@ impl MessageHandler {
         //TODO: Add timeout
         self.sender
             .send(message)
-            .map_err(|err| PeerNetError::SendError.new("message handler", &err, None))
+            .map_err(|err| PeerNetError::SendError.new("message handler", err, None))
     }
 }
 

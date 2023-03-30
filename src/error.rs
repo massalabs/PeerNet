@@ -24,6 +24,7 @@ pub enum PeerNetError {
 }
 
 impl PeerNetError {
+    #[allow(clippy::new_ret_no_self)]
     /// Create a PeerNetErrorData from the variant
     pub fn new<E: Error>(
         self,

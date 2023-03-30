@@ -14,7 +14,7 @@ use parking_lot::RwLock;
 use crate::{
     error::{PeerNetError, PeerNetResult},
     handlers::MessageHandlers,
-    network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections},
+    network_manager::{FallbackFunction, SharedActiveConnections},
     peer::{new_peer, HandshakeHandler},
     peer_id::PeerId,
     transports::{Endpoint, TransportErrorType},
@@ -41,26 +41,22 @@ impl QuicError {
     }
 }
 
+type QuicConnection = (
+    quiche::Connection,
+    channel::Receiver<QuicInternalMessage>,
+    channel::Sender<QuicInternalMessage>,
+    bool,
+);
+type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
+
 pub(crate) struct QuicTransport {
     pub active_connections: SharedActiveConnections,
-    pub fallback_function: Option<&'static FallbackFunction>,
+    //pub fallback_function: Option<&'static FallbackFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
     //(quiche::Connection, data_receiver, data_sender, is_established)
-    pub connections: Arc<
-        RwLock<
-            HashMap<
-                SocketAddr,
-                (
-                    quiche::Connection,
-                    channel::Receiver<QuicInternalMessage>,
-                    channel::Sender<QuicInternalMessage>,
-                    bool,
-                ),
-            >,
-        >,
-    >,
+    pub connections: QuicConnectionsMap,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -92,12 +88,12 @@ pub struct QuicOutConnectionConfig {
 impl QuicTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
-        fallback_function: Option<&'static FallbackFunction>,
+        _fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
     ) -> QuicTransport {
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
-            fallback_function,
+            //fallback_function,
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
@@ -125,7 +121,7 @@ impl Transport for QuicTransport {
             .map_err(|err| QuicError::InitListener.wrap().new("init waker", err, None))?;
         let connections = self.connections.clone();
         let server = UdpSocket::bind(address)
-            .expect(&format!("Can't bind QUIC transport to address {}", address));
+            .unwrap_or_else(|_| panic!("Can't bind QUIC transport to address {}", address));
         server.set_nonblocking(true).map_err(|err| {
             QuicError::InitListener
                 .wrap()
@@ -167,23 +163,27 @@ impl Transport for QuicTransport {
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let message_handlers = self.message_handlers.clone();
-            let fallback_function = self.fallback_function.clone();
+            // let fallback_function = self.fallback_function.clone();
             let server = server.try_clone().unwrap();
             move || {
                 let mut socket = MioUdpSocket::from_std(server);
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut socket, NEW_PACKET_SERVER, Interest::READABLE)
-                    .expect(&format!(
-                        "Can't register polling on QUIC transport of address {}",
-                        address
-                    ));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Can't register polling on QUIC transport of address {}",
+                            address
+                        )
+                    });
                 let mut buf = [0; 65507];
                 loop {
                     // Poll Mio for events, blocking until we get an event.
                     //TODO: Configurable timeout (cf. https://github.com/cloudflare/quiche/blob/master/apps/src/bin/quiche-server.rs#L177)
                     poll.poll(&mut events, Some(Duration::from_millis(100)))
-                        .expect(&format!("Can't poll QUIC transport of address {}", address));
+                        .unwrap_or_else(|_| {
+                            panic!("Can't poll QUIC transport of address {}", address)
+                        });
 
                     // Process each event.
                     for event in events.iter() {
@@ -338,11 +338,9 @@ impl Transport for QuicTransport {
                         for (address, (connection, send_rx, _, is_established)) in
                             connections.iter_mut()
                         {
-                            if !*is_established {
-                                if connection.is_established() {
-                                    println!("server {}: Connection established", address);
-                                    *is_established = true;
-                                }
+                            if !*is_established && connection.is_established() {
+                                println!("server {}: Connection established", address);
+                                *is_established = true;
                             }
                             if *is_established {
                                 while let Ok(data) = send_rx.try_recv() {
@@ -548,9 +546,9 @@ impl Transport for QuicTransport {
         waker
             .wake()
             .map_err(|e| QuicError::StopListener.wrap().new("waker wake", e, None))?;
-        handle
+        let _ = handle
             .join()
-            .expect(&format!("Couldn't join listener for address {}", address))?;
+            .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address));
         Ok(())
     }
 
@@ -575,7 +573,7 @@ impl Transport for QuicTransport {
             QuicInternalMessage::Data(data) => Ok(data),
             QuicInternalMessage::Shutdown => Err(QuicError::InternalFail
                 .wrap()
-                .error("recv shutdown", Some(format!("Connection closed")))),
+                .error("recv shutdown", Some("Connection closed".to_string()))),
         }
     }
 }

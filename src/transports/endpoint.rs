@@ -62,7 +62,7 @@ impl Endpoint {
             .map_err(|err| {
                 PeerNetError::HandshakeError.new(
                     "handshake verify signature",
-                    &err,
+                    err,
                     Some(format!(
                         "hash: {:?}, signature: {:?}",
                         self_random_hash, other_signature

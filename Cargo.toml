@@ -17,3 +17,6 @@ massa_signature = { git = "https://github.com/massalabs/massa", package = "massa
 serde = { version = "1.0", features = ["derive"] }
 stream_limiter = "1.1.0"
 thiserror = "1.0.39"
+
+[dev-dependencies]
+serde_json = "1.0.95"

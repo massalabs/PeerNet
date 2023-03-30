@@ -6,11 +6,11 @@ use std::time::Duration;
 
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::handlers::MessageHandlers;
-use crate::network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections};
+use crate::network_manager::{FallbackFunction, SharedActiveConnections};
 use crate::peer::{new_peer, HandshakeHandler};
-use crate::transports::{Endpoint, TransportErrorType};
+use crate::transports::Endpoint;
 
-use super::Transport;
+use super::{Transport, TransportErrorType};
 
 use crate::types::KeyPair;
 use crossbeam::sync::WaitGroup;
@@ -57,10 +57,12 @@ impl Clone for TcpEndpoint {
         TcpEndpoint {
             address: self.address,
             stream: Limiter::new(
-                self.stream.stream.try_clone().expect(&format!(
-                    "Unable to clone stream, when cloning TcpEndpoint {}",
-                    self.address
-                )),
+                self.stream.stream.try_clone().unwrap_or_else(|_| {
+                    panic!(
+                        "Unable to clone stream, when cloning TcpEndpoint {}",
+                        self.address
+                    )
+                }),
                 RATE_LIMIT,
                 Duration::from_secs(1),
             ),
@@ -112,21 +114,25 @@ impl Transport for TcpTransport {
             let message_handlers = self.message_handlers.clone();
             move || {
                 let server = TcpListener::bind(address)
-                    .expect(&format!("Can't bind TCP transport to address {}", address));
+                    .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
                 let mut mio_server = MioTcpListener::from_std(
                     server.try_clone().expect("Unable to clone server socket"),
                 );
+
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut mio_server, NEW_CONNECTION, Interest::READABLE)
-                    .expect(&format!(
-                        "Can't register polling on TCP transport of address {}",
-                        address
-                    ));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Can't register polling on TCP transport of address {}",
+                            address
+                        )
+                    });
                 loop {
                     // Poll Mio for events, blocking until we get an event.
-                    poll.poll(&mut events, None)
-                        .expect(&format!("Can't poll TCP transport of address {}", address));
+                    poll.poll(&mut events, None).unwrap_or_else(|_| {
+                        panic!("Can't poll TCP transport of address {}", address)
+                    });
 
                     // Process each event.
                     for event in events.iter() {
@@ -262,7 +268,7 @@ impl Transport for TcpTransport {
             .map_err(|e| TcpError::StopListener.wrap().new("waker wake", e, None))?;
         handle
             .join()
-            .expect(&format!("Couldn't join listener for address {}", address))
+            .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address))
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
