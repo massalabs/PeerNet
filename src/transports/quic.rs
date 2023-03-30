@@ -12,12 +12,12 @@ use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
 
 use crate::{
-    error::PeerNetError,
+    error::{PeerNetError, PeerNetResult},
     handlers::MessageHandlers,
-    network_manager::{FallbackFunction, HandshakeFunction, SharedActiveConnections},
+    network_manager::{FallbackFunction, SharedActiveConnections},
     peer::{new_peer, HandshakeHandler},
     peer_id::PeerId,
-    transports::Endpoint,
+    transports::{Endpoint, TransportErrorType},
 };
 
 use super::Transport;
@@ -25,26 +25,38 @@ use super::Transport;
 const NEW_PACKET_SERVER: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
+#[derive(Debug)]
+pub enum QuicError {
+    InitListener,
+    StopListener,
+    SocketConfig,
+    QuicheConfig,
+    ConnectionError,
+    InternalFail,
+}
+
+impl QuicError {
+    fn wrap(self) -> PeerNetError {
+        PeerNetError::TransportError(TransportErrorType::Quic(self))
+    }
+}
+
+type QuicConnection = (
+    quiche::Connection,
+    channel::Receiver<QuicInternalMessage>,
+    channel::Sender<QuicInternalMessage>,
+    bool,
+);
+type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
+
 pub(crate) struct QuicTransport {
     pub active_connections: SharedActiveConnections,
-    pub fallback_function: Option<&'static FallbackFunction>,
+    //pub fallback_function: Option<&'static FallbackFunction>,
     pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
-    pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<()>)>,
+    pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
     //(quiche::Connection, data_receiver, data_sender, is_established)
-    pub connections: Arc<
-        RwLock<
-            HashMap<
-                SocketAddr,
-                (
-                    quiche::Connection,
-                    channel::Receiver<QuicInternalMessage>,
-                    channel::Sender<QuicInternalMessage>,
-                    bool,
-                ),
-            >,
-        >,
-    >,
+    pub connections: QuicConnectionsMap,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -77,12 +89,12 @@ pub struct QuicOutConnectionConfig {
 impl QuicTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
-        fallback_function: Option<&'static FallbackFunction>,
+        _fallback_function: Option<&'static FallbackFunction>,
         message_handlers: MessageHandlers,
     ) -> QuicTransport {
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
-            fallback_function,
+            //fallback_function,
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
@@ -101,49 +113,78 @@ impl Transport for QuicTransport {
         self_keypair: KeyPair,
         address: SocketAddr,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError> {
-        let mut poll = Poll::new().map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
+    ) -> PeerNetResult<()> {
+        let mut poll = Poll::new()
+            .map_err(|err| QuicError::InitListener.wrap().new("init poll", err, None))?;
         //TODO: Configurable capacity
         let mut events = Events::with_capacity(128);
         let waker = Waker::new(poll.registry(), STOP_LISTENER)
-            .map_err(|err| PeerNetError::ListenerError(err.to_string()))?;
+            .map_err(|err| QuicError::InitListener.wrap().new("init waker", err, None))?;
         let connections = self.connections.clone();
         let server = UdpSocket::bind(address)
-            .expect(&format!("Can't bind QUIC transport to address {}", address));
-        server.set_nonblocking(true).unwrap();
+            .unwrap_or_else(|_| panic!("Can't bind QUIC transport to address {}", address));
+        server.set_nonblocking(true).map_err(|err| {
+            QuicError::InitListener
+                .wrap()
+                .new("server set nonblocking", err, None)
+        })?;
 
-        let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
+        let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).map_err(|err| {
+            QuicError::QuicheConfig.wrap().new(
+                "new from protocol",
+                err,
+                Some(format!("version: {:?}", quiche::PROTOCOL_VERSION)),
+            )
+        })?;
         config.set_max_recv_udp_payload_size(1200);
         // Create certificate from ed25519 as made in libp2p tls
         config
             .load_cert_chain_from_pem_file("./src/cert.crt")
-            .unwrap();
+            .map_err(|err| {
+                QuicError::QuicheConfig
+                    .wrap()
+                    .new("load_cert_chain", err, None)
+            })?;
         config
             .load_priv_key_from_pem_file("./src/cert.key")
-            .unwrap();
-        config.set_application_protos(&[b"massa/1.0"]).unwrap();
+            .map_err(|err| {
+                QuicError::QuicheConfig
+                    .wrap()
+                    .new("load_priv_key", err, None)
+            })?;
+        config
+            .set_application_protos(&[b"massa/1.0"])
+            .map_err(|err| {
+                QuicError::QuicheConfig
+                    .wrap()
+                    .new("cfg set_protocol", err, None)
+            })?;
         config.enable_dgram(true, 10, 10);
 
-        let listener_handle = std::thread::spawn({
+        let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let message_handlers = self.message_handlers.clone();
-            let fallback_function = self.fallback_function.clone();
+            // let fallback_function = self.fallback_function.clone();
             let server = server.try_clone().unwrap();
             move || {
                 let mut socket = MioUdpSocket::from_std(server);
                 // Start listening for incoming connections.
                 poll.registry()
                     .register(&mut socket, NEW_PACKET_SERVER, Interest::READABLE)
-                    .expect(&format!(
-                        "Can't register polling on QUIC transport of address {}",
-                        address
-                    ));
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Can't register polling on QUIC transport of address {}",
+                            address
+                        )
+                    });
                 let mut buf = [0; 65507];
                 loop {
                     // Poll Mio for events, blocking until we get an event.
                     //TODO: Configurable timeout (cf. https://github.com/cloudflare/quiche/blob/master/apps/src/bin/quiche-server.rs#L177)
                     poll.poll(&mut events, Some(Duration::from_millis(100)))
-                        .expect(&format!("Can't poll QUIC transport of address {}", address));
+                        .unwrap_or_else(|_| {
+                            panic!("Can't poll QUIC transport of address {}", address)
+                        });
 
                     // Process each event.
                     for event in events.iter() {
@@ -199,7 +240,16 @@ impl Transport for QuicTransport {
                                             from_addr,
                                             &mut config,
                                         )
-                                        .unwrap();
+                                        .map_err(|err| {
+                                            QuicError::ConnectionError.wrap().new(
+                                                "accept",
+                                                err,
+                                                Some(format!(
+                                                    "address: {}, from_addr: {}",
+                                                    address, from_addr
+                                                )),
+                                            )
+                                        })?;
 
                                         {
                                             let mut active_connections = active_connections.write();
@@ -241,7 +291,18 @@ impl Transport for QuicTransport {
                                             from: from_addr,
                                             to: address,
                                         };
-                                        connection.recv(&mut buf[..num_recv], recv_info).unwrap();
+                                        connection.recv(&mut buf[..num_recv], recv_info).map_err(
+                                            |err| {
+                                                QuicError::ConnectionError.wrap().new(
+                                                    "recv",
+                                                    err,
+                                                    Some(format!(
+                                                        "RecvInfo: from: {}, to: {}",
+                                                        from_addr, address
+                                                    )),
+                                                )
+                                            },
+                                        )?;
                                         if *is_established {
                                             let mut dgram_buf = [0; 512];
                                             while let Ok(len) =
@@ -251,14 +312,20 @@ impl Transport for QuicTransport {
                                                     .send(QuicInternalMessage::Data(
                                                         dgram_buf[..len].to_vec(),
                                                     ))
-                                                    .unwrap();
+                                                    .map_err(|err| {
+                                                        QuicError::InternalFail.wrap().new(
+                                                            "send internal msg",
+                                                            err,
+                                                            None,
+                                                        )
+                                                    })?;
                                             }
                                         }
                                     }
                                 }
                             }
                             STOP_LISTENER => {
-                                return;
+                                return Ok(());
                             }
                             // We don't expect any events with tokens other than those we provided. (from mio doc)
                             _ => unreachable!(),
@@ -273,11 +340,9 @@ impl Transport for QuicTransport {
                         for (address, (connection, send_rx, _, is_established)) in
                             connections.iter_mut()
                         {
-                            if !*is_established {
-                                if connection.is_established() {
-                                    println!("server {}: Connection established", address);
-                                    *is_established = true;
-                                }
+                            if !*is_established && connection.is_established() {
+                                println!("server {}: Connection established", address);
+                                *is_established = true;
                             }
                             if *is_established {
                                 while let Ok(data) = send_rx.try_recv() {
@@ -314,7 +379,16 @@ impl Transport for QuicTransport {
                                     "server {}: Sending {} bytes to {} ",
                                     address, write, send_info.to
                                 );
-                                socket.send_to(&buf[..write], send_info.to).unwrap();
+                                socket.send_to(&buf[..write], send_info.to).map_err(|err| {
+                                    QuicError::ConnectionError.wrap().new(
+                                        "listener send_to",
+                                        err,
+                                        Some(format!(
+                                            "from {}, to {}, {} bytes",
+                                            address, send_info.to, write
+                                        )),
+                                    )
+                                })?;
                             }
                         }
                     }
@@ -341,7 +415,7 @@ impl Transport for QuicTransport {
         _timeout: Duration,
         config: &Self::OutConnectionConfig,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError> {
+    ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         //TODO: Use timeout
         let config = config.clone();
         let connections = self.connections.clone();
@@ -362,7 +436,7 @@ impl Transport for QuicTransport {
                 .expect("Listener not found")
         };
         let socket = socket.try_clone().unwrap();
-        std::thread::spawn({
+        let connection_handler: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let message_handlers = self.message_handlers.clone();
             let wg = self.out_connection_attempts.clone();
@@ -377,14 +451,23 @@ impl Transport for QuicTransport {
                 //TODO: Config
                 quiche_config
                     .set_application_protos(&[b"massa/1.0"])
-                    .unwrap();
+                    .map_err(|err| QuicError::QuicheConfig.wrap().new("cfg proto", err, None))?;
                 quiche_config.enable_dgram(true, 10, 10);
                 //TODO: random bytes
                 let scid = [0; quiche::MAX_CONN_ID_LEN];
                 let scid = quiche::ConnectionId::from_ref(&scid);
                 let mut conn =
                     quiche::connect(None, &scid, config.local_addr, address, &mut quiche_config)
-                        .unwrap();
+                        .map_err(|err| {
+                            QuicError::ConnectionError.wrap().new(
+                                "try_connect connect",
+                                err,
+                                Some(format!(
+                                    "local_addr: {:?}, addr: {:?}",
+                                    config.local_addr, address
+                                )),
+                            )
+                        })?;
                 loop {
                     let (write, send_info) = match conn.send(&mut out) {
                         Ok(v) => v,
@@ -393,7 +476,11 @@ impl Transport for QuicTransport {
                         }
                         Err(e) => {
                             println!("send failed: {:?}", e);
-                            return;
+                            return Err(QuicError::ConnectionError.wrap().new(
+                                "try_connect conn.send",
+                                e,
+                                None,
+                            ));
                         }
                     };
 
@@ -407,7 +494,11 @@ impl Transport for QuicTransport {
                         }
 
                         println!("send() failed: {:?}", e);
-                        return;
+                        return Err(QuicError::ConnectionError.wrap().new(
+                            "quic try_connect socket.send_to",
+                            e,
+                            None,
+                        ));
                     }
                 }
                 //TODO: Config
@@ -437,50 +528,55 @@ impl Transport for QuicTransport {
                     active_connections.clone(),
                 );
                 drop(wg);
+                Ok(())
             }
         });
-        Ok(())
+        Ok(connection_handler)
     }
 
-    fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
+    fn stop_listener(&mut self, address: SocketAddr) -> PeerNetResult<()> {
         let (waker, _, handle) =
             self.listeners
                 .remove(&address)
-                .ok_or(PeerNetError::ListenerError(format!(
-                    "Can't find listener for address {}",
-                    address
-                )))?;
+                .ok_or(QuicError::InternalFail.wrap().error(
+                    "stop_listener rm addr",
+                    Some(format!("address: {}", address)),
+                ))?;
         {
             let mut active_connections = self.active_connections.write();
             active_connections.listeners.remove(&address);
         }
         waker
             .wake()
-            .map_err(|e| PeerNetError::ListenerError(e.to_string()))?;
-        handle
+            .map_err(|e| QuicError::StopListener.wrap().new("waker wake", e, None))?;
+        let _ = handle
             .join()
-            .expect(&format!("Couldn't join listener for address {}", address));
+            .unwrap_or_else(|_| panic!("Couldn't join listener for address {}", address));
         Ok(())
     }
 
-    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError> {
+    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         endpoint
             .data_sender
             .send(QuicInternalMessage::Data(data.to_vec()))
-            .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?;
-        Ok(())
+            .map_err(|err| {
+                QuicError::ConnectionError
+                    .wrap()
+                    .new("data_sender send", err, None)
+            })
     }
 
-    fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
-        let data = endpoint
-            .data_receiver
-            .recv()
-            .map_err(|err| PeerNetError::ReceiveError(err.to_string()))?;
+    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
+        let data = endpoint.data_receiver.recv().map_err(|err| {
+            QuicError::ConnectionError
+                .wrap()
+                .new("data_receiver recv", err, None)
+        })?;
         match data {
             QuicInternalMessage::Data(data) => Ok(data),
-            QuicInternalMessage::Shutdown => {
-                Err(PeerNetError::ReceiveError("Connection closed".to_string()))
-            }
+            QuicInternalMessage::Shutdown => Err(QuicError::InternalFail
+                .wrap()
+                .error("recv shutdown", Some("Connection closed".to_string()))),
         }
     }
 }

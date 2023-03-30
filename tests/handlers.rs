@@ -1,5 +1,5 @@
 mod util;
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use peernet::types::KeyPair;
 use peernet::{
@@ -59,7 +59,7 @@ fn two_peers_tcp_with_one_handler() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(TcpOutConnectionConfig {}),
+            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(1));

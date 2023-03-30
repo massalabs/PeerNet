@@ -2,7 +2,7 @@ use massa_hash::Hash;
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
-use crate::error::PeerNetError;
+use crate::error::{PeerNetError, PeerNetResult};
 use crate::peer_id::PeerId;
 use crate::types::{KeyPair, PublicKey, Signature};
 
@@ -24,20 +24,20 @@ impl Endpoint {
         }
     }
 
-    pub fn send(&mut self, data: &[u8]) -> Result<(), PeerNetError> {
+    pub fn send(&mut self, data: &[u8]) -> PeerNetResult<()> {
         match self {
             Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint, data),
             Endpoint::Quic(endpoint) => QuicTransport::send(endpoint, data),
         }
     }
-    pub fn receive(&mut self) -> Result<Vec<u8>, PeerNetError> {
+    pub fn receive(&mut self) -> PeerNetResult<Vec<u8>> {
         match self {
             Endpoint::Tcp(endpoint) => TcpTransport::receive(endpoint),
             Endpoint::Quic(endpoint) => QuicTransport::receive(endpoint),
         }
     }
 
-    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair) -> Result<PeerId, PeerNetError> {
+    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair) -> PeerNetResult<PeerId> {
         //TODO: Add version in handshake
         let mut self_random_bytes = [0u8; 32];
         StdRng::from_entropy().fill_bytes(&mut self_random_bytes);
@@ -66,7 +66,16 @@ impl Endpoint {
         // check their signature
         other_public_key
             .verify_signature(&self_random_hash, &other_signature)
-            .map_err(|err| PeerNetError::HandshakeError(err.to_string()))?;
+            .map_err(|err| {
+                PeerNetError::HandshakeError.new(
+                    "handshake verify signature",
+                    err,
+                    Some(format!(
+                        "hash: {:?}, signature: {:?}",
+                        self_random_hash, other_signature
+                    )),
+                )
+            })?;
 
         let other_peer_id = PeerId::from_public_key(other_public_key);
         println!("Handshake finished");

@@ -1,14 +1,19 @@
+name: CI
+
 on:
-  pull_request: [closed, opened, edited, reopened]
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types:
+    - opened
+    - reopened
+    - synchronize
+    - ready_for_review
 
 env:
   CARGO_BACKTRACE: full
   RUSTFLAGS: "--deny warnings"
-
-name: Check and Lint
 
 jobs:
   check:

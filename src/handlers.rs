@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crossbeam::channel::Sender;
 
-use crate::{error::PeerNetError, peer_id::PeerId};
+use crate::error::{PeerNetError, PeerNetResult};
+use crate::peer_id::PeerId;
 
 #[derive(Clone)]
 pub struct MessageHandler {
@@ -17,11 +18,11 @@ impl MessageHandler {
         MessageHandler { sender }
     }
 
-    pub fn send_message(&self, message: (PeerId, Vec<u8>)) -> Result<(), PeerNetError> {
+    pub fn send_message(&self, message: (PeerId, Vec<u8>)) -> PeerNetResult<()> {
         //TODO: Add timeout
         self.sender
             .send(message)
-            .map_err(|err| PeerNetError::HandlerError(err.to_string()))
+            .map_err(|err| PeerNetError::SendError.new("message handler", err, None))
     }
 }
 

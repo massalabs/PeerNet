@@ -2,16 +2,14 @@
 //!
 //! This module use enum dispatch to avoid using trait objects and to save runtime costs.
 
+use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
 use crate::{
-    error::PeerNetError,
+    error::{PeerNetError, PeerNetResult},
     handlers::MessageHandlers,
-    network_manager::{
-        ActiveConnections, FallbackFunction, HandshakeFunction, SharedActiveConnections,
-    },
+    network_manager::{FallbackFunction, SharedActiveConnections},
     peer::HandshakeHandler,
-    peer_id::PeerId,
 };
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
@@ -22,8 +20,14 @@ mod tcp;
 
 use crate::types::KeyPair;
 pub use quic::QuicOutConnectionConfig;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 pub use tcp::TcpOutConnectionConfig;
+
+#[derive(Debug)]
+pub enum TransportErrorType {
+    Tcp(tcp::TcpError),
+    Quic(quic::QuicError),
+}
 
 /// Define the different transports available
 /// TODO: Maybe try to fusion with the InternalTransportType enum above
@@ -55,19 +59,19 @@ pub(crate) enum InternalTransportType {
 /// All configurations for out connection depending on the transport type
 #[derive(Clone)]
 pub enum OutConnectionConfig {
-    Tcp(TcpOutConnectionConfig),
-    Quic(QuicOutConnectionConfig),
+    Tcp(Box<TcpOutConnectionConfig>),
+    Quic(Box<QuicOutConnectionConfig>),
 }
 
 impl From<<TcpTransport as Transport>::OutConnectionConfig> for OutConnectionConfig {
     fn from(inner: TcpOutConnectionConfig) -> Self {
-        OutConnectionConfig::Tcp(inner)
+        OutConnectionConfig::Tcp(Box::new(inner))
     }
 }
 
 impl From<<QuicTransport as Transport>::OutConnectionConfig> for OutConnectionConfig {
     fn from(inner: QuicOutConnectionConfig) -> Self {
-        OutConnectionConfig::Quic(inner)
+        OutConnectionConfig::Quic(Box::new(inner))
     }
 }
 // TODO: Macroize this I don't use enum_dispatch or enum_delegate as it generates a lot of code
@@ -81,7 +85,7 @@ impl Transport for InternalTransportType {
         self_keypair: KeyPair,
         address: SocketAddr,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError> {
+    ) -> PeerNetResult<()> {
         match self {
             InternalTransportType::Tcp(transport) => {
                 transport.start_listener(self_keypair, address, handshake_handler)
@@ -99,38 +103,38 @@ impl Transport for InternalTransportType {
         timeout: Duration,
         config: &Self::OutConnectionConfig,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError> {
+    ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         match self {
             InternalTransportType::Tcp(transport) => match config {
                 OutConnectionConfig::Tcp(config) => {
                     transport.try_connect(self_keypair, address, timeout, config, handshake_handler)
                 }
-                _ => Err(PeerNetError::WrongConfigType),
+                _ => Err(PeerNetError::WrongConfigType.error("try_connect match tcp", None)),
             },
             InternalTransportType::Quic(transport) => match config {
                 OutConnectionConfig::Quic(config) => {
                     transport.try_connect(self_keypair, address, timeout, config, handshake_handler)
                 }
-                _ => Err(PeerNetError::WrongConfigType),
+                _ => Err(PeerNetError::WrongConfigType.error("try_connect match quic", None)),
             },
         }
     }
 
-    fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError> {
+    fn stop_listener(&mut self, address: SocketAddr) -> PeerNetResult<()> {
         match self {
             InternalTransportType::Tcp(transport) => transport.stop_listener(address),
             InternalTransportType::Quic(transport) => transport.stop_listener(address),
         }
     }
 
-    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError> {
+    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         match endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint, data),
             Endpoint::Quic(endpoint) => QuicTransport::send(endpoint, data),
         }
     }
 
-    fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError> {
+    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         match endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::receive(endpoint),
             Endpoint::Quic(endpoint) => QuicTransport::receive(endpoint),
@@ -138,7 +142,7 @@ impl Transport for InternalTransportType {
     }
 }
 
-impl<'a> InternalTransportType {
+impl InternalTransportType {
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
         active_connections: SharedActiveConnections,
@@ -173,7 +177,7 @@ pub trait Transport {
         self_keypair: KeyPair,
         address: SocketAddr,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError>;
+    ) -> PeerNetResult<()>;
     /// Try to connect to a peer
     fn try_connect<T: HandshakeHandler>(
         &mut self,
@@ -182,9 +186,9 @@ pub trait Transport {
         timeout: Duration,
         config: &Self::OutConnectionConfig,
         handshake_handler: T,
-    ) -> Result<(), PeerNetError>;
+    ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>>;
     /// Stop a listener of a given address
-    fn stop_listener(&mut self, address: SocketAddr) -> Result<(), PeerNetError>;
-    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> Result<(), PeerNetError>;
-    fn receive(endpoint: &mut Self::Endpoint) -> Result<Vec<u8>, PeerNetError>;
+    fn stop_listener(&mut self, address: SocketAddr) -> PeerNetResult<()>;
+    fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()>;
+    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>>;
 }
