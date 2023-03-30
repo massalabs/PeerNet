@@ -56,6 +56,10 @@ impl Default for PeerNetFeatures {
 
 impl PeerNetFeatures {
     #[allow(clippy::needless_update)]
+    // Built this way instead of a mutable reference to allow setting
+    //  a default config with only a specific feature enabled / disabled
+    //      (ex: PeerNetFeatures::default().set_reject_same_ip_addr(false))
+    /// Set the IP address spoofing rejection
     pub fn set_reject_same_ip_addr(self, val: bool) -> PeerNetFeatures {
         PeerNetFeatures {
             reject_same_ip_addr: val,
