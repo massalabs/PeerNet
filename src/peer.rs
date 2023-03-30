@@ -25,7 +25,7 @@ pub trait HandshakeHandler: Send + Clone + 'static {
         _listeners: &HashMap<SocketAddr, TransportType>,
         _handlers: &MessageHandlers,
     ) -> PeerNetResult<PeerId> {
-        endpoint.handshake(&keypair)
+        endpoint.handshake(keypair)
     }
 }
 
@@ -42,11 +42,11 @@ impl SendChannels {
         if high_priority {
             self.high_priority
                 .send(data)
-                .map_err(|err| PeerNetError::SendError.new("sendchannels highprio", &err, None))?;
+                .map_err(|err| PeerNetError::SendError.new("sendchannels highprio", err, None))?;
         } else {
             self.low_priority
                 .send(data)
-                .map_err(|err| PeerNetError::SendError.new("sendchannels lowprio", &err, None))?;
+                .map_err(|err| PeerNetError::SendError.new("sendchannels lowprio", err, None))?;
         }
         Ok(())
     }

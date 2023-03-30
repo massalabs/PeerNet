@@ -28,7 +28,7 @@ impl PeerId {
             public_key: PublicKey::from_bytes(bytes).map_err(|err| {
                 PeerNetError::PeerIdError.new(
                     "peerid pubk from bytes",
-                    &err,
+                    err,
                     Some(format!("{:?}", bytes)),
                 )
             })?,
@@ -47,7 +47,7 @@ impl PeerId {
             .map_err(|err| {
                 PeerNetError::PeerIdError.new(
                     "peeid verify sign",
-                    &err,
+                    err,
                     Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
                 )
             })
@@ -66,7 +66,7 @@ impl FromStr for PeerId {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(PeerId {
             public_key: PublicKey::from_str(s).map_err(|err| {
-                PeerNetError::PeerIdError.new("peerid from str", &err, Some(s.to_string()))
+                PeerNetError::PeerIdError.new("peerid from str", err, Some(s.to_string()))
             })?,
         })
     }

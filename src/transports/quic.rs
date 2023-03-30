@@ -573,7 +573,7 @@ impl Transport for QuicTransport {
             QuicInternalMessage::Data(data) => Ok(data),
             QuicInternalMessage::Shutdown => Err(QuicError::InternalFail
                 .wrap()
-                .error("recv shutdown", Some(format!("Connection closed")))),
+                .error("recv shutdown", Some("Connection closed".to_string()))),
         }
     }
 }

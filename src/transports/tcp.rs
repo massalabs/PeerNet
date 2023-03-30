@@ -57,10 +57,12 @@ impl Clone for TcpEndpoint {
         TcpEndpoint {
             address: self.address,
             stream: Limiter::new(
-                self.stream.stream.try_clone().expect(&format!(
-                    "Unable to clone stream, when cloning TcpEndpoint {}",
-                    self.address
-                )),
+                self.stream.stream.try_clone().unwrap_or_else(|_| {
+                    panic!(
+                        "Unable to clone stream, when cloning TcpEndpoint {}",
+                        self.address
+                    )
+                }),
                 RATE_LIMIT,
                 Duration::from_secs(1),
             ),
