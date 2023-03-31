@@ -1,7 +1,7 @@
 //! Every information about a peer (not used for now)
 
 use std::collections::HashMap;
-use std::{fmt::Debug, net::SocketAddr, thread::spawn};
+use std::{fmt::Debug, net::SocketAddr};
 
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::types::KeyPair;
@@ -84,7 +84,7 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
     active_connections: SharedActiveConnections,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
-    spawn(move || {
+    std::thread::spawn(move || {
         let listeners = {
             let active_connections = active_connections.read();
             active_connections.listeners.clone()
@@ -120,12 +120,21 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
         // SPAWN WRITING THREAD
         //TODO: Bound
         let mut write_endpoint = endpoint.clone();
+        let write_active_connections = active_connections.clone();
+        let write_peer_id = peer_id.clone();
         // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn(move || loop {
             match high_write_rx.try_recv() {
                 Ok(data) => {
                     println!("writer thread: high priority message received");
-                    write_endpoint.send(&data).unwrap();
+                    if write_endpoint.send(&data).is_err() {
+                        write_active_connections
+                            .write()
+                            .connections
+                            .remove(&write_peer_id)
+                            .expect("Unable to remove peer id");
+                        break;
+                    }
                     continue;
                 }
                 Err(TryRecvError::Empty) => {}
@@ -139,7 +148,10 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                     match msg {
                         Ok(data) => {
                             println!("writer thread: low priority message received");
-                            write_endpoint.send(&data).unwrap();
+                            if write_endpoint.send(&data).is_err() {
+                                write_active_connections.write().connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                break;
+                            }
                         }
                         Err(_) => {
                             println!("writer thread: disconnected");
@@ -151,7 +163,10 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                     match msg {
                         Ok(data) => {
                             println!("writer thread: high priority message received");
-                            write_endpoint.send(&data).unwrap();
+                            if write_endpoint.send(&data).is_err() {
+                                write_active_connections.write().connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                break;
+                            }
                         }
                         Err(_) => {
                             println!("writer thread: disconnected");
@@ -167,9 +182,16 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                 Ok(data) => {
                     if data.is_empty() {
                         println!("Peer stop");
+                        if active_connections
+                            .write()
+                            .connections
+                            .remove(&peer_id)
+                            .is_none()
                         {
-                            let mut active_connections = active_connections.write();
-                            active_connections.connections.remove(&peer_id);
+                            println!(
+                                "Unable to remove peer {:?}, not found in active connections",
+                                peer_id
+                            );
                         }
                         let _ = write_thread_handle.join();
                         return;
@@ -189,6 +211,18 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                 }
                 Err(err) => {
                     println!("Peer err {:?}", err);
+                    if active_connections
+                        .write()
+                        .connections
+                        .remove(&peer_id)
+                        .is_none()
+                    {
+                        println!(
+                            "Unable to remove peer {:?}, not found in active connections",
+                            peer_id
+                        );
+                    }
+                    return;
                 }
             }
         }
