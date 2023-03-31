@@ -17,6 +17,13 @@ pub enum Endpoint {
 }
 
 impl Endpoint {
+    pub fn get_target_addr(&self) -> &std::net::SocketAddr {
+        match self {
+            Endpoint::Tcp(TcpEndpoint { address, .. }) => address,
+            Endpoint::Quic(QuicEndpoint { address, .. }) => address,
+        }
+    }
+
     pub fn send(&mut self, data: &[u8]) -> PeerNetResult<()> {
         match self {
             Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint, data),

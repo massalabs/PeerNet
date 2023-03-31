@@ -3,7 +3,7 @@ use std::{thread::sleep, time::Duration};
 
 use peernet::types::KeyPair;
 use peernet::{
-    config::PeerNetConfiguration,
+    config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::HandshakeHandler,
     peer_id::PeerId,
@@ -23,10 +23,11 @@ fn simple() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair.clone(),
+        self_keypair: keypair,
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake,
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -54,10 +55,11 @@ fn two_peers_tcp() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair1.clone(),
+        self_keypair: keypair1,
         handshake_handler: DefaultHandshake {},
         fallback_function: None,
         message_handlers: Default::default(),
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -68,10 +70,11 @@ fn two_peers_tcp() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair2.clone(),
+        self_keypair: keypair2,
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager2 = PeerNetManager::new(config);
     sleep(Duration::from_secs(3));
@@ -79,7 +82,7 @@ fn two_peers_tcp() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
+            &OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -99,6 +102,7 @@ fn two_peers_quic() {
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -109,10 +113,11 @@ fn two_peers_quic() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair2.clone(),
+        self_keypair: keypair2,
         fallback_function: None,
         message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager2 = PeerNetManager::new(config);
     sleep(Duration::from_secs(3));

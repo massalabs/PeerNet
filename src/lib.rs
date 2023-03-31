@@ -5,7 +5,7 @@
 //!
 //! use peernet::types::KeyPair;
 //! use peernet::{
-//!    config::PeerNetConfiguration,
+//!    config::{PeerNetConfiguration, PeerNetFeatures},
 //!    network_manager::PeerNetManager,
 //!    peer_id::PeerId,
 //!    transports::{OutConnectionConfig, TcpOutConnectionConfig, QuicOutConnectionConfig, TransportType},
@@ -28,6 +28,7 @@
 //!     message_handlers: Default::default(),
 //!     fallback_function: None,
 //!     handshake_handler: DefaultHandshake,
+//!     optional_features: PeerNetFeatures::default(),
 //! };
 //! // Setup the manager for the first peer
 //! let mut manager = PeerNetManager::new(config);
@@ -46,6 +47,7 @@
 //!     message_handlers: Default::default(),
 //!     fallback_function: None,
 //!     handshake_handler: DefaultHandshake,
+//!     optional_features: PeerNetFeatures::default(),
 //! };
 //! // Setup the manager for the second peer
 //! let mut manager2 = PeerNetManager::new(config);

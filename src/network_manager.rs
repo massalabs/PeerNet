@@ -12,7 +12,7 @@ use crate::{
     config::PeerNetConfiguration,
     error::PeerNetResult,
     handlers::MessageHandlers,
-    peer::{HandshakeHandler, PeerConnection},
+    peer::{HandshakeHandler, PeerConnection, SendChannels},
     peer_id::PeerId,
     transports::{
         endpoint::Endpoint, InternalTransportType, OutConnectionConfig, Transport, TransportType,
@@ -27,9 +27,50 @@ pub struct ActiveConnections {
     pub max_in_connections: usize,
     /// Number of peers we want to have in OUT connection
     pub max_out_connections: usize,
+    /// Peers attempting to connect but not yet finished initialization
+    pub connection_queue: Vec<SocketAddr>,
     pub connections: HashMap<PeerId, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
+
+impl ActiveConnections {
+    /// Check if a new connection from a specific address can be accepted or not
+    pub fn check_addr_accepted(&self, addr: &SocketAddr) -> bool {
+        if self.connections.is_empty() && self.connection_queue.is_empty() {
+            true
+        } else {
+            let active_connection_match = self
+                .connections
+                .iter()
+                .any(|(_, connection)| connection.endpoint.get_target_addr().ip() == addr.ip());
+            let queue_connection_match = self
+                .connection_queue
+                .iter()
+                .any(|peer| peer.ip() == addr.ip());
+            !(queue_connection_match || active_connection_match)
+        }
+    }
+
+    pub fn confirm_connection(
+        &mut self,
+        id: PeerId,
+        endpoint: Endpoint,
+        send_channels: SendChannels,
+    ) {
+        self.connection_queue
+            .retain(|addr| addr != endpoint.get_target_addr());
+        self.connections.insert(
+            id,
+            PeerConnection {
+                send_channels,
+                //TODO: Should be only the field that allow to shutdown the connection. As it's
+                //transport specific, it should be a wrapped type `ShutdownHandle`
+                endpoint,
+            },
+        );
+    }
+}
+
 // Send some data to a peer that we didn't accept his connection
 pub type FallbackFunction = dyn Fn(
         &KeyPair,
@@ -66,6 +107,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
             nb_out_connections: 0,
             max_in_connections: config.max_in_connections,
             max_out_connections: config.max_out_connections,
+            connection_queue: vec![],
             connections: Default::default(),
             listeners: Default::default(),
         }));
@@ -92,6 +134,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
                 self.active_connections.clone(),
                 self.fallback_function,
                 self.config.message_handlers.clone(),
+                self.config.optional_features.clone(),
             )
         });
         transport.start_listener(
@@ -115,6 +158,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
                 self.active_connections.clone(),
                 self.fallback_function,
                 self.config.message_handlers.clone(),
+                self.config.optional_features.clone(),
             )
         });
         transport.stop_listener(addr)?;
@@ -141,6 +185,7 @@ impl<T: HandshakeHandler> PeerNetManager<T> {
                     self.active_connections.clone(),
                     self.fallback_function,
                     self.config.message_handlers.clone(),
+                    self.config.optional_features.clone(),
                 )
             });
         transport.try_connect(

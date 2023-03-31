@@ -23,6 +23,8 @@ pub struct PeerNetConfiguration<T: HandshakeHandler> {
     pub handshake_handler: T,
     /// Optional function to trigger when we receive a connection from a peer and we don't accept it
     pub fallback_function: Option<&'static FallbackFunction>,
+    /// Optional features to enable for the manager
+    pub optional_features: PeerNetFeatures,
 }
 
 impl<T: HandshakeHandler> PeerNetConfiguration<T> {
@@ -34,6 +36,34 @@ impl<T: HandshakeHandler> PeerNetConfiguration<T> {
             message_handlers: MessageHandlers::default(),
             fallback_function: None,
             handshake_handler,
+            optional_features: PeerNetFeatures::default(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct PeerNetFeatures {
+    pub reject_same_ip_addr: bool,
+}
+
+impl Default for PeerNetFeatures {
+    fn default() -> PeerNetFeatures {
+        PeerNetFeatures {
+            reject_same_ip_addr: true,
+        }
+    }
+}
+
+impl PeerNetFeatures {
+    #[allow(clippy::needless_update)]
+    // Built this way instead of a mutable reference to allow setting
+    //  a default config with only a specific feature enabled / disabled
+    //      (ex: PeerNetFeatures::default().set_reject_same_ip_addr(false))
+    /// Set the IP address spoofing rejection
+    pub fn set_reject_same_ip_addr(self, val: bool) -> PeerNetFeatures {
+        PeerNetFeatures {
+            reject_same_ip_addr: val,
+            ..self
         }
     }
 }

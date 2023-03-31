@@ -108,21 +108,15 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
         let (high_write_tx, high_write_rx) = unbounded::<Vec<u8>>();
 
-        {
-            let mut active_connections = active_connections.write();
-            active_connections.connections.insert(
-                peer_id.clone(),
-                PeerConnection {
-                    //TODO: Should be only the field that allow to shutdown the connection. As it's
-                    //transport specific, it should be a wrapped type `ShutdownHandle`
-                    endpoint: endpoint.clone(),
-                    send_channels: SendChannels {
-                        low_priority: low_write_tx,
-                        high_priority: high_write_tx,
-                    },
-                },
-            );
-        }
+        active_connections.write().confirm_connection(
+            peer_id.clone(),
+            endpoint.clone(),
+            SendChannels {
+                low_priority: low_write_tx,
+                high_priority: high_write_tx,
+            },
+        );
+
         // SPAWN WRITING THREAD
         //TODO: Bound
         let mut write_endpoint = endpoint.clone();

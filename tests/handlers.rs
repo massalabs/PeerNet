@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use peernet::types::KeyPair;
 use peernet::{
-    config::PeerNetConfiguration,
+    config::{PeerNetConfiguration, PeerNetFeatures},
     handlers::MessageHandlers,
     network_manager::PeerNetManager,
     peer::HandshakeHandler,
@@ -36,10 +36,11 @@ fn two_peers_tcp_with_one_handler() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair1.clone(),
+        self_keypair: keypair1,
         handshake_handler: EmptyHandshake {},
         fallback_function: None,
         message_handlers: message_handlers.clone(),
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -49,10 +50,11 @@ fn two_peers_tcp_with_one_handler() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair2.clone(),
+        self_keypair: keypair2,
         handshake_handler: EmptyHandshake {},
         fallback_function: None,
         message_handlers,
+        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
