@@ -5,10 +5,10 @@
 use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
+use crate::messages::MessagesHandler;
 use crate::{
     config::PeerNetFeatures,
     error::{PeerNetError, PeerNetResult},
-    handlers::MessageHandlers,
     network_manager::{FallbackFunction, SharedActiveConnections},
     peer::HandshakeHandler,
 };
@@ -81,41 +81,62 @@ impl Transport for InternalTransportType {
     type OutConnectionConfig = OutConnectionConfig;
     type Endpoint = Endpoint;
 
-    fn start_listener<T: HandshakeHandler + 'static>(
+    fn start_listener<T: HandshakeHandler + 'static, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
+        fallback_function: Option<&'static FallbackFunction>,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<()> {
         match self {
-            InternalTransportType::Tcp(transport) => {
-                transport.start_listener(self_keypair, address, handshake_handler)
-            }
-            InternalTransportType::Quic(transport) => {
-                transport.start_listener(self_keypair, address, handshake_handler)
-            }
+            InternalTransportType::Tcp(transport) => transport.start_listener::<_, M>(
+                self_keypair,
+                address,
+                fallback_function,
+                message_handler,
+                handshake_handler,
+            ),
+            InternalTransportType::Quic(transport) => transport.start_listener::<_, M>(
+                self_keypair,
+                address,
+                fallback_function,
+                message_handler,
+                handshake_handler,
+            ),
         }
     }
 
-    fn try_connect<T: HandshakeHandler + 'static>(
+    fn try_connect<T: HandshakeHandler + 'static, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         config: &Self::OutConnectionConfig,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         match self {
             InternalTransportType::Tcp(transport) => match config {
-                OutConnectionConfig::Tcp(config) => {
-                    transport.try_connect(self_keypair, address, timeout, config, handshake_handler)
-                }
+                OutConnectionConfig::Tcp(config) => transport.try_connect(
+                    self_keypair,
+                    address,
+                    timeout,
+                    config,
+                    message_handler,
+                    handshake_handler,
+                ),
                 _ => Err(PeerNetError::WrongConfigType.error("try_connect match tcp", None)),
             },
             InternalTransportType::Quic(transport) => match config {
-                OutConnectionConfig::Quic(config) => {
-                    transport.try_connect(self_keypair, address, timeout, config, handshake_handler)
-                }
+                OutConnectionConfig::Quic(config) => transport.try_connect(
+                    self_keypair,
+                    address,
+                    timeout,
+                    config,
+                    message_handler,
+                    handshake_handler,
+                ),
                 _ => Err(PeerNetError::WrongConfigType.error("try_connect match quic", None)),
             },
         }
@@ -147,23 +168,15 @@ impl InternalTransportType {
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
         active_connections: SharedActiveConnections,
-        fallback_function: Option<&'static FallbackFunction>,
-        message_handlers: MessageHandlers,
         features: PeerNetFeatures,
     ) -> Self {
         match transport_type {
-            TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
-                active_connections,
-                fallback_function,
-                message_handlers,
-                features,
-            )),
-            TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(
-                active_connections,
-                fallback_function,
-                message_handlers,
-                features,
-            )),
+            TransportType::Tcp => {
+                InternalTransportType::Tcp(TcpTransport::new(active_connections, features))
+            }
+            TransportType::Quic => {
+                InternalTransportType::Quic(QuicTransport::new(active_connections, features))
+            }
         }
     }
 }
@@ -176,19 +189,22 @@ pub trait Transport {
     type Endpoint;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
-    fn start_listener<T: HandshakeHandler>(
+    fn start_listener<T: HandshakeHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
+        fallback_function: Option<&'static FallbackFunction>,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<()>;
     /// Try to connect to a peer
-    fn try_connect<T: HandshakeHandler>(
+    fn try_connect<T: HandshakeHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         config: &Self::OutConnectionConfig,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>>;
     /// Stop a listener of a given address

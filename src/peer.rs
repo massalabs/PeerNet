@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
 use crate::error::{PeerNetError, PeerNetResult};
+use crate::messages::MessagesHandler;
 use crate::types::KeyPair;
 use crossbeam::{
     channel::{unbounded, Sender, TryRecvError},
@@ -11,19 +12,17 @@ use crossbeam::{
 };
 
 use crate::{
-    handlers::MessageHandlers,
     network_manager::SharedActiveConnections,
     peer_id::PeerId,
     transports::{endpoint::Endpoint, TransportType},
 };
 
 pub trait HandshakeHandler: Send + Clone + 'static {
-    fn perform_handshake(
+    fn perform_handshake<M: MessagesHandler>(
         &mut self,
         keypair: &KeyPair,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
-        _handlers: &MessageHandlers,
     ) -> PeerNetResult<PeerId> {
         endpoint.handshake(keypair)
     }
@@ -76,11 +75,11 @@ impl Debug for PeerConnection {
     }
 }
 
-pub(crate) fn new_peer<T: HandshakeHandler>(
+pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
-    message_handlers: MessageHandlers,
+    message_handler: M,
     active_connections: SharedActiveConnections,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
@@ -90,11 +89,10 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = match handshake_handler.perform_handshake(
+        let peer_id = match handshake_handler.perform_handshake::<M>(
             &self_keypair,
             &mut endpoint,
             &listeners,
-            &message_handlers,
         ) {
             Ok(peer_id) => peer_id,
             Err(err) => {
@@ -197,17 +195,20 @@ pub(crate) fn new_peer<T: HandshakeHandler>(
                         return;
                     }
                     println!("Received data from peer: {:?}", data.len());
-                    let Ok(handler_id) = data[0..8].try_into() else {
-                        println!("Peer err received message couldn't determine handler id");
-                        continue;
-                    };
-                    let handler_id = u64::from_be_bytes(handler_id);
-                    let data = data[8..].to_vec();
-                    message_handlers
-                        .get_handler(handler_id)
-                        .unwrap()
-                        .send_message((peer_id.clone(), data))
-                        .unwrap();
+                    if let Err(err) = message_handler.deserialize_and_handle(&data, &peer_id) {
+                        println!("Error handling message: {:?}", err);
+                        if active_connections
+                            .write()
+                            .connections
+                            .remove(&peer_id)
+                            .is_none()
+                        {
+                            println!(
+                                "Unable to remove peer {:?}, not found in active connections",
+                                peer_id
+                            );
+                        }
+                    }
                 }
                 Err(err) => {
                     println!("Peer err {:?}", err);

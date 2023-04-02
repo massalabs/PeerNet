@@ -4,13 +4,15 @@ use std::{
     time::Duration,
 };
 
-use crossbeam::channel::Receiver;
-use peernet::{handlers::MessageHandler, peer_id::PeerId};
+use peernet::{error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
 
-pub fn create_basic_handler() -> (Receiver<(PeerId, Vec<u8>)>, MessageHandler) {
-    let (tx, rx) = crossbeam::channel::unbounded();
-    let handler = MessageHandler::new(tx);
-    (rx, handler)
+#[derive(Clone)]
+pub struct DefaultMessagesHandler {}
+
+impl MessagesHandler for DefaultMessagesHandler {
+    fn deserialize_and_handle(&self, _data: &[u8], _peer_id: &PeerId) -> PeerNetResult<()> {
+        Ok(())
+    }
 }
 
 pub fn create_clients(nb_clients: usize) -> Vec<JoinHandle<()>> {

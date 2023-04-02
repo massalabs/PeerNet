@@ -3,11 +3,13 @@
 //! ``` rust
 //! use std::{thread::sleep, time::Duration};
 //!
-//! use peernet::types::KeyPair;
 //! use peernet::{
 //!    config::{PeerNetConfiguration, PeerNetFeatures},
 //!    network_manager::PeerNetManager,
 //!    peer_id::PeerId,
+//!    types::KeyPair,
+//!    error::PeerNetResult,
+//!    messages::MessagesHandler,
 //!    transports::{OutConnectionConfig, TcpOutConnectionConfig, QuicOutConnectionConfig, TransportType},
 //!    peer::HandshakeHandler,
 //!};
@@ -17,6 +19,14 @@
 //! pub struct DefaultHandshake;
 //! // Use the default implementation of the handshake
 //! impl HandshakeHandler for DefaultHandshake {}
+//! #[derive(Clone)]
+//! pub struct MessageHandler;
+//! impl MessagesHandler for MessageHandler {
+//!     fn deserialize_and_handle(&self, data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
+//!         Ok(())
+//!     }
+//! }
+//!
 //!
 //! // Generating a keypair for the first peer
 //! let keypair1 = KeyPair::generate();
@@ -25,7 +35,7 @@
 //!     max_in_connections: 10,
 //!     max_out_connections: 20,
 //!     self_keypair: keypair1.clone(),
-//!     message_handlers: Default::default(),
+//!     message_handler: MessageHandler {},
 //!     fallback_function: None,
 //!     handshake_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),
@@ -36,6 +46,7 @@
 //! manager
 //!     .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
 //!     .unwrap();
+//!
 
 //! // Generating a keypair for the second peer
 //! let keypair2 = KeyPair::generate();
@@ -44,7 +55,7 @@
 //!     max_in_connections: 10,
 //!     max_out_connections: 20,
 //!     self_keypair: keypair1.clone(),
-//!     message_handlers: Default::default(),
+//!     message_handler: MessageHandler {},
 //!     fallback_function: None,
 //!     handshake_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),
@@ -69,7 +80,7 @@
 
 pub mod config;
 pub mod error;
-pub mod handlers;
+pub mod messages;
 pub mod network_manager;
 pub mod peer;
 pub mod peer_id;

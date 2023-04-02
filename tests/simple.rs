@@ -11,7 +11,7 @@ use peernet::{
         OutConnectionConfig, QuicOutConnectionConfig, TcpOutConnectionConfig, TransportType,
     },
 };
-use util::create_clients;
+use util::{create_clients, DefaultMessagesHandler};
 
 #[derive(Clone)]
 pub struct DefaultHandshake;
@@ -25,9 +25,9 @@ fn simple() {
         max_out_connections: 20,
         self_keypair: keypair,
         fallback_function: None,
-        message_handlers: Default::default(),
         handshake_handler: DefaultHandshake,
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        message_handler: DefaultMessagesHandler {},
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -58,8 +58,8 @@ fn two_peers_tcp() {
         self_keypair: keypair1,
         handshake_handler: DefaultHandshake {},
         fallback_function: None,
-        message_handlers: Default::default(),
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        message_handler: DefaultMessagesHandler {},
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -72,9 +72,9 @@ fn two_peers_tcp() {
         max_out_connections: 20,
         self_keypair: keypair2,
         fallback_function: None,
-        message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        message_handler: DefaultMessagesHandler {},
     };
     let mut manager2 = PeerNetManager::new(config);
     sleep(Duration::from_secs(3));
@@ -100,8 +100,8 @@ fn two_peers_quic() {
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
         fallback_function: None,
-        message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
+        message_handler: DefaultMessagesHandler {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
     let mut manager = PeerNetManager::new(config);
@@ -115,9 +115,9 @@ fn two_peers_quic() {
         max_out_connections: 20,
         self_keypair: keypair2,
         fallback_function: None,
-        message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        message_handler: DefaultMessagesHandler {},
     };
     let mut manager2 = PeerNetManager::new(config);
     sleep(Duration::from_secs(3));
