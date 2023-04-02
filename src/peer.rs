@@ -23,6 +23,7 @@ pub trait HandshakeHandler: Send + Clone + 'static {
         keypair: &KeyPair,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
+        _messages_handler: M
     ) -> PeerNetResult<PeerId> {
         endpoint.handshake(keypair)
     }
@@ -93,6 +94,7 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
             &self_keypair,
             &mut endpoint,
             &listeners,
+            message_handler.clone()
         ) {
             Ok(peer_id) => peer_id,
             Err(err) => {
