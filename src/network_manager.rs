@@ -130,7 +130,7 @@ impl<T: HandshakeHandler, M: MessagesHandler> PeerNetManager<T, M> {
         transport.start_listener(
             self.self_keypair.clone(),
             addr,
-            self.fallback_function.clone(),
+            self.fallback_function,
             self.message_handler.clone(),
             self.handshake_handler.clone(),
         )?;
