@@ -20,6 +20,7 @@ pub enum PeerNetError {
     SignError,
     SocketError,
     BoundReached,
+    InvalidMessage,
     TransportError(TransportErrorType),
 }
 
