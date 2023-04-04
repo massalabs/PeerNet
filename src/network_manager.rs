@@ -74,8 +74,6 @@ impl ActiveConnections {
 // Send some data to a peer that we didn't accept his connection
 pub type FallbackFunction = dyn Fn(&KeyPair, &mut Endpoint, &HashMap<SocketAddr, TransportType>) -> PeerNetResult<()>
     + Sync;
-pub type HandshakeFunction = dyn Fn(&KeyPair, &mut Endpoint, &HashMap<SocketAddr, TransportType>) -> PeerNetResult<PeerId>
-    + Sync;
 pub type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.

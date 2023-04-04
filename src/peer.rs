@@ -90,7 +90,7 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = match handshake_handler.perform_handshake::<M>(
+        let peer_id = match handshake_handler.perform_handshake(
             &self_keypair,
             &mut endpoint,
             &listeners,
@@ -197,18 +197,36 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
                         return;
                     }
                     println!("Received data from peer: {:?}", data.len());
-                    if let Err(err) = message_handler.deserialize_and_handle(&data, &peer_id) {
-                        println!("Error handling message: {:?}", err);
-                        if active_connections
-                            .write()
-                            .connections
-                            .remove(&peer_id)
-                            .is_none()
-                        {
-                            println!(
-                                "Unable to remove peer {:?}, not found in active connections",
-                                peer_id
-                            );
+                    match message_handler.deserialize_id(&data, &peer_id) {
+                        Ok((rest, id)) => {
+                            if let Err(err) = message_handler.handle(id, rest, &peer_id) {
+                                println!("Error handling message: {:?}", err);
+                                if active_connections
+                                    .write()
+                                    .connections
+                                    .remove(&peer_id)
+                                    .is_none()
+                                {
+                                    println!(
+                                    "Unable to remove peer {:?}, not found in active connections",
+                                    peer_id
+                                );
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            println!("Error handling message: {:?}", err);
+                            if active_connections
+                                .write()
+                                .connections
+                                .remove(&peer_id)
+                                .is_none()
+                            {
+                                println!(
+                                    "Unable to remove peer {:?}, not found in active connections",
+                                    peer_id
+                                );
+                            }
                         }
                     }
                 }
