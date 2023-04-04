@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use crate::types::KeyPair;
+use crate::{messages::MessagesHandler, types::KeyPair};
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
@@ -14,7 +14,6 @@ use parking_lot::RwLock;
 use crate::{
     config::PeerNetFeatures,
     error::{PeerNetError, PeerNetResult},
-    handlers::MessageHandlers,
     network_manager::{FallbackFunction, SharedActiveConnections},
     peer::{new_peer, HandshakeHandler},
     peer_id::PeerId,
@@ -53,7 +52,6 @@ type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
 pub(crate) struct QuicTransport {
     pub active_connections: SharedActiveConnections,
     //pub fallback_function: Option<&'static FallbackFunction>,
-    pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
     //(quiche::Connection, data_receiver, data_sender, is_established)
@@ -91,17 +89,13 @@ pub struct QuicOutConnectionConfig {
 impl QuicTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
-        _fallback_function: Option<&'static FallbackFunction>,
-        message_handlers: MessageHandlers,
         features: PeerNetFeatures,
     ) -> QuicTransport {
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
-            //fallback_function,
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
-            message_handlers,
             features,
         }
     }
@@ -112,10 +106,12 @@ impl Transport for QuicTransport {
 
     type Endpoint = QuicEndpoint;
 
-    fn start_listener<T: HandshakeHandler>(
+    fn start_listener<T: HandshakeHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
+        _fallback_function: Option<&'static FallbackFunction>,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<()> {
         let mut poll = Poll::new()
@@ -167,8 +163,6 @@ impl Transport for QuicTransport {
 
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let message_handlers = self.message_handlers.clone();
-            // let fallback_function = self.fallback_function.clone();
             let server = server.try_clone().unwrap();
             let reject_same_ip_addr = self.features.reject_same_ip_addr;
             move || {
@@ -283,7 +277,7 @@ impl Transport for QuicTransport {
                                                 address,
                                             }),
                                             handshake_handler.clone(),
-                                            message_handlers.clone(),
+                                            message_handler.clone(),
                                             active_connections.clone(),
                                         );
                                     }
@@ -413,12 +407,13 @@ impl Transport for QuicTransport {
         Ok(())
     }
 
-    fn try_connect<T: HandshakeHandler>(
+    fn try_connect<T: HandshakeHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         _timeout: Duration,
         config: &Self::OutConnectionConfig,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         //TODO: Use timeout
@@ -432,6 +427,8 @@ impl Transport for QuicTransport {
             self.start_listener(
                 self_keypair.clone(),
                 config.local_addr,
+                None,
+                message_handler.clone(),
                 handshake_handler.clone(),
             )?;
             //TODO: Make things more elegant with waker etc
@@ -443,7 +440,6 @@ impl Transport for QuicTransport {
         let socket = socket.try_clone().unwrap();
         let connection_handler: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let message_handlers = self.message_handlers.clone();
             let wg = self.out_connection_attempts.clone();
             move || {
                 let mut out = [0; 65507];
@@ -529,7 +525,7 @@ impl Transport for QuicTransport {
                         address,
                     }),
                     handshake_handler.clone(),
-                    message_handlers.clone(),
+                    message_handler.clone(),
                     active_connections.clone(),
                 );
                 drop(wg);

@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use crate::config::PeerNetFeatures;
 use crate::error::{PeerNetError, PeerNetResult};
-use crate::handlers::MessageHandlers;
+use crate::messages::MessagesHandler;
 use crate::network_manager::{FallbackFunction, SharedActiveConnections};
 use crate::peer::{new_peer, HandshakeHandler};
 use crate::transports::Endpoint;
@@ -34,8 +34,6 @@ impl TcpError {
 
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
-    pub fallback_function: Option<&'static FallbackFunction>,
-    pub message_handlers: MessageHandlers,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
     features: PeerNetFeatures,
@@ -81,16 +79,12 @@ impl TcpEndpoint {
 impl TcpTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
-        fallback_function: Option<&'static FallbackFunction>,
-        message_handlers: MessageHandlers,
         features: PeerNetFeatures,
     ) -> TcpTransport {
         TcpTransport {
             active_connections,
-            fallback_function,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
-            message_handlers,
             features,
         }
     }
@@ -101,10 +95,12 @@ impl Transport for TcpTransport {
 
     type Endpoint = TcpEndpoint;
 
-    fn start_listener<T: HandshakeHandler>(
+    fn start_listener<T: HandshakeHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
+        fallback_function: Option<&'static FallbackFunction>,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<()> {
         let mut poll =
@@ -114,8 +110,6 @@ impl Transport for TcpTransport {
             .map_err(|err| TcpError::InitListener.wrap().new("waker new", err, None))?;
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
-            let fallback_function = self.fallback_function;
-            let message_handlers = self.message_handlers.clone();
             let reject_same_ip_addr = self.features.reject_same_ip_addr;
             move || {
                 let server = TcpListener::bind(address)
@@ -179,7 +173,6 @@ impl Transport for TcpTransport {
                                                 &self_keypair,
                                                 &mut endpoint,
                                                 &active_connections.listeners,
-                                                &message_handlers,
                                             )?;
                                         }
                                         continue;
@@ -191,7 +184,7 @@ impl Transport for TcpTransport {
                                     self_keypair.clone(),
                                     endpoint,
                                     handshake_handler.clone(),
-                                    message_handlers.clone(),
+                                    message_handler.clone(),
                                     active_connections.clone(),
                                 );
                             }
@@ -214,18 +207,18 @@ impl Transport for TcpTransport {
         Ok(())
     }
 
-    fn try_connect<T: HandshakeHandler>(
+    fn try_connect<T: HandshakeHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         _config: &Self::OutConnectionConfig,
+        message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         Ok(std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let wg = self.out_connection_attempts.clone();
-            let message_handlers = self.message_handlers.clone();
             move || {
                 let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                     TcpError::ConnectionError.wrap().new(
@@ -258,7 +251,7 @@ impl Transport for TcpTransport {
                     self_keypair.clone(),
                     Endpoint::Tcp(TcpEndpoint { address, stream }),
                     handshake_handler.clone(),
-                    message_handlers.clone(),
+                    message_handler.clone(),
                     active_connections.clone(),
                 );
                 drop(wg);

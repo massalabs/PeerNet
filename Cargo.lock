@@ -521,6 +521,7 @@ dependencies = [
  "crossbeam",
  "enum_delegate",
  "massa_hash",
+ "massa_serialization",
  "massa_signature",
  "mio",
  "parking_lot",

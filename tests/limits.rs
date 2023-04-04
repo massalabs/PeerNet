@@ -1,5 +1,5 @@
 // All the tests related to the limitations on the system.
-
+mod util;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
@@ -9,6 +9,8 @@ use peernet::{
 use std::time::Duration;
 
 use peernet::types::KeyPair;
+
+use util::DefaultMessagesHandler;
 
 #[derive(Clone)]
 pub struct DefaultHandshake;
@@ -23,8 +25,8 @@ fn check_mutliple_connection_refused() {
         self_keypair: keypair1.clone(),
         handshake_handler: DefaultHandshake {},
         fallback_function: None,
-        message_handlers: Default::default(),
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
+        message_handler: DefaultMessagesHandler {},
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -37,9 +39,9 @@ fn check_mutliple_connection_refused() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         fallback_function: None,
-        message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
+        message_handler: DefaultMessagesHandler {},
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2
@@ -56,9 +58,9 @@ fn check_mutliple_connection_refused() {
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
         fallback_function: None,
-        message_handlers: Default::default(),
         handshake_handler: DefaultHandshake {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
+        message_handler: DefaultMessagesHandler {},
     };
     let mut manager3 = PeerNetManager::new(config);
     manager3
