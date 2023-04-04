@@ -27,8 +27,8 @@ struct TestMessagesHandler {
 }
 
 impl MessagesHandler for TestMessagesHandler {
-    fn deserialize_and_handle(&self, data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
-        match data[0] {
+    fn handle(&self, id: u64, _data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
+        match id {
             0 => {
                 println!("Received ping from {}", peer_id);
                 self.test_sender
@@ -40,6 +40,10 @@ impl MessagesHandler for TestMessagesHandler {
             }
             _ => Err(PeerNetError::ReceiveError.error("test", None)),
         }
+    }
+
+    fn deserialize_id<'a>(&self, data: &'a [u8], _peer_id: &PeerId) -> PeerNetResult<(&'a [u8], u64)> {
+        Ok((&data[1..], data[0] as u64))
     }
 }
 

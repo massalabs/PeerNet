@@ -22,7 +22,11 @@
 //! #[derive(Clone)]
 //! pub struct MessageHandler;
 //! impl MessagesHandler for MessageHandler {
-//!     fn deserialize_and_handle(&self, data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
+//!     fn deserialize_id<'a>(&self, data: &'a [u8], _peer_id: &PeerId) -> PeerNetResult<(&'a [u8], u64)> {
+//!         Ok((data, 0))
+//!     }
+//!
+//!     fn handle(&self, _id: u64, _data: &[u8], _peer_id: &PeerId) -> PeerNetResult<()> {
 //!         Ok(())
 //!     }
 //! }
