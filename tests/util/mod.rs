@@ -10,7 +10,11 @@ use peernet::{error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
 pub struct DefaultMessagesHandler {}
 
 impl MessagesHandler for DefaultMessagesHandler {
-    fn deserialize_id<'a>(&self, data: &'a [u8], _peer_id: &PeerId) -> PeerNetResult<(&'a [u8], u64)> {
+    fn deserialize_id<'a>(
+        &self,
+        data: &'a [u8],
+        _peer_id: &PeerId,
+    ) -> PeerNetResult<(&'a [u8], u64)> {
         Ok((data, 0))
     }
 

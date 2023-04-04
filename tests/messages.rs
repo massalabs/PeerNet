@@ -42,7 +42,11 @@ impl MessagesHandler for TestMessagesHandler {
         }
     }
 
-    fn deserialize_id<'a>(&self, data: &'a [u8], _peer_id: &PeerId) -> PeerNetResult<(&'a [u8], u64)> {
+    fn deserialize_id<'a>(
+        &self,
+        data: &'a [u8],
+        _peer_id: &PeerId,
+    ) -> PeerNetResult<(&'a [u8], u64)> {
         Ok((&data[1..], data[0] as u64))
     }
 }
