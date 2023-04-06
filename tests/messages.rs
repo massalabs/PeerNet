@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use crossbeam::channel::Sender;
 use peernet::error::{PeerNetError, PeerNetResult};
-use peernet::messages::MessagesHandler;
+use peernet::messages::{MessagesHandler, MessagesSerializer};
 use peernet::types::KeyPair;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
@@ -48,6 +48,20 @@ impl MessagesHandler for TestMessagesHandler {
         _peer_id: &PeerId,
     ) -> PeerNetResult<(&'a [u8], u64)> {
         Ok((&data[1..], data[0] as u64))
+    }
+}
+
+struct MessageSerializer;
+
+impl MessagesSerializer<Vec<u8>> for MessageSerializer {
+    fn serialize_id(&self, _message: &Vec<u8>, buffer: &mut Vec<u8>) -> PeerNetResult<()> {
+        buffer.push(0);
+        Ok(())
+    }
+
+    fn serialize(&self, message: &Vec<u8>, buffer: &mut Vec<u8>) -> PeerNetResult<()> {
+        buffer.extend_from_slice(message);
+        Ok(())
     }
 }
 
@@ -109,7 +123,7 @@ fn two_peers_tcp_with_one_message() {
             println!("Sending message to {:?}", peer_id);
             connection
                 .send_channels
-                .send(0, vec![1, 2, 3], true)
+                .send(&MessageSerializer {}, vec![1, 2, 3], true)
                 .unwrap();
         }
         println!("Connections: {:?}", connections);
