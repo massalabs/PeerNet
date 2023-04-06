@@ -1,6 +1,6 @@
 use crate::{error::PeerNetResult, peer_id::PeerId};
 
-pub trait MessagesSerializer<M>: Clone + Send + 'static {
+pub trait MessagesSerializer<M> {
     /// Serialize the id of a message
     fn serialize_id(&self, message: &M, buffer: &mut Vec<u8>) -> PeerNetResult<()>;
     /// Serialize the message

@@ -35,7 +35,7 @@ pub struct SendChannels {
 }
 
 impl SendChannels {
-    pub fn send<T, MS: MessagesSerializer<T>>(&self, message_serializer: MS, message: T, high_priority: bool) -> PeerNetResult<()> {
+    pub fn send<T, MS: MessagesSerializer<T>>(&self, message_serializer: &MS, message: T, high_priority: bool) -> PeerNetResult<()> {
         let mut data = Vec::new();
         message_serializer.serialize_id(&message, &mut data)?;
         message_serializer.serialize(&message, &mut data)?;
