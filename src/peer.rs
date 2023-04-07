@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
 use crate::error::{PeerNetError, PeerNetResult};
-use crate::messages::MessagesHandler;
+use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::types::KeyPair;
 use crossbeam::{
     channel::{unbounded, Sender, TryRecvError},
@@ -35,10 +35,15 @@ pub struct SendChannels {
 }
 
 impl SendChannels {
-    pub fn send(&self, handler_id: u64, data: Vec<u8>, high_priority: bool) -> PeerNetResult<()> {
-        let mut data = data;
-        let handler_id_bytes = handler_id.to_be_bytes();
-        data.splice(0..0, handler_id_bytes);
+    pub fn send<T, MS: MessagesSerializer<T>>(
+        &self,
+        message_serializer: &MS,
+        message: T,
+        high_priority: bool,
+    ) -> PeerNetResult<()> {
+        let mut data = Vec::new();
+        message_serializer.serialize_id(&message, &mut data)?;
+        message_serializer.serialize(&message, &mut data)?;
         if high_priority {
             self.high_priority
                 .send(data)
