@@ -20,7 +20,7 @@ use crate::{
     transports::{Endpoint, TransportErrorType},
 };
 
-use crossbeam::channel::{Receiver, Sender, unbounded};
+use crossbeam::channel::{unbounded, Receiver, Sender};
 
 use super::Transport;
 
@@ -95,7 +95,7 @@ impl QuicTransport {
         active_connections: SharedActiveConnections,
         features: PeerNetFeatures,
     ) -> QuicTransport {
-        let (stop_peer_tx, stop_peer_rx) = unbounded(); 
+        let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),

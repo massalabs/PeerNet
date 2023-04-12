@@ -14,11 +14,11 @@ use crate::transports::Endpoint;
 use super::{Transport, TransportErrorType};
 
 use crate::types::KeyPair;
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use stream_limiter::Limiter;
-use crossbeam::channel::{Receiver, Sender, unbounded};
 
 #[derive(Debug)]
 pub enum TcpError {
@@ -85,7 +85,7 @@ impl TcpTransport {
         active_connections: SharedActiveConnections,
         features: PeerNetFeatures,
     ) -> TcpTransport {
-        let (peer_stop_tx, peer_stop_rx) : (Sender<bool>, Receiver<bool>) = unbounded();
+        let (peer_stop_tx, peer_stop_rx): (Sender<bool>, Receiver<bool>) = unbounded();
         TcpTransport {
             active_connections,
             out_connection_attempts: WaitGroup::new(),
@@ -99,8 +99,10 @@ impl TcpTransport {
 
 impl Drop for TcpTransport {
     fn drop(&mut self) {
-        let all_addresses : Vec<SocketAddr> = self.listeners.keys().cloned().collect();
-        all_addresses.into_iter().for_each(|a| self.stop_listener(a).unwrap());
+        let all_addresses: Vec<SocketAddr> = self.listeners.keys().cloned().collect();
+        all_addresses
+            .into_iter()
+            .for_each(|a| self.stop_listener(a).unwrap());
     }
 }
 
@@ -299,7 +301,8 @@ impl Transport for TcpTransport {
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         endpoint
-            .stream.stream
+            .stream
+            .stream
             .write(&data.len().to_le_bytes())
             .map_err(|err| {
                 TcpError::ConnectionError.wrap().new(
@@ -319,13 +322,15 @@ impl Transport for TcpTransport {
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         let mut len_bytes = [0u8; 8];
         endpoint
-            .stream.stream
+            .stream
+            .stream
             .read(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
         let len = usize::from_le_bytes(len_bytes);
         let mut data = vec![0u8; len];
         endpoint
-            .stream.stream
+            .stream
+            .stream
             .read(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
         Ok(data)
