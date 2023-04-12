@@ -18,6 +18,7 @@ use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use stream_limiter::Limiter;
+use crossbeam::channel::{Receiver, Sender, unbounded};
 
 #[derive(Debug)]
 pub enum TcpError {
@@ -37,6 +38,9 @@ pub(crate) struct TcpTransport {
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
     features: PeerNetFeatures,
+
+    peer_stop_tx: Sender<bool>,
+    peer_stop_rx: Receiver<bool>,
 }
 
 const NEW_CONNECTION: Token = Token(0);
@@ -81,11 +85,14 @@ impl TcpTransport {
         active_connections: SharedActiveConnections,
         features: PeerNetFeatures,
     ) -> TcpTransport {
+        let (peer_stop_tx, peer_stop_rx) : (Sender<bool>, Receiver<bool>) = unbounded();
         TcpTransport {
             active_connections,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
             features,
+            peer_stop_rx,
+            peer_stop_tx,
         }
     }
 }
@@ -119,6 +126,8 @@ impl Transport for TcpTransport {
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let reject_same_ip_addr = self.features.reject_same_ip_addr;
+            let peer_stop_rx = self.peer_stop_rx.clone();
+            let peer_stop_tx = self.peer_stop_tx.clone();
             move || {
                 let server = TcpListener::bind(address)
                     .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
@@ -194,9 +203,12 @@ impl Transport for TcpTransport {
                                     handshake_handler.clone(),
                                     message_handler.clone(),
                                     active_connections.clone(),
+                                    peer_stop_rx.clone(),
                                 );
                             }
                             STOP_LISTENER => {
+                                peer_stop_tx.send(true).unwrap();
+                                println!("TCP STOP LISTENER");
                                 return Ok(());
                             }
                             _ => {}
@@ -224,6 +236,7 @@ impl Transport for TcpTransport {
         message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
+        let peer_stop_rx = self.peer_stop_rx.clone();
         Ok(std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let wg = self.out_connection_attempts.clone();
@@ -261,6 +274,7 @@ impl Transport for TcpTransport {
                     handshake_handler.clone(),
                     message_handler.clone(),
                     active_connections.clone(),
+                    peer_stop_rx,
                 );
                 drop(wg);
                 Ok(())

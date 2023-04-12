@@ -20,6 +20,8 @@ use crate::{
     transports::{Endpoint, TransportErrorType},
 };
 
+use crossbeam::channel::{Receiver, Sender, unbounded};
+
 use super::Transport;
 
 const NEW_PACKET_SERVER: Token = Token(0);
@@ -57,6 +59,8 @@ pub(crate) struct QuicTransport {
     //(quiche::Connection, data_receiver, data_sender, is_established)
     pub connections: QuicConnectionsMap,
     features: PeerNetFeatures,
+    stop_peer_tx: Sender<bool>,
+    stop_peer_rx: Receiver<bool>,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -91,12 +95,15 @@ impl QuicTransport {
         active_connections: SharedActiveConnections,
         features: PeerNetFeatures,
     ) -> QuicTransport {
+        let (stop_peer_tx, stop_peer_rx) = unbounded(); 
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
             features,
+            stop_peer_tx,
+            stop_peer_rx,
         }
     }
 }
@@ -165,6 +172,8 @@ impl Transport for QuicTransport {
             let active_connections = self.active_connections.clone();
             let server = server.try_clone().unwrap();
             let reject_same_ip_addr = self.features.reject_same_ip_addr;
+            let stop_peer_rx = self.stop_peer_rx.clone();
+            let stop_peer_tx = self.stop_peer_tx.clone();
             move || {
                 let mut socket = MioUdpSocket::from_std(server);
                 // Start listening for incoming connections.
@@ -279,6 +288,7 @@ impl Transport for QuicTransport {
                                             handshake_handler.clone(),
                                             message_handler.clone(),
                                             active_connections.clone(),
+                                            stop_peer_rx.clone(),
                                         );
                                     }
                                     {
@@ -324,6 +334,7 @@ impl Transport for QuicTransport {
                                 }
                             }
                             STOP_LISTENER => {
+                                stop_peer_tx.send(true).unwrap();
                                 return Ok(());
                             }
                             // We don't expect any events with tokens other than those we provided. (from mio doc)
@@ -416,6 +427,7 @@ impl Transport for QuicTransport {
         message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
+        let stop_peer_rx = self.stop_peer_rx.clone();
         //TODO: Use timeout
         let config = config.clone();
         let connections = self.connections.clone();
@@ -527,6 +539,7 @@ impl Transport for QuicTransport {
                     handshake_handler.clone(),
                     message_handler.clone(),
                     active_connections.clone(),
+                    stop_peer_rx.clone(),
                 );
                 drop(wg);
                 Ok(())
