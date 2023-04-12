@@ -101,7 +101,6 @@ impl Drop for TcpTransport {
     fn drop(&mut self) {
         let all_addresses : Vec<SocketAddr> = self.listeners.keys().cloned().collect();
         all_addresses.into_iter().for_each(|a| self.stop_listener(a).unwrap());
-        println!("TcpTransport dropped");
     }
 }
 
@@ -196,7 +195,6 @@ impl Transport for TcpTransport {
                                     }
                                     active_connections.connection_queue.push(address);
                                 }
-                                println!("New connection");
                                 new_peer(
                                     self_keypair.clone(),
                                     endpoint,
@@ -208,7 +206,6 @@ impl Transport for TcpTransport {
                             }
                             STOP_LISTENER => {
                                 peer_stop_tx.send(true).unwrap();
-                                println!("TCP STOP LISTENER");
                                 return Ok(());
                             }
                             _ => {}
