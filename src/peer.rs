@@ -7,7 +7,7 @@ use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
 use crate::types::KeyPair;
 use crossbeam::{
-    channel::{unbounded, Sender, TryRecvError},
+    channel::{unbounded, Sender, Receiver, TryRecvError},
     select,
 };
 

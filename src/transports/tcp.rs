@@ -90,6 +90,14 @@ impl TcpTransport {
     }
 }
 
+impl Drop for TcpTransport {
+    fn drop(&mut self) {
+        let all_addresses : Vec<SocketAddr> = self.listeners.keys().cloned().collect();
+        all_addresses.into_iter().for_each(|a| self.stop_listener(a).unwrap());
+        println!("TcpTransport dropped");
+    }
+}
+
 impl Transport for TcpTransport {
     type OutConnectionConfig = TcpOutConnectionConfig;
 
@@ -280,7 +288,7 @@ impl Transport for TcpTransport {
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         endpoint
-            .stream
+            .stream.stream
             .write(&data.len().to_le_bytes())
             .map_err(|err| {
                 TcpError::ConnectionError.wrap().new(
@@ -300,13 +308,13 @@ impl Transport for TcpTransport {
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         let mut len_bytes = [0u8; 8];
         endpoint
-            .stream
+            .stream.stream
             .read(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
         let len = usize::from_le_bytes(len_bytes);
         let mut data = vec![0u8; len];
         endpoint
-            .stream
+            .stream.stream
             .read(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
         Ok(data)
