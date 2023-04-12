@@ -308,7 +308,7 @@ impl Transport for TcpTransport {
                     Some(format!("{:?}", data.len().to_le_bytes())),
                 )
             })?;
-        endpoint.stream.write(data).map_err(|err| {
+        endpoint.stream.stream.write(data).map_err(|err| {
             TcpError::ConnectionError
                 .wrap()
                 .new("send data write", err, None)
