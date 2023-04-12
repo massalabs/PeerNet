@@ -59,8 +59,8 @@ pub(crate) struct QuicTransport {
     //(quiche::Connection, data_receiver, data_sender, is_established)
     pub connections: QuicConnectionsMap,
     features: PeerNetFeatures,
-    stop_peer_tx: Sender<bool>,
-    stop_peer_rx: Receiver<bool>,
+    stop_peer_tx: Sender<()>,
+    stop_peer_rx: Receiver<()>,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -334,7 +334,7 @@ impl Transport for QuicTransport {
                                 }
                             }
                             STOP_LISTENER => {
-                                stop_peer_tx.send(true).unwrap();
+                                stop_peer_tx.send(()).unwrap();
                                 return Ok(());
                             }
                             // We don't expect any events with tokens other than those we provided. (from mio doc)

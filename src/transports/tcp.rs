@@ -39,8 +39,8 @@ pub(crate) struct TcpTransport {
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
     features: PeerNetFeatures,
 
-    peer_stop_tx: Sender<bool>,
-    peer_stop_rx: Receiver<bool>,
+    peer_stop_tx: Sender<()>,
+    peer_stop_rx: Receiver<()>,
 }
 
 const NEW_CONNECTION: Token = Token(0);
@@ -85,7 +85,7 @@ impl TcpTransport {
         active_connections: SharedActiveConnections,
         features: PeerNetFeatures,
     ) -> TcpTransport {
-        let (peer_stop_tx, peer_stop_rx): (Sender<bool>, Receiver<bool>) = unbounded();
+        let (peer_stop_tx, peer_stop_rx) = unbounded();
         TcpTransport {
             active_connections,
             out_connection_attempts: WaitGroup::new(),
@@ -207,7 +207,7 @@ impl Transport for TcpTransport {
                                 );
                             }
                             STOP_LISTENER => {
-                                peer_stop_tx.send(true).unwrap();
+                                peer_stop_tx.send(()).unwrap();
                                 return Ok(());
                             }
                             _ => {}

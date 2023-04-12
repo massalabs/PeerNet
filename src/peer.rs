@@ -82,7 +82,7 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
     mut handshake_handler: T,
     message_handler: M,
     active_connections: SharedActiveConnections,
-    peer_stop: Receiver<bool>,
+    peer_stop: Receiver<()>,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::spawn(move || {
