@@ -146,7 +146,6 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
             }
             select! {
                 recv(peer_stop) -> _ => {
-                    println!("Exit peer");
                     return;
                 }
                 recv(low_write_rx) -> msg => {
@@ -186,7 +185,6 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
             match endpoint.receive() {
                 Ok(data) => {
                     if data.is_empty() {
-                        println!("Peer stop");
                         if active_connections
                             .write()
                             .connections
