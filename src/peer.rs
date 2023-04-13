@@ -7,7 +7,7 @@ use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::types::KeyPair;
 use crossbeam::{
-    channel::{unbounded, Sender, TryRecvError},
+    channel::{unbounded, Receiver, Sender, TryRecvError},
     select,
 };
 
@@ -87,6 +87,7 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
     mut handshake_handler: T,
     message_handler: M,
     active_connections: SharedActiveConnections,
+    peer_stop: Receiver<()>,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::spawn(move || {
@@ -149,6 +150,9 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
                 }
             }
             select! {
+                recv(peer_stop) -> _ => {
+                    return;
+                }
                 recv(low_write_rx) -> msg => {
                     match msg {
                         Ok(data) => {
@@ -186,7 +190,6 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
             match endpoint.receive() {
                 Ok(data) => {
                     if data.is_empty() {
-                        println!("Peer stop");
                         if active_connections
                             .write()
                             .connections

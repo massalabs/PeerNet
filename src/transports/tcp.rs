@@ -14,6 +14,7 @@ use crate::transports::Endpoint;
 use super::{Transport, TransportErrorType};
 
 use crate::types::KeyPair;
+use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
@@ -37,6 +38,9 @@ pub(crate) struct TcpTransport {
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
     features: PeerNetFeatures,
+
+    peer_stop_tx: Sender<()>,
+    peer_stop_rx: Receiver<()>,
 }
 
 const NEW_CONNECTION: Token = Token(0);
@@ -81,12 +85,24 @@ impl TcpTransport {
         active_connections: SharedActiveConnections,
         features: PeerNetFeatures,
     ) -> TcpTransport {
+        let (peer_stop_tx, peer_stop_rx) = unbounded();
         TcpTransport {
             active_connections,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
             features,
+            peer_stop_rx,
+            peer_stop_tx,
         }
+    }
+}
+
+impl Drop for TcpTransport {
+    fn drop(&mut self) {
+        let all_addresses: Vec<SocketAddr> = self.listeners.keys().cloned().collect();
+        all_addresses
+            .into_iter()
+            .for_each(|a| self.stop_listener(a).unwrap());
     }
 }
 
@@ -111,6 +127,8 @@ impl Transport for TcpTransport {
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let reject_same_ip_addr = self.features.reject_same_ip_addr;
+            let peer_stop_rx = self.peer_stop_rx.clone();
+            let peer_stop_tx = self.peer_stop_tx.clone();
             move || {
                 let server = TcpListener::bind(address)
                     .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
@@ -179,16 +197,17 @@ impl Transport for TcpTransport {
                                     }
                                     active_connections.connection_queue.push(address);
                                 }
-                                println!("New connection");
                                 new_peer(
                                     self_keypair.clone(),
                                     endpoint,
                                     handshake_handler.clone(),
                                     message_handler.clone(),
                                     active_connections.clone(),
+                                    peer_stop_rx.clone(),
                                 );
                             }
                             STOP_LISTENER => {
+                                peer_stop_tx.send(()).unwrap();
                                 return Ok(());
                             }
                             _ => {}
@@ -216,6 +235,7 @@ impl Transport for TcpTransport {
         message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
+        let peer_stop_rx = self.peer_stop_rx.clone();
         Ok(std::thread::spawn({
             let active_connections = self.active_connections.clone();
             let wg = self.out_connection_attempts.clone();
@@ -253,6 +273,7 @@ impl Transport for TcpTransport {
                     handshake_handler.clone(),
                     message_handler.clone(),
                     active_connections.clone(),
+                    peer_stop_rx,
                 );
                 drop(wg);
                 Ok(())
@@ -281,6 +302,7 @@ impl Transport for TcpTransport {
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         endpoint
             .stream
+            .stream
             .write(&data.len().to_le_bytes())
             .map_err(|err| {
                 TcpError::ConnectionError.wrap().new(
@@ -289,7 +311,7 @@ impl Transport for TcpTransport {
                     Some(format!("{:?}", data.len().to_le_bytes())),
                 )
             })?;
-        endpoint.stream.write(data).map_err(|err| {
+        endpoint.stream.stream.write(data).map_err(|err| {
             TcpError::ConnectionError
                 .wrap()
                 .new("send data write", err, None)
@@ -301,11 +323,13 @@ impl Transport for TcpTransport {
         let mut len_bytes = [0u8; 8];
         endpoint
             .stream
+            .stream
             .read(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
         let len = usize::from_le_bytes(len_bytes);
         let mut data = vec![0u8; len];
         endpoint
+            .stream
             .stream
             .read(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
