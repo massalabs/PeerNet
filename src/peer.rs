@@ -145,7 +145,6 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
                 }
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
-                    println!("in disconnect map : {:?}", write_active_connections.read().connections);
                     println!("writer thread high priority: disconnected");
                     return;
                 }
@@ -191,17 +190,17 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
             match endpoint.receive() {
                 Ok(data) => {
                     if data.is_empty() {
-                        if active_connections
+                        println!("Empty data received, closing connection");
+                        // We arrive here in two cases:
+                        // 1. When we shutdown the endpoint from the clone that is in the manager
+                        // 2. When the other side closes the connection
+                        // In the first case the peer will already be removed from `connections` and so the remove is useless
+                        // but in the second case we need to remove it. We have no possibilities to know which case we are in
+                        // so we just try to remove it and ignore the error if it's not there.
+                        active_connections
                             .write()
                             .connections
-                            .remove(&peer_id)
-                            .is_none()
-                        {
-                            println!(
-                                "Unable to remove peer {:?}, not found in active connections",
-                                peer_id
-                            );
-                        }
+                            .remove(&peer_id);
                         let _ = write_thread_handle.join();
                         return;
                     }

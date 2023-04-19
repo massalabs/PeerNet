@@ -25,7 +25,6 @@ impl HandshakeHandler for DefaultHandshake {
             _messages_handler: M,
         ) -> peernet::error::PeerNetResult<PeerId> {
             let keypair = KeyPair::generate();
-            println!("Generated keypair: {:?}", PeerId::from_public_key(keypair.get_public_key()));
             Ok(PeerId::from_public_key(keypair.get_public_key()))
         }
 }
@@ -48,12 +47,8 @@ fn simple() {
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
-    let clients = create_clients(11);
-    println!("Clients created");
+    let _ = create_clients(11);
     sleep(Duration::from_secs(6));
-    for client in clients {
-        client.join().unwrap();
-    }
 
     // we have max_in_connections = 10
     assert!(manager.nb_in_connections().eq(&10));
@@ -61,6 +56,7 @@ fn simple() {
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
+
 }
 
 #[test]

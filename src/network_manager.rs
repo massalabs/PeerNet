@@ -59,7 +59,6 @@ impl ActiveConnections {
     ) {
         self.connection_queue
             .retain(|addr| addr != endpoint.get_target_addr());
-        println!("Confirming connection with peer. Map is now: {:?}", self.connections);
         self.connections.insert(
             id,
             PeerConnection {
