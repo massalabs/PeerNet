@@ -104,6 +104,12 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
         ) {
             Ok(peer_id) => peer_id,
             Err(err) => {
+                {
+                    let write_active_connections = active_connections.write();
+                    write_active_connections
+                        .connection_queue
+                        .retain(|addr| addr != endpoint.get_target_addr());
+                }
                 println!("Handshake error: {:?}", err);
                 return;
             }
