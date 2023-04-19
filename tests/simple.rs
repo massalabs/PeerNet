@@ -19,11 +19,13 @@ impl HandshakeHandler for DefaultHandshake {
 
     fn perform_handshake<M: peernet::messages::MessagesHandler>(
             &mut self,
-            keypair: &KeyPair,
+            _keypair: &KeyPair,
             _endpoint: &mut peernet::transports::endpoint::Endpoint,
             _listeners: &std::collections::HashMap<std::net::SocketAddr, TransportType>,
             _messages_handler: M,
         ) -> peernet::error::PeerNetResult<PeerId> {
+            let keypair = KeyPair::generate();
+            println!("Generated keypair: {:?}", PeerId::from_public_key(keypair.get_public_key()));
             Ok(PeerId::from_public_key(keypair.get_public_key()))
         }
 }
@@ -47,6 +49,7 @@ fn simple() {
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
     let clients = create_clients(11);
+    println!("Clients created");
     sleep(Duration::from_secs(6));
     for client in clients {
         client.join().unwrap();

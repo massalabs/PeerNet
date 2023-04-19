@@ -145,7 +145,8 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
                 }
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
-                    println!("writer thread: disconnected");
+                    println!("in disconnect map : {:?}", write_active_connections.read().connections);
+                    println!("writer thread high priority: disconnected");
                     return;
                 }
             }
@@ -163,7 +164,7 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
                             }
                         }
                         Err(_) => {
-                            println!("writer thread: disconnected");
+                            println!("writer thread low priority: disconnected");
                             return;
                         }
                     }
