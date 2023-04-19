@@ -197,10 +197,7 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
                         // In the first case the peer will already be removed from `connections` and so the remove is useless
                         // but in the second case we need to remove it. We have no possibilities to know which case we are in
                         // so we just try to remove it and ignore the error if it's not there.
-                        active_connections
-                            .write()
-                            .connections
-                            .remove(&peer_id);
+                        active_connections.write().connections.remove(&peer_id);
                         let _ = write_thread_handle.join();
                         return;
                     }

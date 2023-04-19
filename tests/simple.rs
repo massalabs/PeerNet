@@ -16,17 +16,16 @@ use util::{create_clients, DefaultMessagesHandler};
 #[derive(Clone)]
 pub struct DefaultHandshake;
 impl HandshakeHandler for DefaultHandshake {
-
     fn perform_handshake<M: peernet::messages::MessagesHandler>(
-            &mut self,
-            _keypair: &KeyPair,
-            _endpoint: &mut peernet::transports::endpoint::Endpoint,
-            _listeners: &std::collections::HashMap<std::net::SocketAddr, TransportType>,
-            _messages_handler: M,
-        ) -> peernet::error::PeerNetResult<PeerId> {
-            let keypair = KeyPair::generate();
-            Ok(PeerId::from_public_key(keypair.get_public_key()))
-        }
+        &mut self,
+        _keypair: &KeyPair,
+        _endpoint: &mut peernet::transports::endpoint::Endpoint,
+        _listeners: &std::collections::HashMap<std::net::SocketAddr, TransportType>,
+        _messages_handler: M,
+    ) -> peernet::error::PeerNetResult<PeerId> {
+        let keypair = KeyPair::generate();
+        Ok(PeerId::from_public_key(keypair.get_public_key()))
+    }
 }
 
 #[test]
@@ -56,7 +55,6 @@ fn simple() {
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
-
 }
 
 #[test]
