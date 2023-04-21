@@ -9,7 +9,7 @@ use std::{
 };
 
 /// Representation of a peer id
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct PeerId {
     /// The public key of the peer
     /// TODO: Offer multiple possibilities
