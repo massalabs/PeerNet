@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{messages::MessagesHandler, types::KeyPair};
+use crate::{messages::MessagesHandler, peer::ConnectionType, types::KeyPair};
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
@@ -289,6 +289,7 @@ impl Transport for QuicTransport {
                                             message_handler.clone(),
                                             active_connections.clone(),
                                             stop_peer_rx.clone(),
+                                            ConnectionType::IN,
                                         );
                                     }
                                     {
@@ -540,6 +541,7 @@ impl Transport for QuicTransport {
                     message_handler.clone(),
                     active_connections.clone(),
                     stop_peer_rx.clone(),
+                    ConnectionType::OUT,
                 );
                 drop(wg);
                 Ok(())
