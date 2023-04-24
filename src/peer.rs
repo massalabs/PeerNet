@@ -147,101 +147,102 @@ pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn({
-            let write_peer_id = peer_id.clone(); 
-            let write_active_connections = active_connections.clone(); 
+            let write_peer_id = peer_id.clone();
+            let write_active_connections = active_connections.clone();
             let mut write_endpoint = endpoint.clone();
             move || loop {
-            match high_write_rx.try_recv() {
-                Ok(data) => {
-                    println!("writer thread: high priority message received");
-                    if write_endpoint.send(&data).is_err() {
-                        {
-                            let mut write_active_connections = write_active_connections.write();
-                            write_active_connections
-                                .connections
-                                .remove(&write_peer_id)
-                                .expect("Unable to remove peer id");
-                            match connection_type {
-                                ConnectionType::IN => {
-                                    write_active_connections.nb_in_connections -= 1;
-                                }
-                                ConnectionType::OUT => {
-                                    write_active_connections.nb_out_connections -= 1;
-                                }
-                            }
-                        }
-                        break;
-                    }
-                    continue;
-                }
-                Err(TryRecvError::Empty) => {}
-                Err(TryRecvError::Disconnected) => {
-                    println!("writer thread high priority: disconnected");
-                    return;
-                }
-            }
-            select! {
-                recv(peer_stop) -> _ => {
-                    return;
-                }
-                recv(low_write_rx) -> msg => {
-                    match msg {
-                        Ok(data) => {
-                            println!("writer thread: low priority message received");
-                            if write_endpoint.send(&data).is_err() {
-                                {
-                                    let mut write_active_connections =
-                                        write_active_connections.write();
-                                    write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
-                                    match connection_type {
-                                        ConnectionType::IN => {
-                                            write_active_connections.nb_in_connections -= 1;
-                                        }
-                                        ConnectionType::OUT => {
-                                            write_active_connections
-                                                .nb_out_connections -= 1;
-                                        }
+                match high_write_rx.try_recv() {
+                    Ok(data) => {
+                        println!("writer thread: high priority message received");
+                        if write_endpoint.send(&data).is_err() {
+                            {
+                                let mut write_active_connections = write_active_connections.write();
+                                write_active_connections
+                                    .connections
+                                    .remove(&write_peer_id)
+                                    .expect("Unable to remove peer id");
+                                match connection_type {
+                                    ConnectionType::IN => {
+                                        write_active_connections.nb_in_connections -= 1;
+                                    }
+                                    ConnectionType::OUT => {
+                                        write_active_connections.nb_out_connections -= 1;
                                     }
                                 }
-                                break;
                             }
+                            break;
                         }
-                        Err(_) => {
-                            println!("writer thread low priority: disconnected");
-                            return;
-                        }
+                        continue;
+                    }
+                    Err(TryRecvError::Empty) => {}
+                    Err(TryRecvError::Disconnected) => {
+                        println!("writer thread high priority: disconnected");
+                        return;
                     }
                 }
-                recv(high_write_rx) -> msg => {
-                    match msg {
-                        Ok(data) => {
-                            println!("writer thread: high priority message received");
-                            if write_endpoint.send(&data).is_err() {
-                                {
-                                    let mut write_active_connections =
-                                        write_active_connections.write();
-                                    write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
-                                    match connection_type {
-                                        ConnectionType::IN => {
-                                            write_active_connections.nb_in_connections -= 1;
-                                        }
-                                        ConnectionType::OUT => {
-                                            write_active_connections
-                                                .nb_out_connections -= 1;
+                select! {
+                    recv(peer_stop) -> _ => {
+                        return;
+                    }
+                    recv(low_write_rx) -> msg => {
+                        match msg {
+                            Ok(data) => {
+                                println!("writer thread: low priority message received");
+                                if write_endpoint.send(&data).is_err() {
+                                    {
+                                        let mut write_active_connections =
+                                            write_active_connections.write();
+                                        write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                        match connection_type {
+                                            ConnectionType::IN => {
+                                                write_active_connections.nb_in_connections -= 1;
+                                            }
+                                            ConnectionType::OUT => {
+                                                write_active_connections
+                                                    .nb_out_connections -= 1;
+                                            }
                                         }
                                     }
+                                    break;
                                 }
-                                break;
+                            }
+                            Err(_) => {
+                                println!("writer thread low priority: disconnected");
+                                return;
                             }
                         }
-                        Err(_) => {
-                            println!("writer thread: disconnected");
-                            return;
+                    }
+                    recv(high_write_rx) -> msg => {
+                        match msg {
+                            Ok(data) => {
+                                println!("writer thread: high priority message received");
+                                if write_endpoint.send(&data).is_err() {
+                                    {
+                                        let mut write_active_connections =
+                                            write_active_connections.write();
+                                        write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                        match connection_type {
+                                            ConnectionType::IN => {
+                                                write_active_connections.nb_in_connections -= 1;
+                                            }
+                                            ConnectionType::OUT => {
+                                                write_active_connections
+                                                    .nb_out_connections -= 1;
+                                            }
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                            Err(_) => {
+                                println!("writer thread: disconnected");
+                                return;
+                            }
                         }
                     }
                 }
             }
-        }});
+        });
         // READER LOOP
         loop {
             match endpoint.receive() {
