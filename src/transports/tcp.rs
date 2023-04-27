@@ -261,23 +261,23 @@ impl Transport for TcpTransport {
         Ok(std::thread::Builder::new()
             .name(format!("tcp_try_connect_{:?}", address))
             .spawn({
-            let active_connections = self.active_connections.clone();
-            let wg = self.out_connection_attempts.clone();
-            let out_conn_config = self.config.out_connection_config.clone();
-            move || {
-                let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
-                    TcpError::ConnectionError.wrap().new(
-                        "try_connect stream connect",
-                        err,
-                        Some(format!("address: {}, timeout: {:?}", address, timeout)),
-                    )
-                })?;
-                let stream = Limiter::new(
-                    stream,
-                    out_conn_config.rate_limit,
-                    out_conn_config.rate_time_window,
-                );
-                println!("Connected to {}", address);
+                let active_connections = self.active_connections.clone();
+                let wg = self.out_connection_attempts.clone();
+                let out_conn_config = self.config.out_connection_config.clone();
+                move || {
+                    let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
+                        TcpError::ConnectionError.wrap().new(
+                            "try_connect stream connect",
+                            err,
+                            Some(format!("address: {}, timeout: {:?}", address, timeout)),
+                        )
+                    })?;
+                    let stream = Limiter::new(
+                        stream,
+                        out_conn_config.rate_limit,
+                        out_conn_config.rate_time_window,
+                    );
+                    println!("Connected to {}", address);
 
                     {
                         let mut active_connections = active_connections.write();
@@ -298,7 +298,11 @@ impl Transport for TcpTransport {
                     }
                     new_peer(
                         self_keypair.clone(),
-                        Endpoint::Tcp(TcpEndpoint { address, stream, config: out_conn_config.clone()}),
+                        Endpoint::Tcp(TcpEndpoint {
+                            address,
+                            stream,
+                            config: out_conn_config.clone(),
+                        }),
                         handshake_handler.clone(),
                         message_handler.clone(),
                         active_connections.clone(),
