@@ -239,49 +239,50 @@ impl Transport for TcpTransport {
         Ok(std::thread::Builder::new()
             .name(format!("tcp_try_connect_{:?}", address))
             .spawn({
-            let active_connections = self.active_connections.clone();
-            let wg = self.out_connection_attempts.clone();
-            move || {
-                let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
-                    TcpError::ConnectionError.wrap().new(
-                        "try_connect stream connect",
-                        err,
-                        Some(format!("address: {}, timeout: {:?}", address, timeout)),
-                    )
-                })?;
-                let stream = Limiter::new(stream, RATE_LIMIT, Duration::from_secs(1));
-                println!("Connected to {}", address);
+                let active_connections = self.active_connections.clone();
+                let wg = self.out_connection_attempts.clone();
+                move || {
+                    let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
+                        TcpError::ConnectionError.wrap().new(
+                            "try_connect stream connect",
+                            err,
+                            Some(format!("address: {}, timeout: {:?}", address, timeout)),
+                        )
+                    })?;
+                    let stream = Limiter::new(stream, RATE_LIMIT, Duration::from_secs(1));
+                    println!("Connected to {}", address);
 
-                {
-                    let mut active_connections = active_connections.write();
-                    if active_connections.nb_out_connections
-                        < active_connections.max_out_connections
                     {
-                        active_connections.nb_out_connections += 1;
-                    } else {
-                        return Err(PeerNetError::BoundReached.error(
-                            "tcp try_connect max_out_conn",
-                            Some(format!(
-                                "max: {}, nb: {}",
-                                active_connections.max_out_connections,
-                                active_connections.nb_out_connections
-                            )),
-                        ))?;
+                        let mut active_connections = active_connections.write();
+                        if active_connections.nb_out_connections
+                            < active_connections.max_out_connections
+                        {
+                            active_connections.nb_out_connections += 1;
+                        } else {
+                            return Err(PeerNetError::BoundReached.error(
+                                "tcp try_connect max_out_conn",
+                                Some(format!(
+                                    "max: {}, nb: {}",
+                                    active_connections.max_out_connections,
+                                    active_connections.nb_out_connections
+                                )),
+                            ))?;
+                        }
                     }
+                    new_peer(
+                        self_keypair.clone(),
+                        Endpoint::Tcp(TcpEndpoint { address, stream }),
+                        handshake_handler.clone(),
+                        message_handler.clone(),
+                        active_connections.clone(),
+                        peer_stop_rx,
+                        ConnectionType::OUT,
+                    );
+                    drop(wg);
+                    Ok(())
                 }
-                new_peer(
-                    self_keypair.clone(),
-                    Endpoint::Tcp(TcpEndpoint { address, stream }),
-                    handshake_handler.clone(),
-                    message_handler.clone(),
-                    active_connections.clone(),
-                    peer_stop_rx,
-                    ConnectionType::OUT,
-                );
-                drop(wg);
-                Ok(())
-            }
-        }).expect("Failed to spawn thread tcp_try_connect"))
+            })
+            .expect("Failed to spawn thread tcp_try_connect"))
     }
 
     fn stop_listener(&mut self, address: SocketAddr) -> PeerNetResult<()> {

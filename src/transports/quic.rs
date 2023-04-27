@@ -170,243 +170,246 @@ impl Transport for QuicTransport {
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::Builder::new()
             .name(format!("quic_listener_handle_{:?}", address))
             .spawn({
-            let active_connections = self.active_connections.clone();
-            let server = server.try_clone().unwrap();
-            let reject_same_ip_addr = self.features.reject_same_ip_addr;
-            let stop_peer_rx = self.stop_peer_rx.clone();
-            let stop_peer_tx = self.stop_peer_tx.clone();
-            move || {
-                let mut socket = MioUdpSocket::from_std(server);
-                // Start listening for incoming connections.
-                poll.registry()
-                    .register(&mut socket, NEW_PACKET_SERVER, Interest::READABLE)
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Can't register polling on QUIC transport of address {}",
-                            address
-                        )
-                    });
-                let mut buf = [0; 65507];
-                loop {
-                    // Poll Mio for events, blocking until we get an event.
-                    //TODO: Configurable timeout (cf. https://github.com/cloudflare/quiche/blob/master/apps/src/bin/quiche-server.rs#L177)
-                    poll.poll(&mut events, Some(Duration::from_millis(100)))
+                let active_connections = self.active_connections.clone();
+                let server = server.try_clone().unwrap();
+                let reject_same_ip_addr = self.features.reject_same_ip_addr;
+                let stop_peer_rx = self.stop_peer_rx.clone();
+                let stop_peer_tx = self.stop_peer_tx.clone();
+                move || {
+                    let mut socket = MioUdpSocket::from_std(server);
+                    // Start listening for incoming connections.
+                    poll.registry()
+                        .register(&mut socket, NEW_PACKET_SERVER, Interest::READABLE)
                         .unwrap_or_else(|_| {
-                            panic!("Can't poll QUIC transport of address {}", address)
+                            panic!(
+                                "Can't register polling on QUIC transport of address {}",
+                                address
+                            )
                         });
+                    let mut buf = [0; 65507];
+                    loop {
+                        // Poll Mio for events, blocking until we get an event.
+                        //TODO: Configurable timeout (cf. https://github.com/cloudflare/quiche/blob/master/apps/src/bin/quiche-server.rs#L177)
+                        poll.poll(&mut events, Some(Duration::from_millis(100)))
+                            .unwrap_or_else(|_| {
+                                panic!("Can't poll QUIC transport of address {}", address)
+                            });
 
-                    // Process each event.
-                    for event in events.iter() {
-                        match event.token() {
-                            NEW_PACKET_SERVER => {
-                                'read: loop {
-                                    //TODO: Error handling
-                                    let (num_recv, from_addr) = match socket.recv_from(&mut buf) {
-                                        Ok(v) => v,
-                                        Err(e) => {
-                                            // There are no more UDP packets to read, so end the read
-                                            // loop.
-                                            if e.kind() == std::io::ErrorKind::WouldBlock {
-                                                break 'read;
+                        // Process each event.
+                        for event in events.iter() {
+                            match event.token() {
+                                NEW_PACKET_SERVER => {
+                                    'read: loop {
+                                        //TODO: Error handling
+                                        let (num_recv, from_addr) = match socket.recv_from(&mut buf)
+                                        {
+                                            Ok(v) => v,
+                                            Err(e) => {
+                                                // There are no more UDP packets to read, so end the read
+                                                // loop.
+                                                if e.kind() == std::io::ErrorKind::WouldBlock {
+                                                    break 'read;
+                                                }
+                                                panic!("recv() failed: {:?}", e);
                                             }
-                                            panic!("recv() failed: {:?}", e);
+                                        };
+                                        println!(
+                                            "server {}: Received {} bytes from {} ",
+                                            address, num_recv, from_addr
+                                        );
+                                        // Parse the QUIC packet's header.
+                                        let hdr = match quiche::Header::from_slice(
+                                            &mut buf,
+                                            quiche::MAX_CONN_ID_LEN,
+                                        ) {
+                                            Ok(v) => v,
+
+                                            Err(e) => {
+                                                println!("Parsing packet header failed: {:?}", e);
+                                                panic!("Parsing packet header failed: {:?}", e)
+                                            }
+                                        };
+                                        let new_connection = {
+                                            let connections = connections.read();
+                                            !connections.contains_key(&from_addr)
+                                        };
+                                        if !reject_same_ip_addr || new_connection {
+                                            println!(
+                                                "server {}: New connection {}",
+                                                address, from_addr
+                                            );
+                                            if hdr.ty != quiche::Type::Initial {
+                                                println!("Packet is not Initial");
+                                                continue;
+                                            }
+
+                                            let connection = quiche::accept(
+                                                &hdr.scid,
+                                                None,
+                                                address,
+                                                from_addr,
+                                                &mut config,
+                                            )
+                                            .map_err(|err| {
+                                                QuicError::ConnectionError.wrap().new(
+                                                    "accept",
+                                                    err,
+                                                    Some(format!(
+                                                        "address: {}, from_addr: {}",
+                                                        address, from_addr
+                                                    )),
+                                                )
+                                            })?;
+
+                                            {
+                                                let mut active_connections =
+                                                    active_connections.write();
+                                                if active_connections.nb_in_connections
+                                                    < active_connections.max_in_connections
+                                                {
+                                                    active_connections.nb_in_connections += 1;
+                                                } else {
+                                                    continue;
+                                                }
+                                            }
+                                            let (send_tx, send_rx) = channel::bounded(10000);
+                                            let (recv_tx, recv_rx) = channel::bounded(10000);
+                                            {
+                                                let mut connections = connections.write();
+                                                connections.insert(
+                                                    from_addr,
+                                                    (connection, send_rx, recv_tx, false),
+                                                );
+                                            }
+                                            new_peer(
+                                                self_keypair.clone(),
+                                                Endpoint::Quic(QuicEndpoint {
+                                                    data_receiver: recv_rx,
+                                                    data_sender: send_tx,
+                                                    address,
+                                                }),
+                                                init_connection_handler.clone(),
+                                                message_handler.clone(),
+                                                active_connections.clone(),
+                                                stop_peer_rx.clone(),
+                                                ConnectionType::IN,
+                                            );
+                                        }
+                                        {
+                                            let mut connections = connections.write();
+                                            //TODO: Handle if the peer wasn't created because no place it will fail
+                                            let (connection, _, sender, is_established) =
+                                                connections.get_mut(&from_addr).unwrap();
+                                            let recv_info = quiche::RecvInfo {
+                                                from: from_addr,
+                                                to: address,
+                                            };
+                                            connection
+                                                .recv(&mut buf[..num_recv], recv_info)
+                                                .map_err(|err| {
+                                                    QuicError::ConnectionError.wrap().new(
+                                                        "recv",
+                                                        err,
+                                                        Some(format!(
+                                                            "RecvInfo: from: {}, to: {}",
+                                                            from_addr, address
+                                                        )),
+                                                    )
+                                                })?;
+                                            if *is_established {
+                                                let mut dgram_buf = [0; 512];
+                                                while let Ok(len) =
+                                                    connection.dgram_recv(&mut dgram_buf)
+                                                {
+                                                    sender
+                                                        .send(QuicInternalMessage::Data(
+                                                            dgram_buf[..len].to_vec(),
+                                                        ))
+                                                        .map_err(|err| {
+                                                            QuicError::InternalFail.wrap().new(
+                                                                "send internal msg",
+                                                                err,
+                                                                None,
+                                                            )
+                                                        })?;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                STOP_LISTENER => {
+                                    stop_peer_tx.send(()).unwrap();
+                                    return Ok(());
+                                }
+                                // We don't expect any events with tokens other than those we provided. (from mio doc)
+                                _ => unreachable!(),
+                            }
+                        }
+
+                        //Try fetching packet from
+                        //Write packets to quic if needed
+                        {
+                            let mut connections = connections.write();
+                            let mut buf = [0; 65507];
+                            for (address, (connection, send_rx, _, is_established)) in
+                                connections.iter_mut()
+                            {
+                                if !*is_established && connection.is_established() {
+                                    println!("server {}: Connection established", address);
+                                    *is_established = true;
+                                }
+                                if *is_established {
+                                    while let Ok(data) = send_rx.try_recv() {
+                                        match data {
+                                            QuicInternalMessage::Data(data) => {
+                                                //TODO: Use stream send didn't know how to use it
+                                                let _ = connection.dgram_send(&data);
+                                            }
+                                            QuicInternalMessage::Shutdown => {
+                                                println!("server {}: Connection closed", address);
+                                                //TODO: Close
+                                                //connection.close(app, err, reason)
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                loop {
+                                    let (write, send_info) = match connection.send(&mut buf) {
+                                        Ok(v) => v,
+
+                                        Err(quiche::Error::Done) => {
+                                            // Done writing.
+                                            break;
+                                        }
+
+                                        Err(e) => {
+                                            println!("server {}: send failed: {:?}", address, e);
+                                            // An error occurred, handle it.
+                                            break;
                                         }
                                     };
                                     println!(
-                                        "server {}: Received {} bytes from {} ",
-                                        address, num_recv, from_addr
+                                        "server {}: Sending {} bytes to {} ",
+                                        address, write, send_info.to
                                     );
-                                    // Parse the QUIC packet's header.
-                                    let hdr = match quiche::Header::from_slice(
-                                        &mut buf,
-                                        quiche::MAX_CONN_ID_LEN,
-                                    ) {
-                                        Ok(v) => v,
-
-                                        Err(e) => {
-                                            println!("Parsing packet header failed: {:?}", e);
-                                            panic!("Parsing packet header failed: {:?}", e)
-                                        }
-                                    };
-                                    let new_connection = {
-                                        let connections = connections.read();
-                                        !connections.contains_key(&from_addr)
-                                    };
-                                    if !reject_same_ip_addr || new_connection {
-                                        println!(
-                                            "server {}: New connection {}",
-                                            address, from_addr
-                                        );
-                                        if hdr.ty != quiche::Type::Initial {
-                                            println!("Packet is not Initial");
-                                            continue;
-                                        }
-
-                                        let connection = quiche::accept(
-                                            &hdr.scid,
-                                            None,
-                                            address,
-                                            from_addr,
-                                            &mut config,
+                                    socket.send_to(&buf[..write], send_info.to).map_err(|err| {
+                                        QuicError::ConnectionError.wrap().new(
+                                            "listener send_to",
+                                            err,
+                                            Some(format!(
+                                                "from {}, to {}, {} bytes",
+                                                address, send_info.to, write
+                                            )),
                                         )
-                                        .map_err(|err| {
-                                            QuicError::ConnectionError.wrap().new(
-                                                "accept",
-                                                err,
-                                                Some(format!(
-                                                    "address: {}, from_addr: {}",
-                                                    address, from_addr
-                                                )),
-                                            )
-                                        })?;
-
-                                        {
-                                            let mut active_connections = active_connections.write();
-                                            if active_connections.nb_in_connections
-                                                < active_connections.max_in_connections
-                                            {
-                                                active_connections.nb_in_connections += 1;
-                                            } else {
-                                                continue;
-                                            }
-                                        }
-                                        let (send_tx, send_rx) = channel::bounded(10000);
-                                        let (recv_tx, recv_rx) = channel::bounded(10000);
-                                        {
-                                            let mut connections = connections.write();
-                                            connections.insert(
-                                                from_addr,
-                                                (connection, send_rx, recv_tx, false),
-                                            );
-                                        }
-                                        new_peer(
-                                            self_keypair.clone(),
-                                            Endpoint::Quic(QuicEndpoint {
-                                                data_receiver: recv_rx,
-                                                data_sender: send_tx,
-                                                address,
-                                            }),
-                                            init_connection_handler.clone(),
-                                            message_handler.clone(),
-                                            active_connections.clone(),
-                                            stop_peer_rx.clone(),
-                                            ConnectionType::IN,
-                                        );
-                                    }
-                                    {
-                                        let mut connections = connections.write();
-                                        //TODO: Handle if the peer wasn't created because no place it will fail
-                                        let (connection, _, sender, is_established) =
-                                            connections.get_mut(&from_addr).unwrap();
-                                        let recv_info = quiche::RecvInfo {
-                                            from: from_addr,
-                                            to: address,
-                                        };
-                                        connection.recv(&mut buf[..num_recv], recv_info).map_err(
-                                            |err| {
-                                                QuicError::ConnectionError.wrap().new(
-                                                    "recv",
-                                                    err,
-                                                    Some(format!(
-                                                        "RecvInfo: from: {}, to: {}",
-                                                        from_addr, address
-                                                    )),
-                                                )
-                                            },
-                                        )?;
-                                        if *is_established {
-                                            let mut dgram_buf = [0; 512];
-                                            while let Ok(len) =
-                                                connection.dgram_recv(&mut dgram_buf)
-                                            {
-                                                sender
-                                                    .send(QuicInternalMessage::Data(
-                                                        dgram_buf[..len].to_vec(),
-                                                    ))
-                                                    .map_err(|err| {
-                                                        QuicError::InternalFail.wrap().new(
-                                                            "send internal msg",
-                                                            err,
-                                                            None,
-                                                        )
-                                                    })?;
-                                            }
-                                        }
-                                    }
+                                    })?;
                                 }
-                            }
-                            STOP_LISTENER => {
-                                stop_peer_tx.send(()).unwrap();
-                                return Ok(());
-                            }
-                            // We don't expect any events with tokens other than those we provided. (from mio doc)
-                            _ => unreachable!(),
-                        }
-                    }
-
-                    //Try fetching packet from
-                    //Write packets to quic if needed
-                    {
-                        let mut connections = connections.write();
-                        let mut buf = [0; 65507];
-                        for (address, (connection, send_rx, _, is_established)) in
-                            connections.iter_mut()
-                        {
-                            if !*is_established && connection.is_established() {
-                                println!("server {}: Connection established", address);
-                                *is_established = true;
-                            }
-                            if *is_established {
-                                while let Ok(data) = send_rx.try_recv() {
-                                    match data {
-                                        QuicInternalMessage::Data(data) => {
-                                            //TODO: Use stream send didn't know how to use it
-                                            let _ = connection.dgram_send(&data);
-                                        }
-                                        QuicInternalMessage::Shutdown => {
-                                            println!("server {}: Connection closed", address);
-                                            //TODO: Close
-                                            //connection.close(app, err, reason)
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            loop {
-                                let (write, send_info) = match connection.send(&mut buf) {
-                                    Ok(v) => v,
-
-                                    Err(quiche::Error::Done) => {
-                                        // Done writing.
-                                        break;
-                                    }
-
-                                    Err(e) => {
-                                        println!("server {}: send failed: {:?}", address, e);
-                                        // An error occurred, handle it.
-                                        break;
-                                    }
-                                };
-                                println!(
-                                    "server {}: Sending {} bytes to {} ",
-                                    address, write, send_info.to
-                                );
-                                socket.send_to(&buf[..write], send_info.to).map_err(|err| {
-                                    QuicError::ConnectionError.wrap().new(
-                                        "listener send_to",
-                                        err,
-                                        Some(format!(
-                                            "from {}, to {}, {} bytes",
-                                            address, send_info.to, write
-                                        )),
-                                    )
-                                })?;
                             }
                         }
                     }
                 }
-            }
-        }).expect("Failed to spawn thread quic_listener_handle");
+            })
+            .expect("Failed to spawn thread quic_listener_handle");
         {
             let mut active_connections = self.active_connections.write();
             active_connections
@@ -454,101 +457,109 @@ impl Transport for QuicTransport {
         let connection_handler: JoinHandle<PeerNetResult<()>> = std::thread::Builder::new()
             .name(format!("quic_try_connect_{:?}", address))
             .spawn({
-            let active_connections = self.active_connections.clone();
-            let wg = self.out_connection_attempts.clone();
-            move || {
-                let mut out = [0; 65507];
-                println!("Connecting to {}", address);
-                //TODO: Use configs for quiche passed from config object.
-                //and error handling
-                let mut quiche_config =
-                    quiche::Config::new(quiche::PROTOCOL_VERSION).expect("Default config failed");
-                quiche_config.verify_peer(false);
-                //TODO: Config
-                quiche_config
-                    .set_application_protos(&[b"massa/1.0"])
-                    .map_err(|err| QuicError::QuicheConfig.wrap().new("cfg proto", err, None))?;
-                quiche_config.enable_dgram(true, 10, 10);
-                //TODO: random bytes
-                let scid = [0; quiche::MAX_CONN_ID_LEN];
-                let scid = quiche::ConnectionId::from_ref(&scid);
-                let mut conn =
-                    quiche::connect(None, &scid, config.local_addr, address, &mut quiche_config)
+                let active_connections = self.active_connections.clone();
+                let wg = self.out_connection_attempts.clone();
+                move || {
+                    let mut out = [0; 65507];
+                    println!("Connecting to {}", address);
+                    //TODO: Use configs for quiche passed from config object.
+                    //and error handling
+                    let mut quiche_config = quiche::Config::new(quiche::PROTOCOL_VERSION)
+                        .expect("Default config failed");
+                    quiche_config.verify_peer(false);
+                    //TODO: Config
+                    quiche_config
+                        .set_application_protos(&[b"massa/1.0"])
                         .map_err(|err| {
-                            QuicError::ConnectionError.wrap().new(
-                                "try_connect connect",
-                                err,
-                                Some(format!(
-                                    "local_addr: {:?}, addr: {:?}",
-                                    config.local_addr, address
-                                )),
-                            )
+                            QuicError::QuicheConfig.wrap().new("cfg proto", err, None)
                         })?;
-                loop {
-                    let (write, send_info) = match conn.send(&mut out) {
-                        Ok(v) => v,
-                        Err(quiche::Error::Done) => {
-                            break;
-                        }
-                        Err(e) => {
-                            println!("send failed: {:?}", e);
+                    quiche_config.enable_dgram(true, 10, 10);
+                    //TODO: random bytes
+                    let scid = [0; quiche::MAX_CONN_ID_LEN];
+                    let scid = quiche::ConnectionId::from_ref(&scid);
+                    let mut conn = quiche::connect(
+                        None,
+                        &scid,
+                        config.local_addr,
+                        address,
+                        &mut quiche_config,
+                    )
+                    .map_err(|err| {
+                        QuicError::ConnectionError.wrap().new(
+                            "try_connect connect",
+                            err,
+                            Some(format!(
+                                "local_addr: {:?}, addr: {:?}",
+                                config.local_addr, address
+                            )),
+                        )
+                    })?;
+                    loop {
+                        let (write, send_info) = match conn.send(&mut out) {
+                            Ok(v) => v,
+                            Err(quiche::Error::Done) => {
+                                break;
+                            }
+                            Err(e) => {
+                                println!("send failed: {:?}", e);
+                                return Err(QuicError::ConnectionError.wrap().new(
+                                    "try_connect conn.send",
+                                    e,
+                                    None,
+                                ));
+                            }
+                        };
+
+                        println!(
+                            "client: init: send_info: {:?} sent {} bytes",
+                            send_info, write
+                        );
+                        while let Err(e) = socket.send_to(&out[..write], send_info.to) {
+                            if e.kind() == std::io::ErrorKind::WouldBlock {
+                                continue;
+                            }
+
+                            println!("send() failed: {:?}", e);
                             return Err(QuicError::ConnectionError.wrap().new(
-                                "try_connect conn.send",
+                                "quic try_connect socket.send_to",
                                 e,
                                 None,
                             ));
                         }
-                    };
-
-                    println!(
-                        "client: init: send_info: {:?} sent {} bytes",
-                        send_info, write
-                    );
-                    while let Err(e) = socket.send_to(&out[..write], send_info.to) {
-                        if e.kind() == std::io::ErrorKind::WouldBlock {
-                            continue;
-                        }
-
-                        println!("send() failed: {:?}", e);
-                        return Err(QuicError::ConnectionError.wrap().new(
-                            "quic try_connect socket.send_to",
-                            e,
-                            None,
-                        ));
                     }
-                }
-                //TODO: Config
-                let (send_tx, send_rx) = channel::bounded(10000);
-                let (recv_tx, recv_rx) = channel::bounded(10000);
-                {
-                    let mut active_connections = active_connections.write();
-                    if active_connections.nb_out_connections
-                        < active_connections.max_out_connections
+                    //TODO: Config
+                    let (send_tx, send_rx) = channel::bounded(10000);
+                    let (recv_tx, recv_rx) = channel::bounded(10000);
                     {
-                        active_connections.nb_out_connections += 1;
+                        let mut active_connections = active_connections.write();
+                        if active_connections.nb_out_connections
+                            < active_connections.max_out_connections
                         {
-                            let mut connections = connections.write();
-                            connections.insert(address, (conn, send_rx, recv_tx, false));
+                            active_connections.nb_out_connections += 1;
+                            {
+                                let mut connections = connections.write();
+                                connections.insert(address, (conn, send_rx, recv_tx, false));
+                            }
                         }
                     }
+                    new_peer(
+                        self_keypair.clone(),
+                        Endpoint::Quic(QuicEndpoint {
+                            data_receiver: recv_rx,
+                            data_sender: send_tx,
+                            address,
+                        }),
+                        init_connection_handler.clone(),
+                        message_handler.clone(),
+                        active_connections.clone(),
+                        stop_peer_rx.clone(),
+                        ConnectionType::OUT,
+                    );
+                    drop(wg);
+                    Ok(())
                 }
-                new_peer(
-                    self_keypair.clone(),
-                    Endpoint::Quic(QuicEndpoint {
-                        data_receiver: recv_rx,
-                        data_sender: send_tx,
-                        address,
-                    }),
-                    init_connection_handler.clone(),
-                    message_handler.clone(),
-                    active_connections.clone(),
-                    stop_peer_rx.clone(),
-                    ConnectionType::OUT,
-                );
-                drop(wg);
-                Ok(())
-            }
-        }).expect("Failed to spawn thread quic_listener_handle");
+            })
+            .expect("Failed to spawn thread quic_listener_handle");
         Ok(connection_handler)
     }
 
