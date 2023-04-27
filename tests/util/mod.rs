@@ -25,12 +25,15 @@ impl MessagesHandler for DefaultMessagesHandler {
 
 pub fn create_clients(nb_clients: usize) -> Vec<JoinHandle<()>> {
     let mut clients = Vec::new();
-    for _ in 0..nb_clients {
-        let client = std::thread::spawn(|| {
-            let stream = std::net::TcpStream::connect("127.0.0.1:64850").unwrap();
-            sleep(Duration::from_secs(100));
-            stream.shutdown(std::net::Shutdown::Both).unwrap();
-        });
+    for ncli in 0..nb_clients {
+        let client = std::thread::Builder::new()
+            .name(format!("test_client_{}", ncli))
+            .spawn(|| {
+                let stream = std::net::TcpStream::connect("127.0.0.1:64850").unwrap();
+                sleep(Duration::from_secs(100));
+                stream.shutdown(std::net::Shutdown::Both).unwrap();
+            })
+            .expect("Failed to spawn thread test_client");
         sleep(Duration::from_millis(100));
         clients.push(client);
     }

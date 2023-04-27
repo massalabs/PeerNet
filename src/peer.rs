@@ -106,7 +106,9 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     connection_type: ConnectionType,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
-    std::thread::spawn(move || {
+    std::thread::Builder::new()
+        .name("peer_thread".into())
+        .spawn(move || {
         let listeners = {
             let active_connections = active_connections.read();
             active_connections.listeners.clone()
@@ -335,5 +337,5 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 }
             }
         }
-    });
+    }).expect("Failed to spawn peer_thread");
 }
