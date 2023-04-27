@@ -87,7 +87,7 @@ fn two_peers_tcp() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig::default())),
+            &OutConnectionConfig::Tcp(Box::default()),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));

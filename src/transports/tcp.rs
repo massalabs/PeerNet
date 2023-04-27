@@ -61,7 +61,7 @@ pub struct TcpOutConnectionConfig {
 impl Default for TcpOutConnectionConfig {
     fn default() -> Self {
         TcpOutConnectionConfig {
-            rate_limit: 10*1024,
+            rate_limit: 10 * 1024,
             rate_time_window: Duration::from_secs(1),
         }
     }
@@ -268,7 +268,11 @@ impl Transport for TcpTransport {
                         Some(format!("address: {}, timeout: {:?}", address, timeout)),
                     )
                 })?;
-                let stream = Limiter::new(stream, out_conn_config.rate_limit, out_conn_config.rate_time_window);
+                let stream = Limiter::new(
+                    stream,
+                    out_conn_config.rate_limit,
+                    out_conn_config.rate_time_window,
+                );
                 println!("Connected to {}", address);
 
                 {
@@ -290,7 +294,11 @@ impl Transport for TcpTransport {
                 }
                 new_peer(
                     self_keypair.clone(),
-                    Endpoint::Tcp(TcpEndpoint { address, stream, config: out_conn_config.clone(), }),
+                    Endpoint::Tcp(TcpEndpoint {
+                        address,
+                        stream,
+                        config: out_conn_config.clone(),
+                    }),
                     handshake_handler.clone(),
                     message_handler.clone(),
                     active_connections.clone(),
