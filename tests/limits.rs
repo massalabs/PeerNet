@@ -4,7 +4,7 @@ use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
-    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
+    transports::{OutConnectionConfig, TransportType},
 };
 use std::time::Duration;
 

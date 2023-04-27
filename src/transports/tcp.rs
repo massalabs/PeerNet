@@ -298,7 +298,7 @@ impl Transport for TcpTransport {
                     }
                     new_peer(
                         self_keypair.clone(),
-                        Endpoint::Tcp(TcpEndpoint { address, stream }),
+                        Endpoint::Tcp(TcpEndpoint { address, stream, config: out_conn_config.clone()}),
                         handshake_handler.clone(),
                         message_handler.clone(),
                         active_connections.clone(),
@@ -308,22 +308,6 @@ impl Transport for TcpTransport {
                     drop(wg);
                     Ok(())
                 }
-                new_peer(
-                    self_keypair.clone(),
-                    Endpoint::Tcp(TcpEndpoint {
-                        address,
-                        stream,
-                        config: out_conn_config.clone(),
-                    }),
-                    handshake_handler.clone(),
-                    message_handler.clone(),
-                    active_connections.clone(),
-                    peer_stop_rx,
-                    ConnectionType::OUT,
-                );
-                drop(wg);
-                Ok(())
-            }
             })
             .expect("Failed to spawn thread tcp_try_connect"))
     }

@@ -9,7 +9,7 @@ use peernet::{
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     peer_id::PeerId,
-    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
+    transports::{OutConnectionConfig, TransportType},
 };
 
 #[derive(Clone)]

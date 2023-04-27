@@ -8,7 +8,7 @@ use peernet::{
     peer::InitConnectionHandler,
     peer_id::PeerId,
     transports::{
-        OutConnectionConfig, QuicOutConnectionConfig, TcpOutConnectionConfig, TransportType,
+        OutConnectionConfig, QuicOutConnectionConfig, TransportType,
     },
 };
 use util::{create_clients, DefaultMessagesHandler};
