@@ -58,6 +58,15 @@ pub struct TcpOutConnectionConfig {
     rate_time_window: Duration,
 }
 
+impl TcpOutConnectionConfig {
+    pub fn new(rate_limit: u128, rate_time_window: Duration) -> Self {
+        TcpOutConnectionConfig {
+            rate_limit,
+            rate_time_window,
+        }
+    }
+}
+
 impl Default for TcpOutConnectionConfig {
     fn default() -> Self {
         TcpOutConnectionConfig {
