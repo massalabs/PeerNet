@@ -14,8 +14,8 @@ use parking_lot::RwLock;
 use crate::{
     config::PeerNetFeatures,
     error::{PeerNetError, PeerNetResult},
-    network_manager::{FallbackFunction, SharedActiveConnections},
-    peer::{new_peer, HandshakeHandler},
+    network_manager::SharedActiveConnections,
+    peer::{new_peer, InitConnectionHandler},
     peer_id::PeerId,
     transports::{Endpoint, TransportErrorType},
 };
@@ -113,13 +113,12 @@ impl Transport for QuicTransport {
 
     type Endpoint = QuicEndpoint;
 
-    fn start_listener<T: HandshakeHandler, M: MessagesHandler>(
+    fn start_listener<T: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
-        _fallback_function: Option<&'static FallbackFunction>,
         message_handler: M,
-        handshake_handler: T,
+        init_connection_handler: T,
     ) -> PeerNetResult<()> {
         let mut poll = Poll::new()
             .map_err(|err| QuicError::InitListener.wrap().new("init poll", err, None))?;
@@ -285,7 +284,7 @@ impl Transport for QuicTransport {
                                                 data_sender: send_tx,
                                                 address,
                                             }),
-                                            handshake_handler.clone(),
+                                            init_connection_handler.clone(),
                                             message_handler.clone(),
                                             active_connections.clone(),
                                             stop_peer_rx.clone(),
@@ -419,14 +418,14 @@ impl Transport for QuicTransport {
         Ok(())
     }
 
-    fn try_connect<T: HandshakeHandler, M: MessagesHandler>(
+    fn try_connect<T: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         _timeout: Duration,
         config: &Self::OutConnectionConfig,
         message_handler: M,
-        handshake_handler: T,
+        init_connection_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let stop_peer_rx = self.stop_peer_rx.clone();
         //TODO: Use timeout
@@ -440,9 +439,8 @@ impl Transport for QuicTransport {
             self.start_listener(
                 self_keypair.clone(),
                 config.local_addr,
-                None,
                 message_handler.clone(),
-                handshake_handler.clone(),
+                init_connection_handler.clone(),
             )?;
             //TODO: Make things more elegant with waker etc
             std::thread::sleep(Duration::from_millis(100));
@@ -537,7 +535,7 @@ impl Transport for QuicTransport {
                         data_sender: send_tx,
                         address,
                     }),
-                    handshake_handler.clone(),
+                    init_connection_handler.clone(),
                     message_handler.clone(),
                     active_connections.clone(),
                     stop_peer_rx.clone(),

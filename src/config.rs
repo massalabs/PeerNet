@@ -4,11 +4,11 @@
 //! It regroups all the information needed to initialize a PeerNet manager.
 
 use crate::messages::MessagesHandler;
+use crate::peer::InitConnectionHandler;
 use crate::types::KeyPair;
-use crate::{network_manager::FallbackFunction, peer::HandshakeHandler};
 
 /// Struct containing the configuration for the PeerNet manager.
-pub struct PeerNetConfiguration<T: HandshakeHandler, M: MessagesHandler> {
+pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler> {
     /// Number of peers we want to have in IN connection
     pub max_in_connections: usize,
     /// Number of peers we want to have in OUT connection
@@ -17,23 +17,20 @@ pub struct PeerNetConfiguration<T: HandshakeHandler, M: MessagesHandler> {
     pub self_keypair: KeyPair,
     /// Optional function to trigger at handshake
     /// (local keypair, endpoint to the peer, remote peer_id, active_connections)
-    pub handshake_handler: T,
-    /// Optional function to trigger when we receive a connection from a peer and we don't accept it
-    pub fallback_function: Option<&'static FallbackFunction>,
+    pub init_connection_handler: T,
     /// Optional features to enable for the manager
     pub optional_features: PeerNetFeatures,
     /// Structure for message handler
     pub message_handler: M,
 }
 
-impl<T: HandshakeHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
-    pub fn default(handshake_handler: T, message_handler: M) -> Self {
+impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
+    pub fn default(init_connection_handler: T, message_handler: M) -> Self {
         PeerNetConfiguration {
             max_in_connections: 0,
             max_out_connections: 0,
             self_keypair: KeyPair::generate(),
-            fallback_function: None,
-            handshake_handler,
+            init_connection_handler,
             optional_features: PeerNetFeatures::default(),
             message_handler,
         }

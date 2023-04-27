@@ -9,8 +9,8 @@ use crate::messages::MessagesHandler;
 use crate::{
     config::PeerNetFeatures,
     error::{PeerNetError, PeerNetResult},
-    network_manager::{FallbackFunction, SharedActiveConnections},
-    peer::HandshakeHandler,
+    network_manager::SharedActiveConnections,
+    peer::InitConnectionHandler,
 };
 
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
@@ -81,40 +81,37 @@ impl Transport for InternalTransportType {
     type OutConnectionConfig = OutConnectionConfig;
     type Endpoint = Endpoint;
 
-    fn start_listener<T: HandshakeHandler + 'static, M: MessagesHandler>(
+    fn start_listener<T: InitConnectionHandler + 'static, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
-        fallback_function: Option<&'static FallbackFunction>,
         message_handler: M,
-        handshake_handler: T,
+        init_connection_handler: T,
     ) -> PeerNetResult<()> {
         match self {
             InternalTransportType::Tcp(transport) => transport.start_listener::<_, M>(
                 self_keypair,
                 address,
-                fallback_function,
                 message_handler,
-                handshake_handler,
+                init_connection_handler,
             ),
             InternalTransportType::Quic(transport) => transport.start_listener::<_, M>(
                 self_keypair,
                 address,
-                fallback_function,
                 message_handler,
-                handshake_handler,
+                init_connection_handler,
             ),
         }
     }
 
-    fn try_connect<T: HandshakeHandler + 'static, M: MessagesHandler>(
+    fn try_connect<T: InitConnectionHandler + 'static, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         config: &Self::OutConnectionConfig,
         message_handler: M,
-        handshake_handler: T,
+        init_connection_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         match self {
             InternalTransportType::Tcp(transport) => match config {
@@ -124,7 +121,7 @@ impl Transport for InternalTransportType {
                     timeout,
                     config,
                     message_handler,
-                    handshake_handler,
+                    init_connection_handler,
                 ),
                 _ => Err(PeerNetError::WrongConfigType.error("try_connect match tcp", None)),
             },
@@ -135,7 +132,7 @@ impl Transport for InternalTransportType {
                     timeout,
                     config,
                     message_handler,
-                    handshake_handler,
+                    init_connection_handler,
                 ),
                 _ => Err(PeerNetError::WrongConfigType.error("try_connect match quic", None)),
             },
@@ -189,23 +186,22 @@ pub trait Transport {
     type Endpoint;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
-    fn start_listener<T: HandshakeHandler, M: MessagesHandler>(
+    fn start_listener<T: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
-        fallback_function: Option<&'static FallbackFunction>,
         message_handler: M,
-        handshake_handler: T,
+        init_connection_handler: T,
     ) -> PeerNetResult<()>;
     /// Try to connect to a peer
-    fn try_connect<T: HandshakeHandler, M: MessagesHandler>(
+    fn try_connect<T: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         config: &Self::OutConnectionConfig,
         message_handler: M,
-        handshake_handler: T,
+        init_connection_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>>;
     /// Stop a listener of a given address
     fn stop_listener(&mut self, address: SocketAddr) -> PeerNetResult<()>;
