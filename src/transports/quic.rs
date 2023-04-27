@@ -167,7 +167,9 @@ impl Transport for QuicTransport {
             })?;
         config.enable_dgram(true, 10, 10);
 
-        let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
+        let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::Builder::new()
+            .name(format!("quic_listener_handle_{:?}", address))
+            .spawn({
             let active_connections = self.active_connections.clone();
             let server = server.try_clone().unwrap();
             let reject_same_ip_addr = self.features.reject_same_ip_addr;
@@ -404,7 +406,7 @@ impl Transport for QuicTransport {
                     }
                 }
             }
-        });
+        }).expect("Failed to spawn thread quic_listener_handle");
         {
             let mut active_connections = self.active_connections.write();
             active_connections
@@ -449,7 +451,9 @@ impl Transport for QuicTransport {
                 .expect("Listener not found")
         };
         let socket = socket.try_clone().unwrap();
-        let connection_handler: JoinHandle<PeerNetResult<()>> = std::thread::spawn({
+        let connection_handler: JoinHandle<PeerNetResult<()>> = std::thread::Builder::new()
+            .name(format!("quic_try_connect_{:?}", address))
+            .spawn({
             let active_connections = self.active_connections.clone();
             let wg = self.out_connection_attempts.clone();
             move || {
@@ -544,7 +548,7 @@ impl Transport for QuicTransport {
                 drop(wg);
                 Ok(())
             }
-        });
+        }).expect("Failed to spawn thread quic_listener_handle");
         Ok(connection_handler)
     }
 
