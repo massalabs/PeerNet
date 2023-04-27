@@ -71,7 +71,6 @@ impl ActiveConnections {
     }
 }
 
-// Send some data to a peer that we didn't accept his connection
 pub type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
