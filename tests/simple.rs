@@ -5,7 +5,7 @@ use peernet::types::KeyPair;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
-    peer::HandshakeHandler,
+    peer::InitConnectionHandler,
     peer_id::PeerId,
     transports::{
         OutConnectionConfig, QuicOutConnectionConfig, TcpOutConnectionConfig, TransportType,
@@ -14,8 +14,8 @@ use peernet::{
 use util::{create_clients, DefaultMessagesHandler};
 
 #[derive(Clone)]
-pub struct DefaultHandshake;
-impl HandshakeHandler for DefaultHandshake {
+pub struct DefaultInitConnection;
+impl InitConnectionHandler for DefaultInitConnection {
     fn perform_handshake<M: peernet::messages::MessagesHandler>(
         &mut self,
         _keypair: &KeyPair,
@@ -35,8 +35,7 @@ fn simple() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair,
-        fallback_function: None,
-        handshake_handler: DefaultHandshake,
+        init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
         message_handler: DefaultMessagesHandler {},
     };
@@ -64,8 +63,7 @@ fn two_peers_tcp() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1,
-        handshake_handler: DefaultHandshake {},
-        fallback_function: None,
+        init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
         message_handler: DefaultMessagesHandler {},
     };
@@ -79,8 +77,7 @@ fn two_peers_tcp() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2,
-        fallback_function: None,
-        handshake_handler: DefaultHandshake {},
+        init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
         message_handler: DefaultMessagesHandler {},
     };
@@ -107,8 +104,7 @@ fn two_peers_quic() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1.clone(),
-        fallback_function: None,
-        handshake_handler: DefaultHandshake {},
+        init_connection_handler: DefaultInitConnection {},
         message_handler: DefaultMessagesHandler {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
     };
@@ -122,8 +118,7 @@ fn two_peers_quic() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2,
-        fallback_function: None,
-        handshake_handler: DefaultHandshake {},
+        init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
         message_handler: DefaultMessagesHandler {},
     };

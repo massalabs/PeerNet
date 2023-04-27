@@ -3,7 +3,7 @@ mod util;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
-    peer::HandshakeHandler,
+    peer::InitConnectionHandler,
     transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 use std::time::Duration;
@@ -13,8 +13,8 @@ use peernet::types::KeyPair;
 use util::DefaultMessagesHandler;
 
 #[derive(Clone)]
-pub struct DefaultHandshake;
-impl HandshakeHandler for DefaultHandshake {}
+pub struct DefaultInitConnection;
+impl InitConnectionHandler for DefaultInitConnection {}
 
 #[test]
 fn check_mutliple_connection_refused() {
@@ -22,9 +22,8 @@ fn check_mutliple_connection_refused() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair1.clone(),
-        handshake_handler: DefaultHandshake {},
-        fallback_function: None,
+        self_keypair: keypair1,
+        init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
         message_handler: DefaultMessagesHandler {},
     };
@@ -38,8 +37,7 @@ fn check_mutliple_connection_refused() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2.clone(),
-        fallback_function: None,
-        handshake_handler: DefaultHandshake {},
+        init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
         message_handler: DefaultMessagesHandler {},
     };
@@ -56,9 +54,8 @@ fn check_mutliple_connection_refused() {
     let config = PeerNetConfiguration {
         max_in_connections: 10,
         max_out_connections: 20,
-        self_keypair: keypair2.clone(),
-        fallback_function: None,
-        handshake_handler: DefaultHandshake {},
+        self_keypair: keypair2,
+        init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(true),
         message_handler: DefaultMessagesHandler {},
     };

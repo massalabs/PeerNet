@@ -7,8 +7,8 @@ use std::time::Duration;
 use crate::config::PeerNetFeatures;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
-use crate::network_manager::{FallbackFunction, SharedActiveConnections};
-use crate::peer::{new_peer, ConnectionType, HandshakeHandler};
+use crate::network_manager::SharedActiveConnections;
+use crate::peer::{new_peer, ConnectionType, InitConnectionHandler};
 use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
@@ -111,13 +111,12 @@ impl Transport for TcpTransport {
 
     type Endpoint = TcpEndpoint;
 
-    fn start_listener<T: HandshakeHandler, M: MessagesHandler>(
+    fn start_listener<T: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
-        fallback_function: Option<&'static FallbackFunction>,
         message_handler: M,
-        handshake_handler: T,
+        mut init_connection_handler: T,
     ) -> PeerNetResult<()> {
         let mut poll =
             Poll::new().map_err(|err| TcpError::InitListener.wrap().new("poll new", err, None))?;
@@ -186,13 +185,11 @@ impl Transport for TcpTransport {
                                         active_connections.nb_in_connections += 1;
                                     } else {
                                         println!("Connection attempt by {}  : max_in_connections reached", address);
-                                        if let Some(fallback_function) = fallback_function {
-                                            fallback_function(
-                                                &self_keypair,
-                                                &mut endpoint,
-                                                &active_connections.listeners,
-                                            )?;
-                                        }
+                                        init_connection_handler.fallback_function(
+                                            &self_keypair,
+                                            &mut endpoint,
+                                            &active_connections.listeners,
+                                        )?;
                                         continue;
                                     }
                                     active_connections.connection_queue.push(address);
@@ -200,7 +197,7 @@ impl Transport for TcpTransport {
                                 new_peer(
                                     self_keypair.clone(),
                                     endpoint,
-                                    handshake_handler.clone(),
+                                    init_connection_handler.clone(),
                                     message_handler.clone(),
                                     active_connections.clone(),
                                     peer_stop_rx.clone(),
@@ -227,7 +224,7 @@ impl Transport for TcpTransport {
         Ok(())
     }
 
-    fn try_connect<T: HandshakeHandler, M: MessagesHandler>(
+    fn try_connect<T: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,

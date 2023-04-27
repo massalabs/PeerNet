@@ -7,14 +7,14 @@ use peernet::types::KeyPair;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
-    peer::HandshakeHandler,
+    peer::InitConnectionHandler,
     peer_id::PeerId,
     transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
 };
 
 #[derive(Clone)]
-struct EmptyHandshake;
-impl HandshakeHandler for EmptyHandshake {}
+struct EmptyInitConnection;
+impl InitConnectionHandler for EmptyInitConnection {}
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 enum TestMessages {
@@ -84,8 +84,7 @@ fn two_peers_tcp_with_one_message() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair1,
-        handshake_handler: EmptyHandshake {},
-        fallback_function: None,
+        init_connection_handler: EmptyInitConnection {},
         message_handler: TestMessagesHandler {
             test_sender: sender.clone(),
         },
@@ -100,8 +99,7 @@ fn two_peers_tcp_with_one_message() {
         max_in_connections: 10,
         max_out_connections: 20,
         self_keypair: keypair2,
-        handshake_handler: EmptyHandshake {},
-        fallback_function: None,
+        init_connection_handler: EmptyInitConnection {},
         message_handler: TestMessagesHandler {
             test_sender: sender,
         },

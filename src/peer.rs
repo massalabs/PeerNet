@@ -17,7 +17,7 @@ use crate::{
     transports::{endpoint::Endpoint, TransportType},
 };
 
-pub trait HandshakeHandler: Send + Clone + 'static {
+pub trait InitConnectionHandler: Send + Clone + 'static {
     fn perform_handshake<M: MessagesHandler>(
         &mut self,
         keypair: &KeyPair,
@@ -26,6 +26,15 @@ pub trait HandshakeHandler: Send + Clone + 'static {
         _messages_handler: M,
     ) -> PeerNetResult<PeerId> {
         endpoint.handshake(keypair)
+    }
+
+    fn fallback_function(
+        &mut self,
+        _keypair: &KeyPair,
+        _endpoint: &mut Endpoint,
+        _listeners: &HashMap<SocketAddr, TransportType>,
+    ) -> PeerNetResult<()> {
+        Ok(())
     }
 }
 
@@ -87,7 +96,7 @@ pub enum ConnectionType {
     OUT,
 }
 
-pub(crate) fn new_peer<T: HandshakeHandler, M: MessagesHandler>(
+pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
