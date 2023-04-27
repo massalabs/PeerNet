@@ -11,14 +11,14 @@
 //!    error::PeerNetResult,
 //!    messages::MessagesHandler,
 //!    transports::{OutConnectionConfig, TcpOutConnectionConfig, QuicOutConnectionConfig, TransportType},
-//!    peer::HandshakeHandler,
+//!    peer::InitConnectionHandler,
 //!};
 //!
 //! // Declare a handshake handler to use
 //! #[derive(Clone)]
 //! pub struct DefaultHandshake;
 //! // Use the default implementation of the handshake
-//! impl HandshakeHandler for DefaultHandshake {}
+//! impl InitConnectionHandler for DefaultHandshake {}
 //! #[derive(Clone)]
 //! pub struct MessageHandler;
 //! impl MessagesHandler for MessageHandler {
@@ -40,8 +40,7 @@
 //!     max_out_connections: 20,
 //!     self_keypair: keypair1.clone(),
 //!     message_handler: MessageHandler {},
-//!     fallback_function: None,
-//!     handshake_handler: DefaultHandshake,
+//!     init_connection_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),
 //! };
 //! // Setup the manager for the first peer
@@ -60,8 +59,7 @@
 //!     max_out_connections: 20,
 //!     self_keypair: keypair1.clone(),
 //!     message_handler: MessageHandler {},
-//!     fallback_function: None,
-//!     handshake_handler: DefaultHandshake,
+//!     init_connection_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),
 //! };
 //! // Setup the manager for the second peer
