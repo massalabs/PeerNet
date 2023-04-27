@@ -4,7 +4,7 @@ use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
-    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
+    transports::{OutConnectionConfig, TransportType},
 };
 use std::time::Duration;
 
@@ -46,7 +46,7 @@ fn check_mutliple_connection_refused() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
+            &mut OutConnectionConfig::Tcp(Box::default()),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -64,7 +64,7 @@ fn check_mutliple_connection_refused() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
+            &mut OutConnectionConfig::Tcp(Box::default()),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));

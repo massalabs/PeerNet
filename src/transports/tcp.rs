@@ -33,6 +33,11 @@ impl TcpError {
     }
 }
 
+#[derive(Default)]
+pub struct TcpTransportConfig {
+    out_connection_config: TcpOutConnectionConfig,
+}
+
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
     pub out_connection_attempts: WaitGroup,
@@ -41,17 +46,30 @@ pub(crate) struct TcpTransport {
 
     peer_stop_tx: Sender<()>,
     peer_stop_rx: Receiver<()>,
+    config: TcpTransportConfig,
 }
 
 const NEW_CONNECTION: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
-const RATE_LIMIT: u128 = 10 * 1024;
 
 #[derive(Clone)]
-pub struct TcpOutConnectionConfig;
+pub struct TcpOutConnectionConfig {
+    rate_limit: u128,
+    rate_time_window: Duration,
+}
+
+impl Default for TcpOutConnectionConfig {
+    fn default() -> Self {
+        TcpOutConnectionConfig {
+            rate_limit: 10 * 1024,
+            rate_time_window: Duration::from_secs(1),
+        }
+    }
+}
 
 //TODO: IN/OUT different types because TCP ports are not reliable
 pub struct TcpEndpoint {
+    config: TcpOutConnectionConfig,
     pub address: SocketAddr,
     pub stream: Limiter<TcpStream>,
 }
@@ -59,6 +77,7 @@ pub struct TcpEndpoint {
 impl Clone for TcpEndpoint {
     fn clone(&self) -> Self {
         TcpEndpoint {
+            config: self.config.clone(),
             address: self.address,
             stream: Limiter::new(
                 self.stream.stream.try_clone().unwrap_or_else(|_| {
@@ -67,8 +86,8 @@ impl Clone for TcpEndpoint {
                         self.address
                     )
                 }),
-                RATE_LIMIT,
-                Duration::from_secs(1),
+                self.config.rate_limit,
+                self.config.rate_time_window,
             ),
         }
     }
@@ -93,6 +112,7 @@ impl TcpTransport {
             features,
             peer_stop_rx,
             peer_stop_tx,
+            config: TcpTransportConfig::default(),
         }
     }
 }
@@ -130,6 +150,7 @@ impl Transport for TcpTransport {
             let reject_same_ip_addr = self.features.reject_same_ip_addr;
             let peer_stop_rx = self.peer_stop_rx.clone();
             let peer_stop_tx = self.peer_stop_tx.clone();
+            let out_conn_config = self.config.out_connection_config.clone();
             move || {
                 let server = TcpListener::bind(address)
                     .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
@@ -172,11 +193,12 @@ impl Transport for TcpTransport {
                                 println!("Address {:?}, accepted", address);
 
                                 let mut endpoint = Endpoint::Tcp(TcpEndpoint {
+                                    config: out_conn_config.clone(),
                                     address,
                                     stream: Limiter::new(
                                         stream,
-                                        RATE_LIMIT,
-                                        Duration::from_secs(1),
+                                        out_conn_config.rate_limit,
+                                        out_conn_config.rate_time_window,
                                     ),
                                 });
                                 {
@@ -241,6 +263,7 @@ impl Transport for TcpTransport {
             .spawn({
                 let active_connections = self.active_connections.clone();
                 let wg = self.out_connection_attempts.clone();
+                let out_conn_config = self.config.out_connection_config.clone();
                 move || {
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         TcpError::ConnectionError.wrap().new(
@@ -249,7 +272,11 @@ impl Transport for TcpTransport {
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
-                    let stream = Limiter::new(stream, RATE_LIMIT, Duration::from_secs(1));
+                    let stream = Limiter::new(
+                        stream,
+                        out_conn_config.rate_limit,
+                        out_conn_config.rate_time_window,
+                    );
                     println!("Connected to {}", address);
 
                     {
@@ -271,7 +298,11 @@ impl Transport for TcpTransport {
                     }
                     new_peer(
                         self_keypair.clone(),
-                        Endpoint::Tcp(TcpEndpoint { address, stream }),
+                        Endpoint::Tcp(TcpEndpoint {
+                            address,
+                            stream,
+                            config: out_conn_config.clone(),
+                        }),
                         handshake_handler.clone(),
                         message_handler.clone(),
                         active_connections.clone(),

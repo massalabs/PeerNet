@@ -7,9 +7,7 @@ use peernet::{
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     peer_id::PeerId,
-    transports::{
-        OutConnectionConfig, QuicOutConnectionConfig, TcpOutConnectionConfig, TransportType,
-    },
+    transports::{OutConnectionConfig, QuicOutConnectionConfig, TransportType},
 };
 use util::{create_clients, DefaultMessagesHandler};
 
@@ -87,7 +85,7 @@ fn two_peers_tcp() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
+            &OutConnectionConfig::Tcp(Box::default()),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));

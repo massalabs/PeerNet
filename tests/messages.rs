@@ -9,7 +9,7 @@ use peernet::{
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     peer_id::PeerId,
-    transports::{OutConnectionConfig, TcpOutConnectionConfig, TransportType},
+    transports::{OutConnectionConfig, TransportType},
 };
 
 #[derive(Clone)]
@@ -110,7 +110,7 @@ fn two_peers_tcp_with_one_message() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut OutConnectionConfig::Tcp(Box::new(TcpOutConnectionConfig {})),
+            &mut OutConnectionConfig::Tcp(Box::default()),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(1));
