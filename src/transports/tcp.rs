@@ -8,7 +8,7 @@ use crate::config::PeerNetFeatures;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
 use crate::network_manager::SharedActiveConnections;
-use crate::peer::{new_peer, ConnectionType, InitConnectionHandler};
+use crate::peer::{new_peer, InitConnectionHandler, PeerConnectionType};
 use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
@@ -234,7 +234,7 @@ impl Transport for TcpTransport {
                                     message_handler.clone(),
                                     active_connections.clone(),
                                     peer_stop_rx.clone(),
-                                    ConnectionType::IN,
+                                    PeerConnectionType::IN,
                                 );
                             }
                             STOP_LISTENER => {
@@ -316,7 +316,7 @@ impl Transport for TcpTransport {
                         message_handler.clone(),
                         active_connections.clone(),
                         peer_stop_rx,
-                        ConnectionType::OUT,
+                        PeerConnectionType::OUT,
                     );
                     drop(wg);
                     Ok(())

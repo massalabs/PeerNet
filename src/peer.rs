@@ -66,12 +66,20 @@ impl SendChannels {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum PeerConnectionType {
+    IN,
+    OUT,
+}
+
 pub struct PeerConnection {
     // if handshake passed then the channel with write thread is created
     pub send_channels: SendChannels,
     //TODO: Should be only the field that allow to shutdown the connection. As it's
     //transport specific, it should be a wrapped type `ShutdownHandle`
     pub endpoint: Endpoint,
+    // Determine if the connection is an out or in one
+    pub connection_type: PeerConnectionType,
 }
 
 impl PeerConnection {
@@ -90,12 +98,6 @@ impl Debug for PeerConnection {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ConnectionType {
-    IN,
-    OUT,
-}
-
 pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
@@ -103,7 +105,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     message_handler: M,
     active_connections: SharedActiveConnections,
     peer_stop: Receiver<()>,
-    connection_type: ConnectionType,
+    connection_type: PeerConnectionType,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::Builder::new()
@@ -128,10 +130,10 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         .connection_queue
                         .retain(|addr| addr != endpoint.get_target_addr());
                     match connection_type {
-                        ConnectionType::IN => {
+                        PeerConnectionType::IN => {
                             write_active_connections.nb_in_connections -= 1;
                         }
-                        ConnectionType::OUT => {
+                        PeerConnectionType::OUT => {
                             write_active_connections.nb_out_connections -= 1;
                         }
                     }
@@ -153,6 +155,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 low_priority: low_write_tx,
                 high_priority: high_write_tx,
             },
+            connection_type,
         );
 
         // SPAWN WRITING THREAD
@@ -173,10 +176,10 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                     .remove(&write_peer_id)
                                     .expect("Unable to remove peer id");
                                 match connection_type {
-                                    ConnectionType::IN => {
+                                    PeerConnectionType::IN => {
                                         write_active_connections.nb_in_connections -= 1;
                                     }
-                                    ConnectionType::OUT => {
+                                    PeerConnectionType::OUT => {
                                         write_active_connections.nb_out_connections -= 1;
                                     }
                                 }
@@ -205,10 +208,10 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                             write_active_connections.write();
                                         write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
                                         match connection_type {
-                                            ConnectionType::IN => {
+                                            PeerConnectionType::IN => {
                                                 write_active_connections.nb_in_connections -= 1;
                                             }
-                                            ConnectionType::OUT => {
+                                            PeerConnectionType::OUT => {
                                                 write_active_connections
                                                     .nb_out_connections -= 1;
                                             }
@@ -233,10 +236,10 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                             write_active_connections.write();
                                         write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
                                         match connection_type {
-                                            ConnectionType::IN => {
+                                            PeerConnectionType::IN => {
                                                 write_active_connections.nb_in_connections -= 1;
                                             }
-                                            ConnectionType::OUT => {
+                                            PeerConnectionType::OUT => {
                                                 write_active_connections
                                                     .nb_out_connections -= 1;
                                             }
@@ -274,10 +277,10 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                 .is_some()
                             {
                                 match connection_type {
-                                    ConnectionType::IN => {
+                                    PeerConnectionType::IN => {
                                         write_active_connections.nb_in_connections -= 1;
                                     }
-                                    ConnectionType::OUT => {
+                                    PeerConnectionType::OUT => {
                                         write_active_connections.nb_out_connections -= 1;
                                     }
                                 }

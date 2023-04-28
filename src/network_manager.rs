@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::messages::MessagesHandler;
+use crate::peer::PeerConnectionType;
 use crate::types::KeyPair;
 use parking_lot::RwLock;
 
@@ -56,6 +57,7 @@ impl ActiveConnections {
         id: PeerId,
         endpoint: Endpoint,
         send_channels: SendChannels,
+        connection_type: PeerConnectionType,
     ) {
         self.connection_queue
             .retain(|addr| addr != endpoint.get_target_addr());
@@ -66,6 +68,7 @@ impl ActiveConnections {
                 //TODO: Should be only the field that allow to shutdown the connection. As it's
                 //transport specific, it should be a wrapped type `ShutdownHandle`
                 endpoint,
+                connection_type,
             },
         );
     }
