@@ -173,8 +173,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                 let mut write_active_connections = write_active_connections.write();
                                 write_active_connections
                                     .connections
-                                    .remove(&write_peer_id)
-                                    .expect("Unable to remove peer id");
+                                    .remove(&write_peer_id);
                                 match connection_type {
                                     PeerConnectionType::IN => {
                                         write_active_connections.nb_in_connections -= 1;
@@ -206,7 +205,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();
-                                        write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                        write_active_connections.connections.remove(&write_peer_id);
                                         match connection_type {
                                             PeerConnectionType::IN => {
                                                 write_active_connections.nb_in_connections -= 1;
@@ -234,7 +233,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();
-                                        write_active_connections.connections.remove(&write_peer_id).expect("Unable to remove peer id");
+                                        write_active_connections.connections.remove(&write_peer_id);
                                         match connection_type {
                                             PeerConnectionType::IN => {
                                                 write_active_connections.nb_in_connections -= 1;
