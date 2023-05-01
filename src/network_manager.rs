@@ -2,6 +2,7 @@
 //!
 //! It is the entry point of the library and is used to create and manage the transports and the peers.
 
+use std::net::IpAddr;
 use std::thread::JoinHandle;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
@@ -34,6 +35,18 @@ pub struct ActiveConnections {
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
 
+fn to_canonical(ip: IpAddr) -> IpAddr {
+    match ip {
+        v4 @ IpAddr::V4(_) => v4,
+        IpAddr::V6(v6) => {
+            if let Some(mapped) = v6.to_ipv4_mapped() {
+                return IpAddr::V4(mapped);
+            }
+            IpAddr::V6(v6)
+        }
+    }
+}
+
 impl ActiveConnections {
     /// Check if a new connection from a specific address can be accepted or not
     pub fn check_addr_accepted(&self, addr: &SocketAddr) -> bool {
@@ -41,13 +54,12 @@ impl ActiveConnections {
             true
         } else {
             let active_connection_match = self.connections.iter().any(|(_, connection)| {
-                connection.endpoint.get_target_addr().ip().to_canonical()
-                    == addr.ip().to_canonical()
+                to_canonical(connection.endpoint.get_target_addr().ip()) == to_canonical(addr.ip())
             });
             let queue_connection_match = self
                 .connection_queue
                 .iter()
-                .any(|peer| peer.ip().to_canonical() == addr.ip().to_canonical());
+                .any(|peer| to_canonical(peer.ip()) == to_canonical(addr.ip()));
             !(queue_connection_match || active_connection_match)
         }
     }
