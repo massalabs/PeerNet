@@ -293,47 +293,66 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         Ok((rest, id)) => {
                             if let Err(err) = message_handler.handle(id, rest, &peer_id) {
                                 println!("Error handling message: {:?}", err);
-                                if active_connections
-                                    .write()
+                                {
+                                    let mut write_active_connections = active_connections.write();
+                                    if write_active_connections
                                     .connections
                                     .remove(&peer_id)
-                                    .is_none()
-                                {
-                                    println!(
-                                    "Unable to remove peer {:?}, not found in active connections",
-                                    peer_id
-                                );
+                                    .is_some()
+                                    {
+                                        match connection_type {
+                                            PeerConnectionType::IN => {
+                                                write_active_connections.nb_in_connections -= 1;
+                                            }
+                                            PeerConnectionType::OUT => {
+                                                write_active_connections.nb_out_connections -= 1;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                         Err(err) => {
                             println!("Error handling message: {:?}", err);
-                            if active_connections
-                                .write()
+                            {
+                                let mut write_active_connections = active_connections.write();
+                                if write_active_connections
                                 .connections
                                 .remove(&peer_id)
-                                .is_none()
-                            {
-                                println!(
-                                    "Unable to remove peer {:?}, not found in active connections",
-                                    peer_id
-                                );
+                                .is_some()
+                                {
+                                    match connection_type {
+                                        PeerConnectionType::IN => {
+                                            write_active_connections.nb_in_connections -= 1;
+                                        }
+                                        PeerConnectionType::OUT => {
+                                            write_active_connections.nb_out_connections -= 1;
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
                 Err(err) => {
                     println!("Peer err {:?}", err);
-                    if active_connections
-                        .write()
-                        .connections
-                        .remove(&peer_id)
-                        .is_none()
                     {
-                        println!(
-                            "Unable to remove peer {:?}, not found in active connections",
-                            peer_id
-                        );
+                        let mut write_active_connections = active_connections.write();
+                        if active_connections
+                            .write()
+                            .connections
+                            .remove(&peer_id)
+                            .is_some()
+                        {
+                            match connection_type {
+                                PeerConnectionType::IN => {
+                                    write_active_connections.nb_in_connections -= 1;
+                                }
+                                PeerConnectionType::OUT => {
+                                    write_active_connections.nb_out_connections -= 1;
+                                }
+                            }
+                        }
                     }
                     return;
                 }
