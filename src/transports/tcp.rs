@@ -80,7 +80,7 @@ impl Default for TcpOutConnectionConfig {
 pub struct TcpEndpoint {
     config: TcpOutConnectionConfig,
     pub address: SocketAddr,
-    pub stream: Limiter<TcpStream>,
+    pub stream: TcpStream,
 }
 
 impl Clone for TcpEndpoint {
@@ -88,15 +88,13 @@ impl Clone for TcpEndpoint {
         TcpEndpoint {
             config: self.config.clone(),
             address: self.address,
-            stream: Limiter::new(
-                self.stream.stream.try_clone().unwrap_or_else(|_| {
+            stream: 
+                self.stream.try_clone().unwrap_or_else(|_| {
                     panic!(
                         "Unable to clone stream, when cloning TcpEndpoint {}",
                         self.address
                     )
-                }),
-                self.config.rate_limit,
-                self.config.rate_time_window,
+                }
             ),
         }
     }
@@ -104,7 +102,7 @@ impl Clone for TcpEndpoint {
 
 impl TcpEndpoint {
     pub fn shutdown(&mut self) {
-        let _ = self.stream.stream.shutdown(std::net::Shutdown::Both);
+        let _ = self.stream.shutdown(std::net::Shutdown::Both);
     }
 }
 
@@ -204,11 +202,12 @@ impl Transport for TcpTransport {
                                 let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                     config: out_conn_config.clone(),
                                     address,
-                                    stream: Limiter::new(
-                                        stream,
-                                        out_conn_config.rate_limit,
-                                        out_conn_config.rate_time_window,
-                                    ),
+                                    stream
+                                    // stream: Limiter::new(
+                                    //     stream,
+                                    //     out_conn_config.rate_limit,
+                                    //     out_conn_config.rate_time_window,
+                                    // ),
                                 });
                                 {
                                     let mut active_connections = active_connections.write();
@@ -281,11 +280,11 @@ impl Transport for TcpTransport {
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
-                    let stream = Limiter::new(
-                        stream,
-                        out_conn_config.rate_limit,
-                        out_conn_config.rate_time_window,
-                    );
+                    // let stream = Limiter::new(
+                    //     stream,
+                    //     out_conn_config.rate_limit,
+                    //     out_conn_config.rate_time_window,
+                    // );
                     println!("Connected to {}", address);
 
                     {
