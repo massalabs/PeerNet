@@ -40,14 +40,14 @@ impl ActiveConnections {
         if self.connections.is_empty() && self.connection_queue.is_empty() {
             true
         } else {
-            let active_connection_match = self
-                .connections
-                .iter()
-                .any(|(_, connection)| connection.endpoint.get_target_addr().ip() == addr.ip());
+            let active_connection_match = self.connections.iter().any(|(_, connection)| {
+                connection.endpoint.get_target_addr().ip().to_canonical()
+                    == addr.ip().to_canonical()
+            });
             let queue_connection_match = self
                 .connection_queue
                 .iter()
-                .any(|peer| peer.ip() == addr.ip());
+                .any(|peer| peer.ip().to_canonical() == addr.ip().to_canonical());
             !(queue_connection_match || active_connection_match)
         }
     }
