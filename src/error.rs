@@ -7,7 +7,7 @@ use crate::transports::TransportErrorType;
 
 pub type PeerNetResult<T> = Result<T, PeerNetErrorData>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PeerNetError {
     ListenerError,
     PeerIdError,
@@ -56,7 +56,7 @@ impl PeerNetError {
 #[derive(Error, Debug)]
 pub struct PeerNetErrorData {
     location: &'static str,
-    error_type: PeerNetError,
+    pub(crate) error_type: PeerNetError,
     error: Option<String>,
     add_msg: Option<String>,
 }

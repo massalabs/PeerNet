@@ -20,7 +20,7 @@ use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use stream_limiter::Limiter;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TcpError {
     InitListener,
     ConnectionError,
@@ -384,9 +384,9 @@ impl Transport for TcpTransport {
                 .error("recv len", Some(format!("{:?}", err)))
         })?);
         if res_size > 1048576000 {
-            return Err(TcpError::ConnectionError
-                .wrap()
-                .error("len too long", Some(format!("{:?}", res_size))));
+            return Err(
+                PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
+            );
         }
         println!("Recv {} bytes", res_size);
         let mut data = vec![0u8; res_size as usize];

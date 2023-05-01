@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
-use crate::error::{PeerNetError, PeerNetResult};
+use crate::error::{PeerNetError, PeerNetErrorData, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::types::KeyPair;
 use crossbeam::{
@@ -313,6 +313,10 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                             }
                         }
                         Err(err) => {
+                            if PeerNetError::InvalidMessage == err.error_type {
+                                println!("Invalid message received.");
+                                continue;
+                            }
                             println!("Error handling message: {:?}", err);
                             {
                                 let mut write_active_connections = active_connections.write();

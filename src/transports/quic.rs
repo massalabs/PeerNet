@@ -27,7 +27,7 @@ use super::Transport;
 const NEW_PACKET_SERVER: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum QuicError {
     InitListener,
     StopListener,
