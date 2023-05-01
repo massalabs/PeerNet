@@ -343,6 +343,7 @@ impl Transport for TcpTransport {
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
+        println!("Sending {} bytes", data.len());
         endpoint
             .stream
             .write(&data.len().to_le_bytes())
@@ -368,6 +369,7 @@ impl Transport for TcpTransport {
             .read(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
         let len = usize::from_le_bytes(len_bytes);
+        println!("Recv {} bytes", len);
         let mut data = vec![0u8; len];
         endpoint
             .stream
