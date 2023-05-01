@@ -393,7 +393,7 @@ impl Transport for TcpTransport {
         let mut data = vec![0u8; res_size as usize];
         endpoint
             .stream
-            .read(&mut data)
+            .read_exact(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
         println!("AURELIEN: Receive data: {:?}", data);
         Ok(data)
