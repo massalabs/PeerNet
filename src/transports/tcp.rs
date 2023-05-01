@@ -18,7 +18,6 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
-use stream_limiter::Limiter;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TcpError {
@@ -54,15 +53,15 @@ const STOP_LISTENER: Token = Token(10);
 
 #[derive(Clone)]
 pub struct TcpOutConnectionConfig {
-    rate_limit: u128,
-    rate_time_window: Duration,
+    _rate_limit: u128,
+    _rate_time_window: Duration,
 }
 
 impl TcpOutConnectionConfig {
     pub fn new(rate_limit: u128, rate_time_window: Duration) -> Self {
         TcpOutConnectionConfig {
-            rate_limit,
-            rate_time_window,
+            _rate_limit: rate_limit,
+            _rate_time_window: rate_time_window,
         }
     }
 }
@@ -70,8 +69,8 @@ impl TcpOutConnectionConfig {
 impl Default for TcpOutConnectionConfig {
     fn default() -> Self {
         TcpOutConnectionConfig {
-            rate_limit: 10 * 1024,
-            rate_time_window: Duration::from_secs(1),
+            _rate_limit: 10 * 1024,
+            _rate_time_window: Duration::from_secs(1),
         }
     }
 }
@@ -151,99 +150,97 @@ impl Transport for TcpTransport {
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::Builder::new()
             .name(format!("tcp_listener_handle_{:?}", address))
             .spawn({
-            let active_connections = self.active_connections.clone();
-            let reject_same_ip_addr = self.features.reject_same_ip_addr;
-            let peer_stop_rx = self.peer_stop_rx.clone();
-            let peer_stop_tx = self.peer_stop_tx.clone();
-            let out_conn_config = self.config.out_connection_config.clone();
-            move || {
-                let server = TcpListener::bind(address)
-                    .unwrap_or_else(|_| panic!("Can't bind TCP transport to address {}", address));
-                let mut mio_server = MioTcpListener::from_std(
-                    server.try_clone().expect("Unable to clone server socket"),
-                );
-
-                // Start listening for incoming connections.
-                poll.registry()
-                    .register(&mut mio_server, NEW_CONNECTION, Interest::READABLE)
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Can't register polling on TCP transport of address {}",
-                            address
-                        )
+                let active_connections = self.active_connections.clone();
+                let reject_same_ip_addr = self.features.reject_same_ip_addr;
+                let peer_stop_rx = self.peer_stop_rx.clone();
+                let peer_stop_tx = self.peer_stop_tx.clone();
+                let out_conn_config = self.config.out_connection_config.clone();
+                move || {
+                    let server = TcpListener::bind(address).unwrap_or_else(|_| {
+                        panic!("Can't bind TCP transport to address {}", address)
                     });
-                loop {
-                    // Poll Mio for events, blocking until we get an event.
-                    poll.poll(&mut events, None).unwrap_or_else(|_| {
-                        panic!("Can't poll TCP transport of address {}", address)
-                    });
+                    let mut mio_server = MioTcpListener::from_std(
+                        server.try_clone().expect("Unable to clone server socket"),
+                    );
 
-                    // Process each event.
-                    for event in events.iter() {
-                        match event.token() {
-                            NEW_CONNECTION => {
-                                let (stream, address) = server.accept().map_err(|err| {
-                                    TcpError::ConnectionError.wrap().new(
-                                        "listener accept",
-                                        err,
-                                        None,
-                                    )
-                                })?;
-                                if reject_same_ip_addr
-                                    && !active_connections.read().check_addr_accepted(&address)
-                                {
-                                    println!("Address {:?} refused", address);
-                                    continue;
-                                }
-                                println!("Address {:?}, accepted", address);
+                    // Start listening for incoming connections.
+                    poll.registry()
+                        .register(&mut mio_server, NEW_CONNECTION, Interest::READABLE)
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Can't register polling on TCP transport of address {}",
+                                address
+                            )
+                        });
+                    loop {
+                        // Poll Mio for events, blocking until we get an event.
+                        poll.poll(&mut events, None).unwrap_or_else(|_| {
+                            panic!("Can't poll TCP transport of address {}", address)
+                        });
 
-                                let mut endpoint = Endpoint::Tcp(TcpEndpoint {
-                                    config: out_conn_config.clone(),
-                                    address,
-                                    stream
-                                    // stream: Limiter::new(
-                                    //     stream,
-                                    //     out_conn_config.rate_limit,
-                                    //     out_conn_config.rate_time_window,
-                                    // ),
-                                });
-                                {
-                                    let mut active_connections = active_connections.write();
-                                    if active_connections.nb_in_connections
-                                        < active_connections.max_in_connections
+                        // Process each event.
+                        for event in events.iter() {
+                            match event.token() {
+                                NEW_CONNECTION => {
+                                    let (stream, address) = server.accept().map_err(|err| {
+                                        TcpError::ConnectionError.wrap().new(
+                                            "listener accept",
+                                            err,
+                                            None,
+                                        )
+                                    })?;
+                                    if reject_same_ip_addr
+                                        && !active_connections.read().check_addr_accepted(&address)
                                     {
-                                        active_connections.nb_in_connections += 1;
-                                    } else {
-                                        println!("Connection attempt by {}  : max_in_connections reached", address);
-                                        init_connection_handler.fallback_function(
-                                            &self_keypair,
-                                            &mut endpoint,
-                                            &active_connections.listeners,
-                                        )?;
                                         continue;
                                     }
-                                    active_connections.connection_queue.push(address);
+
+                                    let mut endpoint = Endpoint::Tcp(TcpEndpoint {
+                                        config: out_conn_config.clone(),
+                                        address,
+                                        stream, // stream: Limiter::new(
+                                                //     stream,
+                                                //     out_conn_config.rate_limit,
+                                                //     out_conn_config.rate_time_window,
+                                                // ),
+                                    });
+                                    {
+                                        let mut active_connections = active_connections.write();
+                                        if active_connections.nb_in_connections
+                                            < active_connections.max_in_connections
+                                        {
+                                            active_connections.nb_in_connections += 1;
+                                        } else {
+                                            init_connection_handler.fallback_function(
+                                                &self_keypair,
+                                                &mut endpoint,
+                                                &active_connections.listeners,
+                                            )?;
+                                            continue;
+                                        }
+                                        active_connections.connection_queue.push(address);
+                                    }
+                                    new_peer(
+                                        self_keypair.clone(),
+                                        endpoint,
+                                        init_connection_handler.clone(),
+                                        message_handler.clone(),
+                                        active_connections.clone(),
+                                        peer_stop_rx.clone(),
+                                        PeerConnectionType::IN,
+                                    );
                                 }
-                                new_peer(
-                                    self_keypair.clone(),
-                                    endpoint,
-                                    init_connection_handler.clone(),
-                                    message_handler.clone(),
-                                    active_connections.clone(),
-                                    peer_stop_rx.clone(),
-                                    PeerConnectionType::IN,
-                                );
+                                STOP_LISTENER => {
+                                    peer_stop_tx.send(()).unwrap();
+                                    return Ok(());
+                                }
+                                _ => {}
                             }
-                            STOP_LISTENER => {
-                                peer_stop_tx.send(()).unwrap();
-                                return Ok(());
-                            }
-                            _ => {}
                         }
                     }
                 }
-            }
-        }).expect("Failed to spawn thread tcp_listener_handle");
+            })
+            .expect("Failed to spawn thread tcp_listener_handle");
         {
             let mut active_connections = self.active_connections.write();
             active_connections
@@ -283,7 +280,6 @@ impl Transport for TcpTransport {
                     //     out_conn_config.rate_limit,
                     //     out_conn_config.rate_time_window,
                     // );
-                    println!("Connected to {}", address);
 
                     {
                         let mut active_connections = active_connections.write();
@@ -341,8 +337,6 @@ impl Transport for TcpTransport {
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
-        println!("AURELIEN: Send data: {:?}", data);
-        println!("Sending {} bytes", data.len());
         let msg_size: u32 = data.len().try_into().map_err(|_| {
             TcpError::ConnectionError
                 .wrap()
@@ -389,13 +383,11 @@ impl Transport for TcpTransport {
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
         }
-        println!("Recv {} bytes", res_size);
         let mut data = vec![0u8; res_size as usize];
         endpoint
             .stream
             .read_exact(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
-        println!("AURELIEN: Receive data: {:?}", data);
         Ok(data)
     }
 }

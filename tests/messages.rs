@@ -30,7 +30,6 @@ impl MessagesHandler for TestMessagesHandler {
     fn handle(&self, id: u64, _data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
         match id {
             0 => {
-                println!("Received ping from {}", peer_id);
                 self.test_sender
                     .send((peer_id.clone(), TestMessages::Ping))
                     .map_err(|err| {
@@ -77,7 +76,6 @@ fn two_peers_tcp_with_one_message() {
             PeerId::from_public_key(keypair2_clone.get_public_key())
         );
         assert_eq!(message, TestMessages::Ping);
-        println!("Well received")
     });
     let keypair1 = KeyPair::generate();
     let config = PeerNetConfiguration {

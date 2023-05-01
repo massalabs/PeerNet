@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
-use crate::error::{PeerNetError, PeerNetErrorData, PeerNetResult};
+use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::types::KeyPair;
 use crossbeam::{
@@ -123,7 +123,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             message_handler.clone(),
         ) {
             Ok(peer_id) => peer_id,
-            Err(err) => {
+            Err(_) => {
                 {
                     let mut write_active_connections = active_connections.write();
                     write_active_connections
@@ -138,7 +138,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         }
                     }
                 }
-                println!("Handshake error: {:?}", err);
                 return;
             }
         };
@@ -167,7 +166,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             move || loop {
                 match high_write_rx.try_recv() {
                     Ok(data) => {
-                        println!("writer thread: high priority message received");
                         if write_endpoint.send(&data).is_err() {
                             {
                                 let mut write_active_connections = write_active_connections.write();
@@ -189,7 +187,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     }
                     Err(TryRecvError::Empty) => {}
                     Err(TryRecvError::Disconnected) => {
-                        println!("writer thread high priority: disconnected");
                         return;
                     }
                 }
@@ -200,7 +197,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     recv(low_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                println!("writer thread: low priority message received");
                                 if write_endpoint.send(&data).is_err() {
                                     {
                                         let mut write_active_connections =
@@ -220,7 +216,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                 }
                             }
                             Err(_) => {
-                                println!("writer thread low priority: disconnected");
                                 return;
                             }
                         }
@@ -228,7 +223,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     recv(high_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                println!("writer thread: high priority message received");
                                 if write_endpoint.send(&data).is_err() {
                                     {
                                         let mut write_active_connections =
@@ -248,7 +242,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                 }
                             }
                             Err(_) => {
-                                println!("writer thread: disconnected");
                                 return;
                             }
                         }
@@ -261,7 +254,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             match endpoint.receive() {
                 Ok(data) => {
                     if data.is_empty() {
-                        println!("Empty data received, closing connection");
                         // We arrive here in two cases:
                         // 1. When we shutdown the endpoint from the clone that is in the manager
                         // 2. When the other side closes the connection
@@ -288,7 +280,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         let _ = write_thread_handle.join();
                         return;
                     }
-                    println!("Received data from peer: {:?}", data.len());
                     match message_handler.deserialize_id(&data, &peer_id) {
                         Ok((rest, id)) => {
                             if let Err(err) = message_handler.handle(id, rest, &peer_id) {
@@ -317,7 +308,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                 println!("Invalid message received.");
                                 continue;
                             }
-                            println!("Error handling message: {:?}", err);
                             {
                                 let mut write_active_connections = active_connections.write();
                                 if write_active_connections
@@ -338,8 +328,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         }
                     }
                 }
-                Err(err) => {
-                    println!("Peer err {:?}", err);
+                Err(_) => {
                     {
                         let mut write_active_connections = active_connections.write();
                         if active_connections

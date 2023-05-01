@@ -50,23 +50,6 @@ fn to_canonical(ip: IpAddr) -> IpAddr {
 impl ActiveConnections {
     /// Check if a new connection from a specific address can be accepted or not
     pub fn check_addr_accepted(&self, addr: &SocketAddr) -> bool {
-        println!(
-            "check_addr_accepted ip to compare: {:?}",
-            to_canonical(addr.ip())
-        );
-        for addr in &self.connection_queue {
-            println!(
-                "check_addr_accepted ip existing: {:?}",
-                to_canonical(addr.ip())
-            );
-        }
-        for (id, connection) in &self.connections {
-            println!(
-                "check_addr_accepted ip existing in connections: {:?}",
-                to_canonical(connection.endpoint.get_target_addr().ip())
-            );
-            println!("check_addr_accepted peer id: {:?}", id);
-        }
         if self.connections.is_empty() && self.connection_queue.is_empty() {
             true
         } else {

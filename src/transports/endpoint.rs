@@ -78,7 +78,6 @@ impl Endpoint {
             })?;
 
         let other_peer_id = PeerId::from_public_key(other_public_key);
-        println!("Handshake finished");
         Ok(other_peer_id)
     }
 
