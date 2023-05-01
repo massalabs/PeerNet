@@ -341,7 +341,7 @@ impl Transport for TcpTransport {
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
-        println!("AURELIEN: Send {}", data);
+        println!("AURELIEN: Send data: {}", data);
         println!("Sending {} bytes", data.len());
         let msg_size: u32 = data.len().try_into().map_err(|_| {
             TcpError::ConnectionError
@@ -395,6 +395,7 @@ impl Transport for TcpTransport {
             .stream
             .read(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
+        println!("AURELIEN: Receive data: {}", data);
         Ok(data)
     }
 }
