@@ -88,14 +88,12 @@ impl Clone for TcpEndpoint {
         TcpEndpoint {
             config: self.config.clone(),
             address: self.address,
-            stream: 
-                self.stream.try_clone().unwrap_or_else(|_| {
-                    panic!(
-                        "Unable to clone stream, when cloning TcpEndpoint {}",
-                        self.address
-                    )
-                }
-            ),
+            stream: self.stream.try_clone().unwrap_or_else(|_| {
+                panic!(
+                    "Unable to clone stream, when cloning TcpEndpoint {}",
+                    self.address
+                )
+            }),
         }
     }
 }
@@ -344,9 +342,21 @@ impl Transport for TcpTransport {
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         println!("Sending {} bytes", data.len());
+        let msg_size: u32 = data.len().try_into().map_err(|_| {
+            TcpError::ConnectionError
+                .wrap()
+                .error("send len too long", Some(format!("{:?}", data.len())))
+        })?;
+        //TODO: Use config one
         endpoint
             .stream
-            .write(&data.len().to_le_bytes())
+            .write(
+                &msg_size.to_be_bytes_min(1048576000).map_err(|err| {
+                    TcpError::ConnectionError
+                        .wrap()
+                        .error("send len encode", Some(format!("{:?} {}", data.len(), err)))
+                })?[..],
+            )
             .map_err(|err| {
                 TcpError::ConnectionError.wrap().new(
                     "send len write",
@@ -363,18 +373,78 @@ impl Transport for TcpTransport {
     }
 
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
-        let mut len_bytes = [0u8; 8];
+        //TODO: Config one
+        let size_field_len = u32::be_bytes_min_length(1048576000);
+        let mut len_bytes = vec![0u8; size_field_len];
         endpoint
             .stream
             .read(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
-        let len = usize::from_le_bytes(len_bytes);
-        println!("Recv {} bytes", len);
-        let mut data = vec![0u8; len];
+        let res_size = u32::from_be_bytes_min(&len_bytes, 1048576000)
+            .map_err(|err| {
+                TcpError::ConnectionError
+                    .wrap()
+                    .error("len decode", Some(format!("{:?} {}", size_field_len, err)))
+            })?
+            .0;
+        println!("Recv {} bytes", res_size);
+        let mut data = vec![0u8; res_size as usize];
         endpoint
             .stream
             .read(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
         Ok(data)
+    }
+}
+
+/// Serialize min big endian integer
+pub trait SerializeMinBEInt {
+    /// serializes with the minimal amount of big endian bytes
+    fn to_be_bytes_min(self, max_value: Self) -> Result<Vec<u8>, String>;
+}
+
+impl SerializeMinBEInt for u32 {
+    fn to_be_bytes_min(self, max_value: Self) -> Result<Vec<u8>, String> {
+        if self > max_value {
+            return Err("integer out of bounds".to_string());
+        }
+        let skip_bytes = (max_value.leading_zeros() as usize) / 8;
+        Ok(self.to_be_bytes()[skip_bytes..].to_vec())
+    }
+}
+
+/// Deserialize min big endian
+pub trait DeserializeMinBEInt: Sized {
+    /// min big endian integer base size
+    const MIN_BE_INT_BASE_SIZE: usize;
+
+    /// Compute the minimal big endian deserialization size
+    fn be_bytes_min_length(max_value: Self) -> usize;
+
+    /// Deserializes a minimally sized big endian integer to Self from the provided buffer and checks that its value is within given bounds.
+    /// In case of success, return the deserialized data and the number of bytes read
+    fn from_be_bytes_min(buffer: &[u8], max_value: Self) -> Result<(Self, usize), String>;
+}
+
+impl DeserializeMinBEInt for u32 {
+    const MIN_BE_INT_BASE_SIZE: usize = 4;
+
+    fn be_bytes_min_length(max_value: Self) -> usize {
+        Self::MIN_BE_INT_BASE_SIZE - (max_value.leading_zeros() as usize) / 8
+    }
+
+    fn from_be_bytes_min(buffer: &[u8], max_value: Self) -> Result<(Self, usize), String> {
+        let read_bytes = Self::be_bytes_min_length(max_value);
+        let skip_bytes = Self::MIN_BE_INT_BASE_SIZE - read_bytes;
+        if buffer.len() < read_bytes {
+            return Err("unexpected buffer END".to_string());
+        }
+        let mut buf = [0u8; Self::MIN_BE_INT_BASE_SIZE];
+        buf[skip_bytes..].clone_from_slice(&buffer[..read_bytes]);
+        let res = u32::from_be_bytes(buf);
+        if res > max_value {
+            return Err("integer outside of bounds".to_string());
+        }
+        Ok((res, read_bytes))
     }
 }
