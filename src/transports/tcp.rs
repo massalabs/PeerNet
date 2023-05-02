@@ -189,8 +189,6 @@ impl Transport for TcpTransport {
                                             None,
                                         )
                                     })?;
-                                    println!("AURELIEN: Current active connections: {:?}", active_connections.read().connections);
-                                    println!("AURELIEN: Current active connectionsqueue : {:?}", active_connections.read().connections);
                                     if reject_same_ip_addr
                                         && !active_connections.read().check_addr_accepted(&address)
                                     {
@@ -213,7 +211,6 @@ impl Transport for TcpTransport {
                                         {
                                             active_connections.nb_in_connections += 1;
                                         } else {
-                                            println!("AURELIEN: fallback function called inconnections:{} max_in_connections:{}", active_connections.nb_in_connections, active_connections.max_in_connections);
                                             init_connection_handler.fallback_function(
                                                 &self_keypair,
                                                 &mut endpoint,
@@ -221,10 +218,8 @@ impl Transport for TcpTransport {
                                             )?;
                                             continue;
                                         }
-                                        println!("AURELIEN: inconnections:{} max_in_connections:{}", active_connections.nb_in_connections, active_connections.max_in_connections);
                                         active_connections.connection_queue.push(address);
                                     }
-                                    println!("AURELIEN: Accepted peer {}", address);
                                     new_peer(
                                         self_keypair.clone(),
                                         endpoint,
