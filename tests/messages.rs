@@ -114,8 +114,8 @@ fn two_peers_tcp_with_one_message() {
     std::thread::sleep(std::time::Duration::from_secs(1));
     let active_connections = manager2.active_connections.clone();
     {
-        let mut connections = active_connections.write();
-        for (peer_id, connection) in connections.connections.iter_mut() {
+        let mut connections = active_connections.read();
+        for (peer_id, connection) in connections.connections.iter() {
             println!("Sending message to {:?}", peer_id);
             connection
                 .send_channels

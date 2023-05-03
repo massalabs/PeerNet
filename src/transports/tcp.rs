@@ -204,21 +204,25 @@ impl Transport for TcpTransport {
                                                 //     out_conn_config.rate_time_window,
                                                 // ),
                                     });
-                                    {
+                                    let listeners = {
                                         let mut active_connections = active_connections.write();
                                         if active_connections.nb_in_connections
                                             < active_connections.max_in_connections
                                         {
                                             active_connections.nb_in_connections += 1;
+                                            active_connections.connection_queue.push(address);
+                                            None
                                         } else {
-                                            init_connection_handler.fallback_function(
-                                                &self_keypair,
-                                                &mut endpoint,
-                                                &active_connections.listeners,
-                                            )?;
-                                            continue;
+                                            Some(active_connections.listeners.clone())
                                         }
-                                        active_connections.connection_queue.push(address);
+                                    };
+                                    if let Some(listeners) = listeners {
+                                        init_connection_handler.fallback_function(
+                                            &self_keypair,
+                                            &mut endpoint,
+                                            &listeners,
+                                        )?;
+                                        continue;
                                     }
                                     new_peer(
                                         self_keypair.clone(),
