@@ -331,8 +331,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 Err(_) => {
                     {
                         let mut write_active_connections = active_connections.write();
-                        if active_connections
-                            .write()
+                        if write_active_connections
                             .connections
                             .remove(&peer_id)
                             .is_some()
