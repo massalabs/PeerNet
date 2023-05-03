@@ -66,7 +66,7 @@ impl SendChannels {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PeerConnectionType {
     IN,
     OUT,
@@ -129,18 +129,16 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     write_active_connections
                         .connection_queue
                         .retain(|addr| addr != endpoint.get_target_addr());
-                    match connection_type {
-                        PeerConnectionType::IN => {
-                            write_active_connections.nb_in_connections -= 1;
-                        }
-                        PeerConnectionType::OUT => {
-                            write_active_connections.nb_out_connections -= 1;
-                        }
-                    }
+                    write_active_connections.compute_counters();
                 }
                 return;
             }
         };
+
+        {
+            let mut write_active_connections = active_connections.write();
+            write_active_connections.compute_counters();
+        }
 
         //TODO: Bounded
 
@@ -169,17 +167,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         if write_endpoint.send(&data).is_err() {
                             {
                                 let mut write_active_connections = write_active_connections.write();
-                                write_active_connections
-                                    .connections
-                                    .remove(&write_peer_id);
-                                match connection_type {
-                                    PeerConnectionType::IN => {
-                                        write_active_connections.nb_in_connections -= 1;
-                                    }
-                                    PeerConnectionType::OUT => {
-                                        write_active_connections.nb_out_connections -= 1;
-                                    }
-                                }
+                                write_active_connections.remove_connection(&write_peer_id);
                             }
                             break;
                         }
@@ -199,18 +187,8 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                             Ok(data) => {
                                 if write_endpoint.send(&data).is_err() {
                                     {
-                                        let mut write_active_connections =
-                                            write_active_connections.write();
-                                        write_active_connections.connections.remove(&write_peer_id);
-                                        match connection_type {
-                                            PeerConnectionType::IN => {
-                                                write_active_connections.nb_in_connections -= 1;
-                                            }
-                                            PeerConnectionType::OUT => {
-                                                write_active_connections
-                                                    .nb_out_connections -= 1;
-                                            }
-                                        }
+                                        let mut write_active_connections = write_active_connections.write();
+                                        write_active_connections.remove_connection(&write_peer_id);
                                     }
                                     break;
                                 }
@@ -227,16 +205,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();
-                                        write_active_connections.connections.remove(&write_peer_id);
-                                        match connection_type {
-                                            PeerConnectionType::IN => {
-                                                write_active_connections.nb_in_connections -= 1;
-                                            }
-                                            PeerConnectionType::OUT => {
-                                                write_active_connections
-                                                    .nb_out_connections -= 1;
-                                            }
-                                        }
+                                        write_active_connections.remove_connection(&write_peer_id);
                                     }
                                     break;
                                 }
@@ -262,20 +231,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         // so we just try to remove it and ignore the error if it's not there.
                         {
                             let mut write_active_connections = active_connections.write();
-                            if write_active_connections
-                                .connections
-                                .remove(&peer_id)
-                                .is_some()
-                            {
-                                match connection_type {
-                                    PeerConnectionType::IN => {
-                                        write_active_connections.nb_in_connections -= 1;
-                                    }
-                                    PeerConnectionType::OUT => {
-                                        write_active_connections.nb_out_connections -= 1;
-                                    }
-                                }
-                            }
+                            write_active_connections.remove_connection(&peer_id);
                         }
                         let _ = write_thread_handle.join();
                         return;
@@ -286,20 +242,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                                 println!("Error handling message: {:?}", err);
                                 {
                                     let mut write_active_connections = active_connections.write();
-                                    if write_active_connections
-                                    .connections
-                                    .remove(&peer_id)
-                                    .is_some()
-                                    {
-                                        match connection_type {
-                                            PeerConnectionType::IN => {
-                                                write_active_connections.nb_in_connections -= 1;
-                                            }
-                                            PeerConnectionType::OUT => {
-                                                write_active_connections.nb_out_connections -= 1;
-                                            }
-                                        }
-                                    }
+                                    write_active_connections.remove_connection(&peer_id);
                                 }
                             }
                         }
@@ -310,20 +253,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                             }
                             {
                                 let mut write_active_connections = active_connections.write();
-                                if write_active_connections
-                                .connections
-                                .remove(&peer_id)
-                                .is_some()
-                                {
-                                    match connection_type {
-                                        PeerConnectionType::IN => {
-                                            write_active_connections.nb_in_connections -= 1;
-                                        }
-                                        PeerConnectionType::OUT => {
-                                            write_active_connections.nb_out_connections -= 1;
-                                        }
-                                    }
-                                }
+                                write_active_connections.remove_connection(&peer_id);
                             }
                         }
                     }
@@ -331,20 +261,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 Err(_) => {
                     {
                         let mut write_active_connections = active_connections.write();
-                        if write_active_connections
-                            .connections
-                            .remove(&peer_id)
-                            .is_some()
-                        {
-                            match connection_type {
-                                PeerConnectionType::IN => {
-                                    write_active_connections.nb_in_connections -= 1;
-                                }
-                                PeerConnectionType::OUT => {
-                                    write_active_connections.nb_out_connections -= 1;
-                                }
-                            }
-                        }
+                        write_active_connections.remove_connection(&peer_id);
                     }
                     return;
                 }

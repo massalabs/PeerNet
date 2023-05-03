@@ -84,6 +84,26 @@ impl ActiveConnections {
             },
         );
     }
+
+    pub fn remove_connection(&mut self, id: &PeerId) {
+        if self.connections.remove(id).is_some() {
+            self.compute_counters();
+        }
+    }
+
+    pub fn compute_counters(&mut self) {
+        self.nb_in_connections = self
+            .connections
+            .iter()
+            .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
+            .count()
+            + self.connection_queue.len();
+        self.nb_out_connections = self
+            .connections
+            .iter()
+            .filter(|(_, connection)| connection.connection_type == PeerConnectionType::OUT)
+            .count();
+    }
 }
 
 pub type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;

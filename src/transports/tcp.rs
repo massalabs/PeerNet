@@ -209,8 +209,8 @@ impl Transport for TcpTransport {
                                         if active_connections.nb_in_connections
                                             < active_connections.max_in_connections
                                         {
-                                            active_connections.nb_in_connections += 1;
                                             active_connections.connection_queue.push(address);
+                                            active_connections.compute_counters();
                                             None
                                         } else {
                                             Some(active_connections.listeners.clone())
