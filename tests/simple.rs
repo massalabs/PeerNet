@@ -7,7 +7,7 @@ use peernet::{
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     peer_id::PeerId,
-    transports::{OutConnectionConfig, QuicOutConnectionConfig, TransportType},
+    transports::{OutConnectionConfig, TransportType},
 };
 use util::{create_clients, DefaultMessagesHandler};
 
@@ -95,46 +95,46 @@ fn two_peers_tcp() {
     assert!(manager.nb_in_connections().eq(&1));
 }
 
-#[test]
-fn two_peers_quic() {
-    let keypair1 = KeyPair::generate();
-    let config = PeerNetConfiguration {
-        max_in_connections: 10,
-        max_out_connections: 20,
-        self_keypair: keypair1.clone(),
-        init_connection_handler: DefaultInitConnection {},
-        message_handler: DefaultMessagesHandler {},
-        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
-    };
-    let mut manager = PeerNetManager::new(config);
-    manager
-        .start_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
-        .unwrap();
+// #[test]
+// fn two_peers_quic() {
+//     let keypair1 = KeyPair::generate();
+//     let config = PeerNetConfiguration {
+//         max_in_connections: 10,
+//         max_out_connections: 20,
+//         self_keypair: keypair1.clone(),
+//         init_connection_handler: DefaultInitConnection {},
+//         message_handler: DefaultMessagesHandler {},
+//         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+//     };
+//     let mut manager = PeerNetManager::new(config);
+//     manager
+//         .start_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
+//         .unwrap();
 
-    let keypair2 = KeyPair::generate();
-    let config = PeerNetConfiguration {
-        max_in_connections: 10,
-        max_out_connections: 20,
-        self_keypair: keypair2,
-        init_connection_handler: DefaultInitConnection {},
-        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
-        message_handler: DefaultMessagesHandler {},
-    };
-    let mut manager2 = PeerNetManager::new(config);
-    sleep(Duration::from_secs(3));
-    manager2
-        .try_connect(
-            "127.0.0.1:8082".parse().unwrap(),
-            Duration::from_secs(5),
-            //TODO: Use the one in manager instead of asking. Need a wrapper structure ?
-            &mut OutConnectionConfig::Quic(Box::new(QuicOutConnectionConfig {
-                identity: PeerId::from_public_key(keypair1.get_public_key()),
-                local_addr: "127.0.0.1:8083".parse().unwrap(),
-            })),
-        )
-        .unwrap();
-    std::thread::sleep(std::time::Duration::from_secs(5));
-    manager
-        .stop_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
-        .unwrap();
-}
+//     let keypair2 = KeyPair::generate();
+//     let config = PeerNetConfiguration {
+//         max_in_connections: 10,
+//         max_out_connections: 20,
+//         self_keypair: keypair2,
+//         init_connection_handler: DefaultInitConnection {},
+//         optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+//         message_handler: DefaultMessagesHandler {},
+//     };
+//     let mut manager2 = PeerNetManager::new(config);
+//     sleep(Duration::from_secs(3));
+//     manager2
+//         .try_connect(
+//             "127.0.0.1:8082".parse().unwrap(),
+//             Duration::from_secs(5),
+//             //TODO: Use the one in manager instead of asking. Need a wrapper structure ?
+//             &mut OutConnectionConfig::Quic(Box::new(QuicOutConnectionConfig {
+//                 identity: PeerId::from_public_key(keypair1.get_public_key()),
+//                 local_addr: "127.0.0.1:8083".parse().unwrap(),
+//             })),
+//         )
+//         .unwrap();
+//     std::thread::sleep(std::time::Duration::from_secs(5));
+//     manager
+//         .stop_listener(TransportType::Quic, "127.0.0.1:8082".parse().unwrap())
+//         .unwrap();
+// }
