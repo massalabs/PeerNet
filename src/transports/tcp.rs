@@ -253,6 +253,7 @@ impl Transport for TcpTransport {
                                     );
                                 }
                                 STOP_LISTENER => {
+                                    println!("AURELIEN: STOP LISTENER {}", address);
                                     peer_stop_tx.send(()).unwrap();
                                     return Ok(());
                                 }
