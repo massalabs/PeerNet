@@ -182,13 +182,19 @@ impl Transport for TcpTransport {
                         for event in events.iter() {
                             match event.token() {
                                 NEW_CONNECTION => {
-                                    let (stream, address) = server.accept().map_err(|err| {
+                                    let (stream, address) = match server.accept().map_err(|err| {
                                         TcpError::ConnectionError.wrap().new(
                                             "listener accept",
                                             err,
                                             None,
                                         )
-                                    })?;
+                                    }) {
+                                        Ok((stream, address)) => (stream, address),
+                                        Err(err) => {
+                                            println!("Error accepting connection: {:?}", err);
+                                            continue;
+                                        }
+                                    };
                                     if reject_same_ip_addr
                                         && !active_connections.read().check_addr_accepted(&address)
                                     {
