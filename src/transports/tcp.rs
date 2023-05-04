@@ -173,6 +173,14 @@ impl Transport for TcpTransport {
                             )
                         });
                     loop {
+                        {
+                            let read_active_connections = active_connections.read();
+                            println!(
+                                "AURELIEN: LOOP LISTENER connections:{:?} queue:{:?}",
+                                read_active_connections.connections,
+                                read_active_connections.connection_queue
+                            );
+                        }
                         // Poll Mio for events, blocking until we get an event.
                         poll.poll(&mut events, None).unwrap_or_else(|_| {
                             panic!("Can't poll TCP transport of address {}", address)
@@ -182,16 +190,24 @@ impl Transport for TcpTransport {
                         for event in events.iter() {
                             match event.token() {
                                 NEW_CONNECTION => {
-                                    let (stream, address) = server.accept().map_err(|err| {
+                                    let (stream, address) = match server.accept().map_err(|err| {
                                         TcpError::ConnectionError.wrap().new(
                                             "listener accept",
                                             err,
                                             None,
                                         )
-                                    })?;
+                                    }) {
+                                        Ok((stream, address)) => (stream, address),
+                                        Err(err) => {
+                                            println!("Error accepting connection: {:?}", err);
+                                            continue;
+                                        }
+                                    };
+                                    println!("AURELIEN: NEW CONNECTION {}", address);
                                     if reject_same_ip_addr
                                         && !active_connections.read().check_addr_accepted(&address)
                                     {
+                                        println!("AURELIEN: NEW CONNECTION {} not accepted because in queue or connections", address);
                                         continue;
                                     }
 
@@ -217,6 +233,7 @@ impl Transport for TcpTransport {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
+                                        println!("AURELIEN: NEW CONNECTION {} not enough place send to fallback", address);
                                         init_connection_handler.fallback_function(
                                             &self_keypair,
                                             &mut endpoint,
@@ -224,6 +241,7 @@ impl Transport for TcpTransport {
                                         )?;
                                         continue;
                                     }
+                                    println!("AURELIEN: NEW CONNECTION {} launch peer", address);
                                     new_peer(
                                         self_keypair.clone(),
                                         endpoint,
@@ -264,6 +282,7 @@ impl Transport for TcpTransport {
         message_handler: M,
         handshake_handler: T,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
+        println!("AURELIEN: try_connect to {}", address);
         let peer_stop_rx = self.peer_stop_rx.clone();
         Ok(std::thread::Builder::new()
             .name(format!("tcp_try_connect_{:?}", address))
@@ -273,12 +292,18 @@ impl Transport for TcpTransport {
                 let out_conn_config = self.config.out_connection_config.clone();
                 move || {
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
+                        println!(
+                            "AURELIEN: try_connect ERROR to {} err: {}",
+                            address,
+                            err.to_string()
+                        );
                         TcpError::ConnectionError.wrap().new(
                             "try_connect stream connect",
                             err,
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
+                    println!("AURELIEN: try_connect SUCCESS to {}", address);
                     // let stream = Limiter::new(
                     //     stream,
                     //     out_conn_config.rate_limit,
