@@ -115,7 +115,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             let active_connections = active_connections.read();
             active_connections.listeners.clone()
         };
-        println!("before handshake {:?}", endpoint.get_target_addr());
         //HANDSHAKE
         let peer_id = match handshake_handler.perform_handshake(
             &self_keypair,
@@ -125,7 +124,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
         ) {
             Ok(peer_id) => peer_id,
             Err(err) => {
-                println!("after handshake fail {:?}", err.to_string());
                 {
                     let mut write_active_connections = active_connections.write();
                     write_active_connections
@@ -136,7 +134,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 return;
             }
         };
-        println!("after handshake {:?}", peer_id);
 
         {
             let mut write_active_connections = active_connections.write();
