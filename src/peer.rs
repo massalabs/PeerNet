@@ -123,7 +123,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             message_handler.clone(),
         ) {
             Ok(peer_id) => peer_id,
-            Err(err) => {
+            Err(_) => {
                 {
                     let mut write_active_connections = active_connections.write();
                     write_active_connections
