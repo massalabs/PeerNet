@@ -32,6 +32,7 @@ pub struct ActiveConnections {
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
 
+// TODO: Use std one when stable
 pub(crate) fn to_canonical(ip: IpAddr) -> IpAddr {
     match ip {
         v4 @ IpAddr::V4(_) => v4,

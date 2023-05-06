@@ -50,7 +50,7 @@ fn simple() {
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
-    let _ = create_clients(11);
+    let _ = create_clients(11, "127.0.0.1:64850");
     sleep(Duration::from_secs(6));
 
     // we have max_in_connections = 10
@@ -88,18 +88,18 @@ fn simple_with_category() {
     };
     let mut manager = PeerNetManager::new(config);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .start_listener(TransportType::Tcp, "127.0.0.1:64859".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
-    let _ = create_clients(11);
+    let _ = create_clients(11, "127.0.0.1:64859");
     sleep(Duration::from_secs(6));
 
     // we have max_in_connections = 10
     assert_eq!(manager.nb_in_connections(), 10);
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .stop_listener(TransportType::Tcp, "127.0.0.1:64859".parse().unwrap())
         .unwrap();
 }
 

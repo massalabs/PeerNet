@@ -122,7 +122,7 @@ fn check_multiple_connection_refused_in_category() {
     };
     let mut manager = PeerNetManager::new(config);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .start_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
 
     let keypair2 = KeyPair::generate();
@@ -140,7 +140,7 @@ fn check_multiple_connection_refused_in_category() {
     let mut manager2 = PeerNetManager::new(config);
     manager2
         .try_connect(
-            "127.0.0.1:8081".parse().unwrap(),
+            "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
             &mut OutConnectionConfig::Tcp(Box::default()),
         )
@@ -161,7 +161,7 @@ fn check_multiple_connection_refused_in_category() {
     let mut manager3 = PeerNetManager::new(config);
     manager3
         .try_connect(
-            "127.0.0.1:8081".parse().unwrap(),
+            "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
             &mut OutConnectionConfig::Tcp(Box::default()),
         )
@@ -170,7 +170,7 @@ fn check_multiple_connection_refused_in_category() {
 
     assert_eq!(manager.nb_in_connections(), 1);
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .stop_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
 }
 
