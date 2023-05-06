@@ -15,7 +15,6 @@ use crate::types::KeyPair;
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
     /// List of IP addresses in this category. If None then all IPs are accepted.
-    /// TODO: Validation only one category can have a None value
     pub max_in_connections: usize,
     pub max_in_connections_per_ip: usize,
 }
