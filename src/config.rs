@@ -6,11 +6,13 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 
+use serde::{Deserialize, Serialize};
+
 use crate::messages::MessagesHandler;
 use crate::peer::InitConnectionHandler;
 use crate::types::KeyPair;
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
     /// List of IP addresses in this category. If None then all IPs are accepted.
     /// TODO: Validation only one category can have a None value
