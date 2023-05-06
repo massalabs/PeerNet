@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use crossbeam::channel::Sender;
+use peernet::config::PeerNetCategoryInfo;
 use peernet::error::{PeerNetError, PeerNetResult};
 use peernet::messages::{MessagesHandler, MessagesSerializer};
 use peernet::types::KeyPair;
@@ -79,14 +81,17 @@ fn two_peers_tcp_with_one_message() {
     });
     let keypair1 = KeyPair::generate();
     let config = PeerNetConfiguration {
-        max_in_connections: 10,
-        max_out_connections: 20,
         self_keypair: keypair1,
         init_connection_handler: EmptyInitConnection {},
         message_handler: TestMessagesHandler {
             test_sender: sender.clone(),
         },
-        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        optional_features: PeerNetFeatures::default(),
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections: 10,
+            max_in_connections_per_ip: 2,
+        },
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -94,14 +99,17 @@ fn two_peers_tcp_with_one_message() {
         .unwrap();
 
     let config = PeerNetConfiguration {
-        max_in_connections: 10,
-        max_out_connections: 20,
         self_keypair: keypair2,
         init_connection_handler: EmptyInitConnection {},
         message_handler: TestMessagesHandler {
             test_sender: sender,
         },
-        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        optional_features: PeerNetFeatures::default(),
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections: 10,
+            max_in_connections_per_ip: 2,
+        },
     };
     let mut manager2 = PeerNetManager::new(config);
     manager2

@@ -4,10 +4,10 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use crate::config::PeerNetFeatures;
+use crate::config::{PeerNetCategories, PeerNetCategoryInfo, PeerNetFeatures};
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
-use crate::network_manager::SharedActiveConnections;
+use crate::network_manager::{to_canonical, SharedActiveConnections};
 use crate::peer::{new_peer, InitConnectionHandler, PeerConnectionType};
 use crate::transports::Endpoint;
 
@@ -32,16 +32,18 @@ impl TcpError {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TcpTransportConfig {
     out_connection_config: TcpOutConnectionConfig,
+    peer_categories: PeerNetCategories,
+    default_category_info: PeerNetCategoryInfo,
 }
 
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
-    features: PeerNetFeatures,
+    _features: PeerNetFeatures,
 
     peer_stop_tx: Sender<()>,
     peer_stop_rx: Receiver<()>,
@@ -106,6 +108,8 @@ impl TcpEndpoint {
 impl TcpTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
+        peer_categories: PeerNetCategories,
+        default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
     ) -> TcpTransport {
         let (peer_stop_tx, peer_stop_rx) = unbounded();
@@ -113,10 +117,14 @@ impl TcpTransport {
             active_connections,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
-            features,
+            _features: features,
             peer_stop_rx,
             peer_stop_tx,
-            config: TcpTransportConfig::default(),
+            config: TcpTransportConfig {
+                out_connection_config: Default::default(),
+                peer_categories,
+                default_category_info,
+            },
         }
     }
 }
@@ -151,10 +159,10 @@ impl Transport for TcpTransport {
             .name(format!("tcp_listener_handle_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
-                let reject_same_ip_addr = self.features.reject_same_ip_addr;
                 let peer_stop_rx = self.peer_stop_rx.clone();
                 let peer_stop_tx = self.peer_stop_tx.clone();
                 let out_conn_config = self.config.out_connection_config.clone();
+                let config = self.config.clone();
                 move || {
                     let server = TcpListener::bind(address).unwrap_or_else(|_| {
                         panic!("Can't bind TCP transport to address {}", address)
@@ -195,11 +203,17 @@ impl Transport for TcpTransport {
                                             continue;
                                         }
                                     };
-                                    if reject_same_ip_addr
-                                        && !active_connections.read().check_addr_accepted(&address)
+                                    let ip_canonical = to_canonical(address.ip());
+                                    let (category_name, peer_category) = match config
+                                        .peer_categories
+                                        .iter()
+                                        .find(|(_, info)| info.0.contains(&ip_canonical))
                                     {
-                                        continue;
-                                    }
+                                        Some((category_name, info)) => {
+                                            (Some(category_name.clone()), info.1)
+                                        }
+                                        None => (None, config.default_category_info),
+                                    };
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                         config: out_conn_config.clone(),
@@ -212,10 +226,14 @@ impl Transport for TcpTransport {
                                     });
                                     let listeners = {
                                         let mut active_connections = active_connections.write();
-                                        if active_connections.nb_in_connections
-                                            < active_connections.max_in_connections
-                                        {
-                                            active_connections.connection_queue.push(address);
+                                        if active_connections.check_addr_accepted(
+                                            &address,
+                                            category_name.clone(),
+                                            peer_category,
+                                        ) {
+                                            active_connections
+                                                .connection_queue
+                                                .push((address, category_name.clone()));
                                             active_connections.compute_counters();
                                             None
                                         } else {
@@ -238,6 +256,7 @@ impl Transport for TcpTransport {
                                         active_connections.clone(),
                                         peer_stop_rx.clone(),
                                         PeerConnectionType::IN,
+                                        category_name,
                                     );
                                 }
                                 STOP_LISTENER => {
@@ -276,7 +295,7 @@ impl Transport for TcpTransport {
             .spawn({
                 let active_connections = self.active_connections.clone();
                 let wg = self.out_connection_attempts.clone();
-                let out_conn_config = self.config.out_connection_config.clone();
+                let config = self.config.clone();
                 move || {
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         TcpError::ConnectionError.wrap().new(
@@ -290,36 +309,28 @@ impl Transport for TcpTransport {
                     //     out_conn_config.rate_limit,
                     //     out_conn_config.rate_time_window,
                     // );
-
+                    let ip_canonical = to_canonical(address.ip());
+                    let category_name = match config
+                        .peer_categories
+                        .iter()
+                        .find(|(_, info)| info.0.contains(&ip_canonical))
                     {
-                        let mut active_connections = active_connections.write();
-                        if active_connections.nb_out_connections
-                            < active_connections.max_out_connections
-                        {
-                            active_connections.nb_out_connections += 1;
-                        } else {
-                            return Err(PeerNetError::BoundReached.error(
-                                "tcp try_connect max_out_conn",
-                                Some(format!(
-                                    "max: {}, nb: {}",
-                                    active_connections.max_out_connections,
-                                    active_connections.nb_out_connections
-                                )),
-                            ))?;
-                        }
-                    }
+                        Some((category_name, _)) => Some(category_name.clone()),
+                        None => None,
+                    };
                     new_peer(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
                             address,
                             stream,
-                            config: out_conn_config.clone(),
+                            config: config.out_connection_config.clone(),
                         }),
                         handshake_handler.clone(),
                         message_handler.clone(),
                         active_connections.clone(),
                         peer_stop_rx,
                         PeerConnectionType::OUT,
+                        category_name,
                     );
                     drop(wg);
                     Ok(())

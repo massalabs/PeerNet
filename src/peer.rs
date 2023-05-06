@@ -80,6 +80,8 @@ pub struct PeerConnection {
     pub endpoint: Endpoint,
     // Determine if the connection is an out or in one
     pub connection_type: PeerConnectionType,
+    // Category name
+    pub category_name: Option<String>,
 }
 
 impl PeerConnection {
@@ -94,6 +96,7 @@ impl Debug for PeerConnection {
         f.debug_struct("PeerConnection")
             .field("send_channels", &"SendChannels")
             .field("endpoint", &"Endpoint")
+            .field("category_nae", &format!("{:?}", self.category_name))
             .finish()
     }
 }
@@ -106,6 +109,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     active_connections: SharedActiveConnections,
     peer_stop: Receiver<()>,
     connection_type: PeerConnectionType,
+    category_name: Option<String>,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::Builder::new()
@@ -128,7 +132,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     let mut write_active_connections = active_connections.write();
                     write_active_connections
                         .connection_queue
-                        .retain(|addr| addr != endpoint.get_target_addr());
+                        .retain(|(addr, _)| addr != endpoint.get_target_addr());
                     write_active_connections.compute_counters();
                 }
                 return;
@@ -153,6 +157,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 high_priority: high_write_tx,
             },
             connection_type,
+            category_name
         );
 
         // SPAWN WRITING THREAD

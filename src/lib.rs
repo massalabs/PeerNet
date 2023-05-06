@@ -1,10 +1,10 @@
 //! This crate abstracts the network layer of a P2P network and provides a simple interface to connect to other peers.
 //! Simple example with two peers on the same code to demonstrate:
 //! ``` rust
-//! use std::{thread::sleep, time::Duration};
+//! use std::{thread::sleep, collections::HashMap, time::Duration};
 //!
 //! use peernet::{
-//!    config::{PeerNetConfiguration, PeerNetFeatures},
+//!    config::{PeerNetConfiguration, PeerNetCategoryInfo, PeerNetFeatures},
 //!    network_manager::PeerNetManager,
 //!    peer_id::PeerId,
 //!    types::KeyPair,
@@ -36,12 +36,15 @@
 //! let keypair1 = KeyPair::generate();
 //! // Setup configuration for the first peer
 //! let config = PeerNetConfiguration {
-//!     max_in_connections: 10,
-//!     max_out_connections: 20,
 //!     self_keypair: keypair1.clone(),
 //!     message_handler: MessageHandler {},
 //!     init_connection_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),
+//!     peers_categories: HashMap::default(),
+//!     default_category_info: PeerNetCategoryInfo {
+//!         max_in_connections: 10,
+//!         max_in_connections_per_ip: 10,
+//!     },
 //! };
 //! // Setup the manager for the first peer
 //! let mut manager = PeerNetManager::new(config);
@@ -55,12 +58,15 @@
 //! let keypair2 = KeyPair::generate();
 //! // Setup configuration for the second peer
 //! let config = PeerNetConfiguration {
-//!     max_in_connections: 10,
-//!     max_out_connections: 20,
 //!     self_keypair: keypair1.clone(),
 //!     message_handler: MessageHandler {},
 //!     init_connection_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),
+//!     peers_categories: HashMap::default(),
+//!     default_category_info: PeerNetCategoryInfo {
+//!         max_in_connections: 10,
+//!         max_in_connections_per_ip: 10,
+//!     },
 //! };
 //! // Setup the manager for the second peer
 //! let mut manager2 = PeerNetManager::new(config);

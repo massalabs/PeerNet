@@ -5,6 +5,7 @@
 use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
+use crate::config::{PeerNetCategories, PeerNetCategoryInfo};
 use crate::messages::MessagesHandler;
 use crate::{
     config::PeerNetFeatures,
@@ -166,11 +167,16 @@ impl InternalTransportType {
         transport_type: TransportType,
         active_connections: SharedActiveConnections,
         features: PeerNetFeatures,
+        peer_categories: PeerNetCategories,
+        default_category_info: PeerNetCategoryInfo,
     ) -> Self {
         match transport_type {
-            TransportType::Tcp => {
-                InternalTransportType::Tcp(TcpTransport::new(active_connections, features))
-            }
+            TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
+                active_connections,
+                peer_categories,
+                default_category_info,
+                features,
+            )),
             TransportType::Quic => {
                 InternalTransportType::Quic(QuicTransport::new(active_connections, features))
             }

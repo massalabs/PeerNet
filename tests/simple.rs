@@ -1,6 +1,10 @@
 mod util;
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::str::FromStr;
 use std::{thread::sleep, time::Duration};
 
+use peernet::config::PeerNetCategoryInfo;
 use peernet::types::KeyPair;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
@@ -30,12 +34,15 @@ impl InitConnectionHandler for DefaultInitConnection {
 fn simple() {
     let keypair = KeyPair::generate();
     let config = PeerNetConfiguration {
-        max_in_connections: 10,
-        max_out_connections: 20,
         self_keypair: keypair,
         init_connection_handler: DefaultInitConnection,
-        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections: 10,
+            max_in_connections_per_ip: 10,
+        },
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -47,7 +54,49 @@ fn simple() {
     sleep(Duration::from_secs(6));
 
     // we have max_in_connections = 10
-    assert!(manager.nb_in_connections().eq(&10));
+    assert_eq!(manager.nb_in_connections(), 10);
+
+    manager
+        .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .unwrap();
+}
+
+#[test]
+fn simple_with_category() {
+    let keypair = KeyPair::generate();
+    let mut peers_categories = HashMap::default();
+    peers_categories.insert(
+        String::from("Bootstrap"),
+        (
+            vec![IpAddr::from_str("127.0.0.1").unwrap()],
+            PeerNetCategoryInfo {
+                max_in_connections: 10,
+                max_in_connections_per_ip: 10,
+            },
+        ),
+    );
+    let config = PeerNetConfiguration {
+        self_keypair: keypair,
+        init_connection_handler: DefaultInitConnection,
+        optional_features: PeerNetFeatures::default(),
+        message_handler: DefaultMessagesHandler {},
+        peers_categories,
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections: 0,
+            max_in_connections_per_ip: 0,
+        },
+    };
+    let mut manager = PeerNetManager::new(config);
+    manager
+        .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .unwrap();
+    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    sleep(Duration::from_secs(3));
+    let _ = create_clients(11);
+    sleep(Duration::from_secs(6));
+
+    // we have max_in_connections = 10
+    assert_eq!(manager.nb_in_connections(), 10);
 
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
@@ -58,12 +107,15 @@ fn simple() {
 fn two_peers_tcp() {
     let keypair1 = KeyPair::generate();
     let config = PeerNetConfiguration {
-        max_in_connections: 10,
-        max_out_connections: 20,
         self_keypair: keypair1,
         init_connection_handler: DefaultInitConnection {},
-        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections: 10,
+            max_in_connections_per_ip: 2,
+        },
     };
     let mut manager = PeerNetManager::new(config);
     manager
@@ -72,12 +124,15 @@ fn two_peers_tcp() {
 
     let keypair2 = KeyPair::generate();
     let config = PeerNetConfiguration {
-        max_in_connections: 10,
-        max_out_connections: 20,
         self_keypair: keypair2,
         init_connection_handler: DefaultInitConnection {},
-        optional_features: PeerNetFeatures::default().set_reject_same_ip_addr(false),
+        optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections: 10,
+            max_in_connections_per_ip: 2,
+        },
     };
     let mut manager2 = PeerNetManager::new(config);
     sleep(Duration::from_secs(3));

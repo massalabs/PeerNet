@@ -6,6 +6,7 @@ use std::net::IpAddr;
 use std::thread::JoinHandle;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
+use crate::config::PeerNetCategoryInfo;
 use crate::messages::MessagesHandler;
 use crate::peer::PeerConnectionType;
 use crate::types::KeyPair;
@@ -25,17 +26,13 @@ use crate::{
 pub struct ActiveConnections {
     pub nb_in_connections: usize,
     pub nb_out_connections: usize,
-    /// Number of peers we want to have in IN connection
-    pub max_in_connections: usize,
-    /// Number of peers we want to have in OUT connection
-    pub max_out_connections: usize,
     /// Peers attempting to connect but not yet finished initialization
-    pub connection_queue: Vec<SocketAddr>,
+    pub connection_queue: Vec<(SocketAddr, Option<String>)>,
     pub connections: HashMap<PeerId, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
 
-fn to_canonical(ip: IpAddr) -> IpAddr {
+pub(crate) fn to_canonical(ip: IpAddr) -> IpAddr {
     match ip {
         v4 @ IpAddr::V4(_) => v4,
         IpAddr::V6(v6) => {
@@ -49,18 +46,45 @@ fn to_canonical(ip: IpAddr) -> IpAddr {
 
 impl ActiveConnections {
     /// Check if a new connection from a specific address can be accepted or not
-    pub fn check_addr_accepted(&self, addr: &SocketAddr) -> bool {
+    pub fn check_addr_accepted(
+        &self,
+        addr: &SocketAddr,
+        category_name: Option<String>,
+        category_info: PeerNetCategoryInfo,
+    ) -> bool {
         if self.connections.is_empty() && self.connection_queue.is_empty() {
             true
         } else {
-            let active_connection_match = self.connections.iter().any(|(_, connection)| {
-                to_canonical(connection.endpoint.get_target_addr().ip()) == to_canonical(addr.ip())
-            });
-            let queue_connection_match = self
-                .connection_queue
-                .iter()
-                .any(|peer| to_canonical(peer.ip()) == to_canonical(addr.ip()));
-            !(queue_connection_match || active_connection_match)
+            let mut nb_connection_for_this_ip = 0;
+            let mut nb_connection_for_this_category = 0;
+            let ip = to_canonical(addr.ip());
+            for connection in self.connections.values() {
+                if connection.connection_type == PeerConnectionType::IN {
+                    let connection_ip = to_canonical(connection.endpoint.get_target_addr().ip());
+                    // Check if a connection is already established with the same IP
+                    if connection_ip == ip {
+                        nb_connection_for_this_ip += 1;
+                    }
+                    // Check the number of connection for the same category
+                    if connection.category_name == category_name {
+                        nb_connection_for_this_category += 1;
+                    }
+                }
+            }
+
+            for connection in &self.connection_queue {
+                let connection_ip = to_canonical(connection.0.ip());
+                // Check if a connection is already established with the same IP
+                if connection_ip == ip {
+                    nb_connection_for_this_ip += 1;
+                }
+                // Check the number of connection for the same category
+                if connection.1 == category_name {
+                    nb_connection_for_this_category += 1;
+                }
+            }
+            nb_connection_for_this_ip < category_info.max_in_connections_per_ip
+                && nb_connection_for_this_category < category_info.max_in_connections
         }
     }
 
@@ -70,13 +94,15 @@ impl ActiveConnections {
         endpoint: Endpoint,
         send_channels: SendChannels,
         connection_type: PeerConnectionType,
+        category_name: Option<String>,
     ) {
         self.connection_queue
-            .retain(|addr| addr != endpoint.get_target_addr());
+            .retain(|(addr, _)| addr != endpoint.get_target_addr());
         self.connections.insert(
             id,
             PeerConnection {
                 send_channels,
+                category_name,
                 //TODO: Should be only the field that allow to shutdown the connection. As it's
                 //transport specific, it should be a wrapped type `ShutdownHandle`
                 endpoint,
@@ -125,10 +151,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
     pub fn new(config: PeerNetConfiguration<T, M>) -> PeerNetManager<T, M> {
         let self_keypair = config.self_keypair.clone();
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
-            nb_in_connections: 0,
             nb_out_connections: 0,
-            max_in_connections: config.max_in_connections,
-            max_out_connections: config.max_out_connections,
+            nb_in_connections: 0,
             connection_queue: vec![],
             connections: Default::default(),
             listeners: Default::default(),
@@ -155,6 +179,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
                 transport_type,
                 self.active_connections.clone(),
                 self.config.optional_features.clone(),
+                self.config.peers_categories.clone(),
+                self.config.default_category_info.clone(),
             )
         });
         transport.start_listener(
@@ -178,6 +204,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
                 transport_type,
                 self.active_connections.clone(),
                 self.config.optional_features.clone(),
+                self.config.peers_categories.clone(),
+                self.config.default_category_info.clone(),
             )
         });
         transport.stop_listener(addr)?;
@@ -203,6 +231,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
                     TransportType::from_out_connection_config(out_connection_config),
                     self.active_connections.clone(),
                     self.config.optional_features.clone(),
+                    self.config.peers_categories.clone(),
+                    self.config.default_category_info.clone(),
                 )
             });
         transport.try_connect(
