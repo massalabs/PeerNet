@@ -55,13 +55,5 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PeerNetFeatures {}
-
-impl Default for PeerNetFeatures {
-    fn default() -> PeerNetFeatures {
-        PeerNetFeatures {}
-    }
-}
-
-impl PeerNetFeatures {}

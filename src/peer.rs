@@ -101,6 +101,7 @@ impl Debug for PeerConnection {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,

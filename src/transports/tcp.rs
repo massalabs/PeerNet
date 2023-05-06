@@ -310,14 +310,11 @@ impl Transport for TcpTransport {
                     //     out_conn_config.rate_time_window,
                     // );
                     let ip_canonical = to_canonical(address.ip());
-                    let category_name = match config
+                    let category_name = config
                         .peer_categories
                         .iter()
                         .find(|(_, info)| info.0.contains(&ip_canonical))
-                    {
-                        Some((category_name, _)) => Some(category_name.clone()),
-                        None => None,
-                    };
+                        .map(|(category_name, _)| category_name.clone());
                     new_peer(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {

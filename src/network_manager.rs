@@ -180,7 +180,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
                 self.active_connections.clone(),
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
-                self.config.default_category_info.clone(),
+                self.config.default_category_info,
             )
         });
         transport.start_listener(
@@ -205,7 +205,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
                 self.active_connections.clone(),
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
-                self.config.default_category_info.clone(),
+                self.config.default_category_info,
             )
         });
         transport.stop_listener(addr)?;
@@ -232,7 +232,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
                     self.active_connections.clone(),
                     self.config.optional_features.clone(),
                     self.config.peers_categories.clone(),
-                    self.config.default_category_info.clone(),
+                    self.config.default_category_info,
                 )
             });
         transport.try_connect(
