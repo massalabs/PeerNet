@@ -53,27 +53,23 @@ impl ActiveConnections {
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
     ) -> bool {
-        if self.connections.is_empty() && self.connection_queue.is_empty() {
-            true
-        } else {
-            let mut nb_connection_for_this_ip = 0;
-            let mut nb_connection_for_this_category = 0;
-            let ip = to_canonical(addr.ip());
+        let mut nb_connection_for_this_ip = 0;
+        let mut nb_connection_for_this_category = 0;
+        let ip = to_canonical(addr.ip());
 
-            for connection in &self.connection_queue {
-                let connection_ip = to_canonical(connection.0.ip());
-                // Check if a connection is already established with the same IP
-                if connection_ip == ip {
-                    nb_connection_for_this_ip += 1;
-                }
-                // Check the number of connection for the same category
-                if connection.1 == category_name {
-                    nb_connection_for_this_category += 1;
-                }
+        for connection in &self.connection_queue {
+            let connection_ip = to_canonical(connection.0.ip());
+            // Check if a connection is already established with the same IP
+            if connection_ip == ip {
+                nb_connection_for_this_ip += 1;
             }
-            nb_connection_for_this_ip < category_info.max_in_connections_per_ip
-                && nb_connection_for_this_category < category_info.max_in_connections_pre_handshake
+            // Check the number of connection for the same category
+            if connection.1 == category_name {
+                nb_connection_for_this_category += 1;
+            }
         }
+        nb_connection_for_this_ip < category_info.max_in_connections_per_ip
+            && nb_connection_for_this_category < category_info.max_in_connections_pre_handshake
     }
 
     pub fn check_addr_accepted_post_handshake(
@@ -82,28 +78,24 @@ impl ActiveConnections {
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
     ) -> bool {
-        if self.connections.is_empty() && self.connection_queue.is_empty() {
-            true
-        } else {
-            let mut nb_connection_for_this_ip = 0;
-            let mut nb_connection_for_this_category = 0;
-            let ip = to_canonical(addr.ip());
-            for connection in self.connections.values() {
-                if connection.connection_type == PeerConnectionType::IN {
-                    let connection_ip = to_canonical(connection.endpoint.get_target_addr().ip());
-                    // Check if a connection is already established with the same IP
-                    if connection_ip == ip {
-                        nb_connection_for_this_ip += 1;
-                    }
-                    // Check the number of connection for the same category
-                    if connection.category_name == category_name {
-                        nb_connection_for_this_category += 1;
-                    }
+        let mut nb_connection_for_this_ip = 0;
+        let mut nb_connection_for_this_category = 0;
+        let ip = to_canonical(addr.ip());
+        for connection in self.connections.values() {
+            if connection.connection_type == PeerConnectionType::IN {
+                let connection_ip = to_canonical(connection.endpoint.get_target_addr().ip());
+                // Check if a connection is already established with the same IP
+                if connection_ip == ip {
+                    nb_connection_for_this_ip += 1;
+                }
+                // Check the number of connection for the same category
+                if connection.category_name == category_name {
+                    nb_connection_for_this_category += 1;
                 }
             }
-            nb_connection_for_this_ip < category_info.max_in_connections_per_ip
-                && nb_connection_for_this_category < category_info.max_in_connections_post_handshake
         }
+        nb_connection_for_this_ip < category_info.max_in_connections_per_ip
+            && nb_connection_for_this_category < category_info.max_in_connections_post_handshake
     }
 
     pub fn confirm_connection(

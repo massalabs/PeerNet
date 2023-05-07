@@ -63,6 +63,70 @@ fn simple() {
 }
 
 #[test]
+fn simple_no_place() {
+    let keypair = KeyPair::generate();
+    let config = PeerNetConfiguration {
+        self_keypair: keypair,
+        init_connection_handler: DefaultInitConnection,
+        optional_features: PeerNetFeatures::default(),
+        message_handler: DefaultMessagesHandler {},
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections_pre_handshake: 0,
+            max_in_connections_post_handshake: 0,
+            max_in_connections_per_ip: 1,
+        },
+    };
+    let mut manager = PeerNetManager::new(config);
+    manager
+        .start_listener(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
+        .unwrap();
+    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    sleep(Duration::from_secs(3));
+    let _ = create_clients(11, "127.0.0.1:64851");
+    sleep(Duration::from_secs(6));
+
+    // we have max_in_connections = 10
+    assert_eq!(manager.nb_in_connections(), 0);
+
+    manager
+        .stop_listener(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
+        .unwrap();
+}
+
+#[test]
+fn simple_no_place_after_handshake() {
+    let keypair = KeyPair::generate();
+    let config = PeerNetConfiguration {
+        self_keypair: keypair,
+        init_connection_handler: DefaultInitConnection,
+        optional_features: PeerNetFeatures::default(),
+        message_handler: DefaultMessagesHandler {},
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 0,
+            max_in_connections_per_ip: 1,
+        },
+    };
+    let mut manager = PeerNetManager::new(config);
+    manager
+        .start_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
+        .unwrap();
+    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    sleep(Duration::from_secs(3));
+    let _ = create_clients(11, "127.0.0.1:64852");
+    sleep(Duration::from_secs(6));
+
+    // we have max_in_connections = 10
+    assert_eq!(manager.nb_in_connections(), 0);
+
+    manager
+        .stop_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
+        .unwrap();
+}
+
+#[test]
 fn simple_with_different_limit_pre_post_handshake() {
     let keypair = KeyPair::generate();
     let config = PeerNetConfiguration {
