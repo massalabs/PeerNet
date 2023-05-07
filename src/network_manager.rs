@@ -47,7 +47,36 @@ pub(crate) fn to_canonical(ip: IpAddr) -> IpAddr {
 
 impl ActiveConnections {
     /// Check if a new connection from a specific address can be accepted or not
-    pub fn check_addr_accepted(
+    pub fn check_addr_accepted_pre_handshake(
+        &self,
+        addr: &SocketAddr,
+        category_name: Option<String>,
+        category_info: PeerNetCategoryInfo,
+    ) -> bool {
+        if self.connections.is_empty() && self.connection_queue.is_empty() {
+            true
+        } else {
+            let mut nb_connection_for_this_ip = 0;
+            let mut nb_connection_for_this_category = 0;
+            let ip = to_canonical(addr.ip());
+
+            for connection in &self.connection_queue {
+                let connection_ip = to_canonical(connection.0.ip());
+                // Check if a connection is already established with the same IP
+                if connection_ip == ip {
+                    nb_connection_for_this_ip += 1;
+                }
+                // Check the number of connection for the same category
+                if connection.1 == category_name {
+                    nb_connection_for_this_category += 1;
+                }
+            }
+            nb_connection_for_this_ip < category_info.max_in_connections_per_ip
+                && nb_connection_for_this_category < category_info.max_in_connections_pre_handshake
+        }
+    }
+
+    pub fn check_addr_accepted_post_handshake(
         &self,
         addr: &SocketAddr,
         category_name: Option<String>,
@@ -72,44 +101,45 @@ impl ActiveConnections {
                     }
                 }
             }
-
-            for connection in &self.connection_queue {
-                let connection_ip = to_canonical(connection.0.ip());
-                // Check if a connection is already established with the same IP
-                if connection_ip == ip {
-                    nb_connection_for_this_ip += 1;
-                }
-                // Check the number of connection for the same category
-                if connection.1 == category_name {
-                    nb_connection_for_this_category += 1;
-                }
-            }
             nb_connection_for_this_ip < category_info.max_in_connections_per_ip
-                && nb_connection_for_this_category < category_info.max_in_connections
+                && nb_connection_for_this_category < category_info.max_in_connections_post_handshake
         }
     }
 
     pub fn confirm_connection(
         &mut self,
         id: PeerId,
-        endpoint: Endpoint,
+        mut endpoint: Endpoint,
         send_channels: SendChannels,
         connection_type: PeerConnectionType,
         category_name: Option<String>,
-    ) {
+        category_info: PeerNetCategoryInfo,
+    ) -> bool {
         self.connection_queue
             .retain(|(addr, _)| addr != endpoint.get_target_addr());
-        self.connections.insert(
-            id,
-            PeerConnection {
-                send_channels,
-                category_name,
-                //TODO: Should be only the field that allow to shutdown the connection. As it's
-                //transport specific, it should be a wrapped type `ShutdownHandle`
-                endpoint,
-                connection_type,
-            },
-        );
+        if self.check_addr_accepted_post_handshake(
+            endpoint.get_target_addr(),
+            category_name.clone(),
+            category_info,
+        ) {
+            self.connections.insert(
+                id,
+                PeerConnection {
+                    send_channels,
+                    category_name,
+                    //TODO: Should be only the field that allow to shutdown the connection. As it's
+                    //transport specific, it should be a wrapped type `ShutdownHandle`
+                    endpoint,
+                    connection_type,
+                },
+            );
+            self.compute_counters();
+            true
+        } else {
+            endpoint.shutdown();
+            self.compute_counters();
+            false
+        }
     }
 
     pub fn remove_connection(&mut self, id: &PeerId) {
@@ -125,8 +155,7 @@ impl ActiveConnections {
             .connections
             .iter()
             .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
-            .count()
-            + self.connection_queue.len();
+            .count();
         self.nb_out_connections = self
             .connections
             .iter()

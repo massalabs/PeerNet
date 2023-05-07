@@ -14,8 +14,8 @@ use crate::types::KeyPair;
 
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
-    /// List of IP addresses in this category. If None then all IPs are accepted.
-    pub max_in_connections: usize,
+    pub max_in_connections_pre_handshake: usize,
+    pub max_in_connections_post_handshake: usize,
     pub max_in_connections_per_ip: usize,
 }
 
@@ -34,7 +34,7 @@ pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler> {
     pub message_handler: M,
     /// List of categories of peers
     pub peers_categories: PeerNetCategories,
-    /// Default category info for all peers not in a specific category
+    /// Default category info for all peers not in a specific category (category info, number of connections accepted only for handshake //TODO: Remove when refactored on massa side)
     pub default_category_info: PeerNetCategoryInfo,
 }
 
@@ -47,7 +47,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
             message_handler,
             peers_categories: HashMap::new(),
             default_category_info: PeerNetCategoryInfo {
-                max_in_connections: 0,
+                max_in_connections_pre_handshake: 0,
+                max_in_connections_post_handshake: 0,
                 max_in_connections_per_ip: 0,
             },
         }

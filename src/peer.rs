@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
+use crate::config::PeerNetCategoryInfo;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::types::KeyPair;
@@ -111,6 +112,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     peer_stop: Receiver<()>,
     connection_type: PeerConnectionType,
     category_name: Option<String>,
+    category_info: PeerNetCategoryInfo,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::Builder::new()
@@ -140,11 +142,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             }
         };
 
-        {
-            let mut write_active_connections = active_connections.write();
-            write_active_connections.compute_counters();
-        }
-
         //TODO: Bounded
 
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
@@ -161,7 +158,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 return;
             }
         };
-        active_connections.write().confirm_connection(
+        if !active_connections.write().confirm_connection(
             peer_id.clone(),
             endpoint_connection,
             SendChannels {
@@ -169,8 +166,11 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 high_priority: high_write_tx,
             },
             connection_type,
-            category_name
-        );
+            category_name,
+            category_info
+        ) {
+            return;
+        }
 
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288

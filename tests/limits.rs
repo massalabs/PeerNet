@@ -37,7 +37,8 @@ fn check_multiple_connection_refused() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 1,
+            max_in_connections_pre_handshake: 1,
+            max_in_connections_post_handshake: 1,
             max_in_connections_per_ip: 1,
         },
     };
@@ -54,7 +55,8 @@ fn check_multiple_connection_refused() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 10,
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
     };
@@ -75,7 +77,8 @@ fn check_multiple_connection_refused() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 10,
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
     };
@@ -104,7 +107,8 @@ fn check_multiple_connection_refused_in_category() {
         (
             vec![IpAddr::from_str("127.0.0.1").unwrap()],
             PeerNetCategoryInfo {
-                max_in_connections: 1,
+                max_in_connections_pre_handshake: 1,
+                max_in_connections_post_handshake: 1,
                 max_in_connections_per_ip: 1,
             },
         ),
@@ -116,7 +120,8 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories,
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 0,
+            max_in_connections_pre_handshake: 0,
+            max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 0,
         },
     };
@@ -133,7 +138,8 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 10,
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
     };
@@ -154,7 +160,8 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 10,
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
     };

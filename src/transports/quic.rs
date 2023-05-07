@@ -6,7 +6,10 @@ use std::{
     time::Duration,
 };
 
-use crate::{messages::MessagesHandler, peer::PeerConnectionType, types::KeyPair};
+use crate::{
+    config::PeerNetCategoryInfo, messages::MessagesHandler, peer::PeerConnectionType,
+    types::KeyPair,
+};
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
@@ -283,6 +286,11 @@ impl Transport for QuicTransport {
                                                 stop_peer_rx.clone(),
                                                 PeerConnectionType::IN,
                                                 Some(String::from("quic")),
+                                                PeerNetCategoryInfo {
+                                                    max_in_connections_per_ip: 0,
+                                                    max_in_connections_post_handshake: 0,
+                                                    max_in_connections_pre_handshake: 0,
+                                                },
                                             );
                                         }
                                         {
@@ -533,6 +541,11 @@ impl Transport for QuicTransport {
                         PeerConnectionType::OUT,
                         //TODO: Change
                         Some(String::from("quic")),
+                        PeerNetCategoryInfo {
+                            max_in_connections_per_ip: 0,
+                            max_in_connections_post_handshake: 0,
+                            max_in_connections_pre_handshake: 0,
+                        },
                     );
                     drop(wg);
                     Ok(())

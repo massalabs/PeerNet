@@ -89,7 +89,8 @@ fn two_peers_tcp_with_one_message() {
         optional_features: PeerNetFeatures::default(),
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 10,
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
     };
@@ -107,7 +108,8 @@ fn two_peers_tcp_with_one_message() {
         optional_features: PeerNetFeatures::default(),
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections: 10,
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
     };

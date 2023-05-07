@@ -203,7 +203,7 @@ impl Transport for TcpTransport {
                                         }
                                     };
                                     let ip_canonical = to_canonical(address.ip());
-                                    let (category_name, peer_category) = match config
+                                    let (category_name, category_info) = match config
                                         .peer_categories
                                         .iter()
                                         .find(|(_, info)| info.0.contains(&ip_canonical))
@@ -225,10 +225,10 @@ impl Transport for TcpTransport {
                                     });
                                     let listeners = {
                                         let mut active_connections = active_connections.write();
-                                        if active_connections.check_addr_accepted(
+                                        if active_connections.check_addr_accepted_pre_handshake(
                                             &address,
                                             category_name.clone(),
-                                            peer_category,
+                                            category_info,
                                         ) {
                                             active_connections
                                                 .connection_queue
@@ -256,6 +256,7 @@ impl Transport for TcpTransport {
                                         peer_stop_rx.clone(),
                                         PeerConnectionType::IN,
                                         category_name,
+                                        category_info,
                                     );
                                 }
                                 STOP_LISTENER => {
@@ -309,11 +310,12 @@ impl Transport for TcpTransport {
                     //     out_conn_config.rate_time_window,
                     // );
                     let ip_canonical = to_canonical(address.ip());
-                    let category_name = config
+                    let (category_name, category_info) = config
                         .peer_categories
                         .iter()
                         .find(|(_, info)| info.0.contains(&ip_canonical))
-                        .map(|(category_name, _)| category_name.clone());
+                        .map(|(category_name, infos)| (Some(category_name.clone()), infos.1))
+                        .unwrap_or((None, config.default_category_info));
                     new_peer(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
@@ -327,6 +329,7 @@ impl Transport for TcpTransport {
                         peer_stop_rx,
                         PeerConnectionType::OUT,
                         category_name,
+                        category_info,
                     );
                     drop(wg);
                     Ok(())
