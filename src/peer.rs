@@ -158,7 +158,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 return;
             }
         };
-        if !active_connections.write().confirm_connection(
+        if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
             peer_id.clone(),
             endpoint_connection,
             SendChannels {
