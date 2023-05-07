@@ -150,9 +150,20 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
         let (high_write_tx, high_write_rx) = unbounded::<Vec<u8>>();
 
+        let endpoint_connection = match endpoint.try_clone() {
+            Ok(write_endpoint) => write_endpoint,
+            Err(err) => {
+                println!("Error while cloning endpoint: {:?}", err);
+                {
+                    let mut write_active_connections = active_connections.write();
+                    write_active_connections.remove_connection(&peer_id);
+                }
+                return;
+            }
+        };
         active_connections.write().confirm_connection(
             peer_id.clone(),
-            endpoint.clone(),
+            endpoint_connection,
             SendChannels {
                 low_priority: low_write_tx,
                 high_priority: high_write_tx,
@@ -166,7 +177,17 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
         let write_thread_handle = std::thread::spawn({
             let write_peer_id = peer_id.clone();
             let write_active_connections = active_connections.clone();
-            let mut write_endpoint = endpoint.clone();
+            let mut write_endpoint = match endpoint.try_clone() {
+                Ok(write_endpoint) => write_endpoint,
+                Err(err) => {
+                    println!("Error while cloning endpoint: {:?}", err);
+                    {
+                        let mut write_active_connections = write_active_connections.write();
+                        write_active_connections.remove_connection(&write_peer_id);
+                    }
+                    return;
+                }
+            };
             move || loop {
                 match high_write_rx.try_recv() {
                     Ok(data) => {

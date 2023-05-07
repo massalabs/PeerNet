@@ -84,19 +84,17 @@ pub struct TcpEndpoint {
     pub stream: TcpStream,
 }
 
-impl Clone for TcpEndpoint {
-    fn clone(&self) -> Self {
-        TcpEndpoint {
+impl TcpEndpoint {
+    pub fn try_clone(&self) -> PeerNetResult<Self> {
+        Ok(TcpEndpoint {
             config: self.config.clone(),
             address: self.address,
-            stream: self.stream.try_clone().unwrap_or_else(|err| {
-                panic!(
-                    "Unable to clone stream, when cloning TcpEndpoint {}, err:{:?}",
-                    self.address,
-                    err.to_string()
-                )
-            }),
-        }
+            stream: self.stream.try_clone().map_err(|err| {
+                TcpError::ConnectionError
+                    .wrap()
+                    .new("cannot clone stream", err, None)
+            })?,
+        })
     }
 }
 
