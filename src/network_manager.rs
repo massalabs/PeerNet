@@ -128,7 +128,6 @@ impl ActiveConnections {
             self.compute_counters();
             true
         } else {
-            println!("Refusing connection id: {}, category: {:?}, category info {:?}, active connections: {:?}", id, category_name, category_info, self.connections);
             endpoint.shutdown();
             self.compute_counters();
             false

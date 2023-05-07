@@ -149,7 +149,6 @@ impl Transport for TcpTransport {
         message_handler: M,
         mut init_connection_handler: T,
     ) -> PeerNetResult<()> {
-        println!("categories: {:?} default: {:?}", self.config.peer_categories, self.config.default_category_info);
         let mut poll =
             Poll::new().map_err(|err| TcpError::InitListener.wrap().new("poll new", err, None))?;
         let mut events = Events::with_capacity(128);
@@ -214,7 +213,6 @@ impl Transport for TcpTransport {
                                         }
                                         None => (None, config.default_category_info),
                                     };
-                                    println!("For addr: {} category found is {:?}, infos are {:?}", ip_canonical, category_name, category_info);
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                         config: out_conn_config.clone(),
@@ -313,16 +311,13 @@ impl Transport for TcpTransport {
                     // );
                     let ip_canonical = to_canonical(address.ip());
                     let (category_name, category_info) = match config
-                    .peer_categories
-                    .iter()
-                    .find(|(_, info)| info.0.contains(&ip_canonical))
+                        .peer_categories
+                        .iter()
+                        .find(|(_, info)| info.0.contains(&ip_canonical))
                     {
-                        Some((category_name, info)) => {
-                            (Some(category_name.clone()), info.1)
-                        }
+                        Some((category_name, info)) => (Some(category_name.clone()), info.1),
                         None => (None, config.default_category_info),
                     };
-                    println!("For addr: {} category found is {:?}, infos are {:?}", ip_canonical, category_name, category_info);
                     new_peer(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
