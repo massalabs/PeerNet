@@ -89,10 +89,11 @@ impl Clone for TcpEndpoint {
         TcpEndpoint {
             config: self.config.clone(),
             address: self.address,
-            stream: self.stream.try_clone().unwrap_or_else(|_| {
+            stream: self.stream.try_clone().unwrap_or_else(|err| {
                 panic!(
-                    "Unable to clone stream, when cloning TcpEndpoint {}",
-                    self.address
+                    "Unable to clone stream, when cloning TcpEndpoint {}, err:{:?}",
+                    self.address,
+                    err.to_string()
                 )
             }),
         }
