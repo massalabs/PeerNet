@@ -77,10 +77,14 @@ impl ActiveConnections {
         addr: &SocketAddr,
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
+        id: &PeerId,
     ) -> bool {
         let mut nb_connection_for_this_ip = 0;
         let mut nb_connection_for_this_category = 0;
         let ip = to_canonical(addr.ip());
+        if self.connections.contains_key(id) {
+            return false;
+        }
         for connection in self.connections.values() {
             if connection.connection_type == PeerConnectionType::IN {
                 let connection_ip = to_canonical(connection.endpoint.get_target_addr().ip());
@@ -113,6 +117,7 @@ impl ActiveConnections {
             endpoint.get_target_addr(),
             category_name.clone(),
             category_info,
+            &id,
         ) {
             self.connections.insert(
                 id,
