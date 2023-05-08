@@ -18,11 +18,12 @@ pub struct DefaultInitConnection;
 impl InitConnectionHandler for DefaultInitConnection {
     fn perform_handshake<M: peernet::messages::MessagesHandler>(
         &mut self,
-        keypair: &KeyPair,
+        _keypair: &KeyPair,
         _endpoint: &mut peernet::transports::endpoint::Endpoint,
         _listeners: &HashMap<std::net::SocketAddr, TransportType>,
         _messages_handler: M,
     ) -> peernet::error::PeerNetResult<peernet::peer_id::PeerId> {
+        let keypair = KeyPair::generate();
         Ok(PeerId::from_public_key(keypair.get_public_key()))
     }
 }
@@ -70,8 +71,9 @@ fn check_multiple_connection_refused() {
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
 
+    let keypair3 = KeyPair::generate();
     let config = PeerNetConfiguration {
-        self_keypair: keypair2,
+        self_keypair: keypair3,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
