@@ -10,7 +10,6 @@ use super::quic::QuicEndpoint;
 use super::tcp::TcpEndpoint;
 use super::{quic::QuicTransport, tcp::TcpTransport, Transport};
 
-#[derive(Clone)]
 pub enum Endpoint {
     Tcp(TcpEndpoint),
     Quic(QuicEndpoint),
@@ -21,6 +20,13 @@ impl Endpoint {
         match self {
             Endpoint::Tcp(TcpEndpoint { address, .. }) => address,
             Endpoint::Quic(QuicEndpoint { address, .. }) => address,
+        }
+    }
+
+    pub fn try_clone(&self) -> PeerNetResult<Endpoint> {
+        match self {
+            Endpoint::Tcp(endpoint) => Ok(Endpoint::Tcp(endpoint.try_clone()?)),
+            Endpoint::Quic(endpoint) => Ok(Endpoint::Quic(endpoint.clone())),
         }
     }
 

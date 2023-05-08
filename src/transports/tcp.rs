@@ -4,10 +4,10 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use crate::config::PeerNetFeatures;
+use crate::config::{PeerNetCategories, PeerNetCategoryInfo, PeerNetFeatures};
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
-use crate::network_manager::SharedActiveConnections;
+use crate::network_manager::{to_canonical, SharedActiveConnections};
 use crate::peer::{new_peer, InitConnectionHandler, PeerConnectionType};
 use crate::transports::Endpoint;
 
@@ -32,16 +32,18 @@ impl TcpError {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TcpTransportConfig {
     out_connection_config: TcpOutConnectionConfig,
+    peer_categories: PeerNetCategories,
+    default_category_info: PeerNetCategoryInfo,
 }
 
 pub(crate) struct TcpTransport {
     pub active_connections: SharedActiveConnections,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
-    features: PeerNetFeatures,
+    _features: PeerNetFeatures,
 
     peer_stop_tx: Sender<()>,
     peer_stop_rx: Receiver<()>,
@@ -82,18 +84,17 @@ pub struct TcpEndpoint {
     pub stream: TcpStream,
 }
 
-impl Clone for TcpEndpoint {
-    fn clone(&self) -> Self {
-        TcpEndpoint {
+impl TcpEndpoint {
+    pub fn try_clone(&self) -> PeerNetResult<Self> {
+        Ok(TcpEndpoint {
             config: self.config.clone(),
             address: self.address,
-            stream: self.stream.try_clone().unwrap_or_else(|_| {
-                panic!(
-                    "Unable to clone stream, when cloning TcpEndpoint {}",
-                    self.address
-                )
-            }),
-        }
+            stream: self.stream.try_clone().map_err(|err| {
+                TcpError::ConnectionError
+                    .wrap()
+                    .new("cannot clone stream", err, None)
+            })?,
+        })
     }
 }
 
@@ -106,6 +107,8 @@ impl TcpEndpoint {
 impl TcpTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
+        peer_categories: PeerNetCategories,
+        default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
     ) -> TcpTransport {
         let (peer_stop_tx, peer_stop_rx) = unbounded();
@@ -113,10 +116,14 @@ impl TcpTransport {
             active_connections,
             out_connection_attempts: WaitGroup::new(),
             listeners: Default::default(),
-            features,
+            _features: features,
             peer_stop_rx,
             peer_stop_tx,
-            config: TcpTransportConfig::default(),
+            config: TcpTransportConfig {
+                out_connection_config: Default::default(),
+                peer_categories,
+                default_category_info,
+            },
         }
     }
 }
@@ -151,10 +158,10 @@ impl Transport for TcpTransport {
             .name(format!("tcp_listener_handle_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
-                let reject_same_ip_addr = self.features.reject_same_ip_addr;
                 let peer_stop_rx = self.peer_stop_rx.clone();
                 let peer_stop_tx = self.peer_stop_tx.clone();
                 let out_conn_config = self.config.out_connection_config.clone();
+                let config = self.config.clone();
                 move || {
                     let server = TcpListener::bind(address).unwrap_or_else(|_| {
                         panic!("Can't bind TCP transport to address {}", address)
@@ -195,11 +202,17 @@ impl Transport for TcpTransport {
                                             continue;
                                         }
                                     };
-                                    if reject_same_ip_addr
-                                        && !active_connections.read().check_addr_accepted(&address)
+                                    let ip_canonical = to_canonical(address.ip());
+                                    let (category_name, category_info) = match config
+                                        .peer_categories
+                                        .iter()
+                                        .find(|(_, info)| info.0.contains(&ip_canonical))
                                     {
-                                        continue;
-                                    }
+                                        Some((category_name, info)) => {
+                                            (Some(category_name.clone()), info.1)
+                                        }
+                                        None => (None, config.default_category_info),
+                                    };
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                         config: out_conn_config.clone(),
@@ -212,10 +225,14 @@ impl Transport for TcpTransport {
                                     });
                                     let listeners = {
                                         let mut active_connections = active_connections.write();
-                                        if active_connections.nb_in_connections
-                                            < active_connections.max_in_connections
-                                        {
-                                            active_connections.connection_queue.push(address);
+                                        if active_connections.check_addr_accepted_pre_handshake(
+                                            &address,
+                                            category_name.clone(),
+                                            category_info,
+                                        ) {
+                                            active_connections
+                                                .connection_queue
+                                                .push((address, category_name.clone()));
                                             active_connections.compute_counters();
                                             None
                                         } else {
@@ -223,11 +240,13 @@ impl Transport for TcpTransport {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
-                                        init_connection_handler.fallback_function(
+                                        if let Err(err) = init_connection_handler.fallback_function(
                                             &self_keypair,
                                             &mut endpoint,
                                             &listeners,
-                                        )?;
+                                        ) {
+                                            println!("Error while sending fallback to address {}, err:{}", address, err)
+                                        }
                                         continue;
                                     }
                                     new_peer(
@@ -238,6 +257,8 @@ impl Transport for TcpTransport {
                                         active_connections.clone(),
                                         peer_stop_rx.clone(),
                                         PeerConnectionType::IN,
+                                        category_name,
+                                        category_info,
                                     );
                                 }
                                 STOP_LISTENER => {
@@ -276,7 +297,7 @@ impl Transport for TcpTransport {
             .spawn({
                 let active_connections = self.active_connections.clone();
                 let wg = self.out_connection_attempts.clone();
-                let out_conn_config = self.config.out_connection_config.clone();
+                let config = self.config.clone();
                 move || {
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         TcpError::ConnectionError.wrap().new(
@@ -290,36 +311,29 @@ impl Transport for TcpTransport {
                     //     out_conn_config.rate_limit,
                     //     out_conn_config.rate_time_window,
                     // );
-
+                    let ip_canonical = to_canonical(address.ip());
+                    let (category_name, category_info) = match config
+                        .peer_categories
+                        .iter()
+                        .find(|(_, info)| info.0.contains(&ip_canonical))
                     {
-                        let mut active_connections = active_connections.write();
-                        if active_connections.nb_out_connections
-                            < active_connections.max_out_connections
-                        {
-                            active_connections.nb_out_connections += 1;
-                        } else {
-                            return Err(PeerNetError::BoundReached.error(
-                                "tcp try_connect max_out_conn",
-                                Some(format!(
-                                    "max: {}, nb: {}",
-                                    active_connections.max_out_connections,
-                                    active_connections.nb_out_connections
-                                )),
-                            ))?;
-                        }
-                    }
+                        Some((category_name, info)) => (Some(category_name.clone()), info.1),
+                        None => (None, config.default_category_info),
+                    };
                     new_peer(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
                             address,
                             stream,
-                            config: out_conn_config.clone(),
+                            config: config.out_connection_config.clone(),
                         }),
                         handshake_handler.clone(),
                         message_handler.clone(),
                         active_connections.clone(),
                         peer_stop_rx,
                         PeerConnectionType::OUT,
+                        category_name,
+                        category_info,
                     );
                     drop(wg);
                     Ok(())
@@ -360,7 +374,7 @@ impl Transport for TcpTransport {
         //TODO: Use config one
         endpoint
             .stream
-            .write(&msg_size.to_be_bytes())
+            .write_all(&msg_size.to_be_bytes())
             .map_err(|err| {
                 TcpError::ConnectionError.wrap().new(
                     "send len write",
@@ -368,7 +382,7 @@ impl Transport for TcpTransport {
                     Some(format!("{:?}", data.len().to_le_bytes())),
                 )
             })?;
-        endpoint.stream.write(data).map_err(|err| {
+        endpoint.stream.write_all(data).map_err(|err| {
             TcpError::ConnectionError
                 .wrap()
                 .new("send data write", err, None)
@@ -381,7 +395,7 @@ impl Transport for TcpTransport {
         let mut len_bytes = vec![0u8; 4];
         endpoint
             .stream
-            .read(&mut len_bytes)
+            .read_exact(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
         let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
             TcpError::ConnectionError

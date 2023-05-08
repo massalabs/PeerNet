@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
+use crate::config::PeerNetCategoryInfo;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::types::KeyPair;
@@ -80,6 +81,8 @@ pub struct PeerConnection {
     pub endpoint: Endpoint,
     // Determine if the connection is an out or in one
     pub connection_type: PeerConnectionType,
+    // Category name
+    pub category_name: Option<String>,
 }
 
 impl PeerConnection {
@@ -94,10 +97,12 @@ impl Debug for PeerConnection {
         f.debug_struct("PeerConnection")
             .field("send_channels", &"SendChannels")
             .field("endpoint", &"Endpoint")
+            .field("category_nae", &format!("{:?}", self.category_name))
             .finish()
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
@@ -106,6 +111,8 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
     active_connections: SharedActiveConnections,
     peer_stop: Receiver<()>,
     connection_type: PeerConnectionType,
+    category_name: Option<String>,
+    category_info: PeerNetCategoryInfo,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::Builder::new()
@@ -128,39 +135,59 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     let mut write_active_connections = active_connections.write();
                     write_active_connections
                         .connection_queue
-                        .retain(|addr| addr != endpoint.get_target_addr());
+                        .retain(|(addr, _)| addr != endpoint.get_target_addr());
                     write_active_connections.compute_counters();
                 }
                 return;
             }
         };
 
-        {
-            let mut write_active_connections = active_connections.write();
-            write_active_connections.compute_counters();
-        }
-
         //TODO: Bounded
 
         let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
         let (high_write_tx, high_write_rx) = unbounded::<Vec<u8>>();
 
-        active_connections.write().confirm_connection(
+        let endpoint_connection = match endpoint.try_clone() {
+            Ok(write_endpoint) => write_endpoint,
+            Err(err) => {
+                println!("Error while cloning endpoint: {:?}", err);
+                {
+                    let mut write_active_connections = active_connections.write();
+                    write_active_connections.remove_connection(&peer_id);
+                }
+                return;
+            }
+        };
+        if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
             peer_id.clone(),
-            endpoint.clone(),
+            endpoint_connection,
             SendChannels {
                 low_priority: low_write_tx,
                 high_priority: high_write_tx,
             },
             connection_type,
-        );
+            category_name,
+            category_info
+        ) {
+            return;
+        }
 
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn({
             let write_peer_id = peer_id.clone();
             let write_active_connections = active_connections.clone();
-            let mut write_endpoint = endpoint.clone();
+            let mut write_endpoint = match endpoint.try_clone() {
+                Ok(write_endpoint) => write_endpoint,
+                Err(err) => {
+                    println!("Error while cloning endpoint: {:?}", err);
+                    {
+                        let mut write_active_connections = write_active_connections.write();
+                        write_active_connections.remove_connection(&write_peer_id);
+                    }
+                    return;
+                }
+            };
             move || loop {
                 match high_write_rx.try_recv() {
                     Ok(data) => {

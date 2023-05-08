@@ -6,7 +6,10 @@ use std::{
     time::Duration,
 };
 
-use crate::{messages::MessagesHandler, peer::PeerConnectionType, types::KeyPair};
+use crate::{
+    config::PeerNetCategoryInfo, messages::MessagesHandler, peer::PeerConnectionType,
+    types::KeyPair,
+};
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
@@ -58,7 +61,7 @@ pub(crate) struct QuicTransport {
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
     //(quiche::Connection, data_receiver, data_sender, is_established)
     pub connections: QuicConnectionsMap,
-    features: PeerNetFeatures,
+    _features: PeerNetFeatures,
     stop_peer_tx: Sender<()>,
     stop_peer_rx: Receiver<()>,
 }
@@ -101,7 +104,7 @@ impl QuicTransport {
             listeners: Default::default(),
             connections: Arc::new(RwLock::new(HashMap::new())),
             active_connections,
-            features,
+            _features: features,
             stop_peer_tx,
             stop_peer_rx,
         }
@@ -172,7 +175,6 @@ impl Transport for QuicTransport {
             .spawn({
                 let active_connections = self.active_connections.clone();
                 let server = server.try_clone().unwrap();
-                let reject_same_ip_addr = self.features.reject_same_ip_addr;
                 let stop_peer_rx = self.stop_peer_rx.clone();
                 let stop_peer_tx = self.stop_peer_tx.clone();
                 move || {
@@ -233,7 +235,7 @@ impl Transport for QuicTransport {
                                             let connections = connections.read();
                                             !connections.contains_key(&from_addr)
                                         };
-                                        if !reject_same_ip_addr || new_connection {
+                                        if new_connection {
                                             println!(
                                                 "server {}: New connection {}",
                                                 address, from_addr
@@ -261,17 +263,7 @@ impl Transport for QuicTransport {
                                                 )
                                             })?;
 
-                                            {
-                                                let mut active_connections =
-                                                    active_connections.write();
-                                                if active_connections.nb_in_connections
-                                                    < active_connections.max_in_connections
-                                                {
-                                                    active_connections.nb_in_connections += 1;
-                                                } else {
-                                                    continue;
-                                                }
-                                            }
+                                            //TODO: Make filter connection quic
                                             let (send_tx, send_rx) = channel::bounded(10000);
                                             let (recv_tx, recv_rx) = channel::bounded(10000);
                                             {
@@ -293,6 +285,12 @@ impl Transport for QuicTransport {
                                                 active_connections.clone(),
                                                 stop_peer_rx.clone(),
                                                 PeerConnectionType::IN,
+                                                Some(String::from("quic")),
+                                                PeerNetCategoryInfo {
+                                                    max_in_connections_per_ip: 0,
+                                                    max_in_connections_post_handshake: 0,
+                                                    max_in_connections_pre_handshake: 0,
+                                                },
                                             );
                                         }
                                         {
@@ -435,7 +433,6 @@ impl Transport for QuicTransport {
         let stop_peer_rx = self.stop_peer_rx.clone();
         //TODO: Use timeout
         let config = config.clone();
-        let connections = self.connections.clone();
         let (_, socket, _) = if self.listeners.contains_key(&config.local_addr) {
             self.listeners
                 .get(&config.local_addr)
@@ -528,20 +525,8 @@ impl Transport for QuicTransport {
                         }
                     }
                     //TODO: Config
-                    let (send_tx, send_rx) = channel::bounded(10000);
-                    let (recv_tx, recv_rx) = channel::bounded(10000);
-                    {
-                        let mut active_connections = active_connections.write();
-                        if active_connections.nb_out_connections
-                            < active_connections.max_out_connections
-                        {
-                            active_connections.nb_out_connections += 1;
-                            {
-                                let mut connections = connections.write();
-                                connections.insert(address, (conn, send_rx, recv_tx, false));
-                            }
-                        }
-                    }
+                    let (send_tx, _send_rx) = channel::bounded(10000);
+                    let (_recv_tx, recv_rx) = channel::bounded(10000);
                     new_peer(
                         self_keypair.clone(),
                         Endpoint::Quic(QuicEndpoint {
@@ -554,6 +539,13 @@ impl Transport for QuicTransport {
                         active_connections.clone(),
                         stop_peer_rx.clone(),
                         PeerConnectionType::OUT,
+                        //TODO: Change
+                        Some(String::from("quic")),
+                        PeerNetCategoryInfo {
+                            max_in_connections_per_ip: 0,
+                            max_in_connections_post_handshake: 0,
+                            max_in_connections_pre_handshake: 0,
+                        },
                     );
                     drop(wg);
                     Ok(())
