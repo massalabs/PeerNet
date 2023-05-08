@@ -180,6 +180,7 @@ impl Transport for TcpTransport {
                             )
                         });
                     loop {
+                        println!("AURELIEN: Loop listener: {}", address);
                         // Poll Mio for events, blocking until we get an event.
                         poll.poll(&mut events, None).unwrap_or_else(|_| {
                             panic!("Can't poll TCP transport of address {}", address)
@@ -189,6 +190,7 @@ impl Transport for TcpTransport {
                         for event in events.iter() {
                             match event.token() {
                                 NEW_CONNECTION => {
+                                    println!("AURELIEN: New connection listener: {}", address);
                                     let (stream, address) = match server.accept().map_err(|err| {
                                         TcpError::ConnectionError.wrap().new(
                                             "listener accept",
@@ -202,6 +204,7 @@ impl Transport for TcpTransport {
                                             continue;
                                         }
                                     };
+                                    println!("AURELIEN: New connection listener accepted address {}", address);
                                     let ip_canonical = to_canonical(address.ip());
                                     let (category_name, category_info) = match config
                                         .peer_categories
@@ -213,6 +216,7 @@ impl Transport for TcpTransport {
                                         }
                                         None => (None, config.default_category_info),
                                     };
+                                    println!("AURELIEN: New connection listener accepted address {} category_name: {:?}, category_info: {:?}", address, category_name, category_info);
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                         config: out_conn_config.clone(),
@@ -297,13 +301,16 @@ impl Transport for TcpTransport {
                 let wg = self.out_connection_attempts.clone();
                 let config = self.config.clone();
                 move || {
+                    println!("AURELIEN: Try out connection to: {}", address);
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
+                        println!("AURELIEN: Error on address {}, err: {:?}", address, err);
                         TcpError::ConnectionError.wrap().new(
                             "try_connect stream connect",
                             err,
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
+                    println!("AURELIEN: Success out connection to: {}", address);
                     // let stream = Limiter::new(
                     //     stream,
                     //     out_conn_config.rate_limit,
@@ -318,6 +325,7 @@ impl Transport for TcpTransport {
                         Some((category_name, info)) => (Some(category_name.clone()), info.1),
                         None => (None, config.default_category_info),
                     };
+                    println!("AURELIEN: New connection to: {}", address);
                     new_peer(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
