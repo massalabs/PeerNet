@@ -372,7 +372,7 @@ impl Transport for TcpTransport {
         //TODO: Use config one
         endpoint
             .stream
-            .write(&msg_size.to_be_bytes())
+            .write_all(&msg_size.to_be_bytes())
             .map_err(|err| {
                 TcpError::ConnectionError.wrap().new(
                     "send len write",
@@ -380,7 +380,7 @@ impl Transport for TcpTransport {
                     Some(format!("{:?}", data.len().to_le_bytes())),
                 )
             })?;
-        endpoint.stream.write(data).map_err(|err| {
+        endpoint.stream.write_all(data).map_err(|err| {
             TcpError::ConnectionError
                 .wrap()
                 .new("send data write", err, None)
@@ -393,7 +393,7 @@ impl Transport for TcpTransport {
         let mut len_bytes = vec![0u8; 4];
         endpoint
             .stream
-            .read(&mut len_bytes)
+            .read_exact(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
         let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
             TcpError::ConnectionError
