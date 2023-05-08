@@ -244,11 +244,13 @@ impl Transport for TcpTransport {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
-                                        init_connection_handler.fallback_function(
+                                        if let Err(err) = init_connection_handler.fallback_function(
                                             &self_keypair,
                                             &mut endpoint,
                                             &listeners,
-                                        )?;
+                                        ) {
+                                            println!("Error while sending fallback to address {}, err:{}", address, err)
+                                        }
                                         continue;
                                     }
                                     new_peer(
