@@ -13,7 +13,7 @@ use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
 
-use crate::types::{PeerNetId, PeerNetKeyPair};
+use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
@@ -142,7 +142,12 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
 
     type Endpoint = TcpEndpoint;
 
-    fn start_listener<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
+    fn start_listener<
+        H: InitConnectionHandler,
+        M: MessagesHandler,
+        K: PeerNetKeyPair,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: K,
         address: SocketAddr,
@@ -249,7 +254,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                         continue;
                                     }
-                                    new_peer(
+                                    new_peer::<_, _, _, _,PubKey>(
                                         self_keypair.clone(),
                                         endpoint,
                                         init_connection_handler.clone(),
@@ -282,7 +287,12 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
         Ok(())
     }
 
-    fn try_connect<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
+    fn try_connect<
+        H: InitConnectionHandler,
+        M: MessagesHandler,
+        K: PeerNetKeyPair,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: K,
         address: SocketAddr,
@@ -320,7 +330,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                         Some((category_name, info)) => (Some(category_name.clone()), info.1),
                         None => (None, config.default_category_info),
                     };
-                    new_peer(
+                    new_peer::<_, _, _, _, PubKey>(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
                             address,

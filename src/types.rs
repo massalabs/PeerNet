@@ -13,8 +13,8 @@ pub const PUBLIC_KEY_SIZE_BYTES: usize = massa_signature::PUBLIC_KEY_SIZE_BYTES;
 pub trait PeerNetKeyPair:
     Send + Sync + Clone + Debug + HashTrait + Eq + PartialEq + Display
 {
-    fn get_public_key<U>(&self) -> U;
-    // fn sign(&self, hash: &Hash) -> PeerNetResult<Signature>;
+    fn get_public_key<K: PeerNetPubKey>(&self) -> K;
+    fn sign<S: PeerNetSignature>(&self, hash: &Hash) -> PeerNetResult<S>;
     fn to_bytes(&self) -> Vec<u8>;
     // fn from_bytes(bytes: &[u8]) -> Self;
 }
@@ -24,7 +24,21 @@ pub trait PeerNetId: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
     fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
     where
         Self: Sized;
-    fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()>;
+    fn verify_signature<S: PeerNetSignature>(
+        &self,
+        hash: &Hash,
+        signature: &S,
+    ) -> PeerNetResult<()>;
 
-    fn from_public_key<K>(public_key: K) -> Self;
+    fn from_public_key<K: PeerNetPubKey>(public_key: K) -> Self;
+}
+
+pub trait PeerNetPubKey: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
+    fn to_bytes(&self) -> &[u8];
+    fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self>;
+}
+
+pub trait PeerNetSignature: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
+    fn to_bytes(&self) -> Vec<u8>;
+    fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self>;
 }

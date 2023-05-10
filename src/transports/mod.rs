@@ -20,7 +20,8 @@ pub mod endpoint;
 mod quic;
 mod tcp;
 
-use crate::types::{PeerNetId, PeerNetKeyPair};
+use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey};
+use massa_signature::PublicKey;
 pub use quic::QuicOutConnectionConfig;
 use serde::{Deserialize, Serialize};
 pub use tcp::TcpOutConnectionConfig;
@@ -85,7 +86,12 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     type OutConnectionConfig = OutConnectionConfig;
     type Endpoint = Endpoint;
 
-    fn start_listener<H: InitConnectionHandler + 'static, M: MessagesHandler, K: PeerNetKeyPair>(
+    fn start_listener<
+        H: InitConnectionHandler + 'static,
+        M: MessagesHandler,
+        K: PeerNetKeyPair,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: K,
         address: SocketAddr,
@@ -93,13 +99,13 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
         init_connection_handler: H,
     ) -> PeerNetResult<()> {
         match self {
-            InternalTransportType::Tcp(transport) => transport.start_listener::<_, M, K>(
+            InternalTransportType::Tcp(transport) => transport.start_listener::<_, M, K, PubKey>(
                 self_keypair,
                 address,
                 message_handler,
                 init_connection_handler,
             ),
-            InternalTransportType::Quic(transport) => transport.start_listener::<_, M, K>(
+            InternalTransportType::Quic(transport) => transport.start_listener::<_, M, K, PubKey>(
                 self_keypair,
                 address,
                 message_handler,
@@ -108,7 +114,12 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
         }
     }
 
-    fn try_connect<H: InitConnectionHandler + 'static, M: MessagesHandler, K: PeerNetKeyPair>(
+    fn try_connect<
+        H: InitConnectionHandler + 'static,
+        M: MessagesHandler,
+        K: PeerNetKeyPair,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: K,
         address: SocketAddr,
@@ -119,7 +130,7 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         match self {
             InternalTransportType::Tcp(transport) => match config {
-                OutConnectionConfig::Tcp(config) => transport.try_connect(
+                OutConnectionConfig::Tcp(config) => transport.try_connect::<H, M, K, PubKey>(
                     self_keypair,
                     address,
                     timeout,
@@ -130,7 +141,7 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
                 _ => Err(PeerNetError::WrongConfigType.error("try_connect match tcp", None)),
             },
             InternalTransportType::Quic(transport) => match config {
-                OutConnectionConfig::Quic(config) => transport.try_connect(
+                OutConnectionConfig::Quic(config) => transport.try_connect::<H, M, K, PubKey>(
                     self_keypair,
                     address,
                     timeout,
@@ -195,7 +206,12 @@ pub trait Transport {
     type Endpoint;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
-    fn start_listener<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
+    fn start_listener<
+        H: InitConnectionHandler,
+        M: MessagesHandler,
+        K: PeerNetKeyPair,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: K,
         address: SocketAddr,
@@ -203,7 +219,12 @@ pub trait Transport {
         init_connection_handler: H,
     ) -> PeerNetResult<()>;
     /// Try to connect to a peer
-    fn try_connect<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
+    fn try_connect<
+        H: InitConnectionHandler,
+        M: MessagesHandler,
+        K: PeerNetKeyPair,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: K,
         address: SocketAddr,

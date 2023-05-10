@@ -6,7 +6,7 @@ use std::{fmt::Debug, net::SocketAddr};
 use crate::config::PeerNetCategoryInfo;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
-use crate::types::{PeerNetKeyPair, PeerNetId};
+use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 use crossbeam::{
     channel::{unbounded, Receiver, Sender, TryRecvError},
     select,
@@ -14,19 +14,24 @@ use crossbeam::{
 
 use crate::{
     network_manager::SharedActiveConnections,
-    peer_id::PeerId,
     transports::{endpoint::Endpoint, TransportType},
 };
 
 pub trait InitConnectionHandler: Send + Clone + 'static {
-    fn perform_handshake<M: MessagesHandler, Id: PeerNetId, K: PeerNetKeyPair>(
+    fn perform_handshake<
+        M: MessagesHandler,
+        Id: PeerNetId,
+        K: PeerNetKeyPair,
+        S: PeerNetSignature,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         keypair: &K,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
         _messages_handler: M,
     ) -> PeerNetResult<Id> {
-        endpoint.handshake(keypair)
+        endpoint.handshake::<Id, K, S, PubKey>(keypair)
     }
 
     fn fallback_function<K: PeerNetKeyPair>(
@@ -103,7 +108,14 @@ impl Debug for PeerConnection {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetId, K: PeerNetKeyPair>(
+pub(crate) fn new_peer<
+    T: InitConnectionHandler,
+    M: MessagesHandler,
+    Id: PeerNetId,
+    K: PeerNetKeyPair,
+    PubKey: PeerNetPubKey,
+    S: PeerNetSignature,
+>(
     self_keypair: K,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
@@ -123,7 +135,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = match handshake_handler.perform_handshake(
+        let peer_id = match handshake_handler.perform_handshake::<M, Id, K, S, PubKey>(
             &self_keypair,
             &mut endpoint,
             &listeners,
@@ -158,8 +170,10 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
                 return;
             }
         };
-        
-        if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
+
+        let id = Id::from_public_key(self_keypair.get_public_key::<PubKey>());
+        // if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
+        if peer_id == id || !active_connections.write().confirm_connection(
             peer_id.clone(),
             endpoint_connection,
             SendChannels {
@@ -176,7 +190,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn({
-            let write_peer_id: Id = peer_id.clone();
+            let write_peer_id = peer_id.clone();
             let write_active_connections = active_connections.clone();
             let mut write_endpoint = match endpoint.try_clone() {
                 Ok(write_endpoint) => write_endpoint,
@@ -192,7 +206,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
             move || loop {
                 match high_write_rx.try_recv() {
                     Ok(data) => {
-                        if write_endpoint.send(&data).is_err() {
+                        if write_endpoint.send::<Id>(&data).is_err() {
                             {
                                 let mut write_active_connections = write_active_connections.write();
                                 write_active_connections.remove_connection(&write_peer_id);
@@ -213,7 +227,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
                     recv(low_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if write_endpoint.send(&data).is_err() {
+                                if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections = write_active_connections.write();
                                         write_active_connections.remove_connection(&write_peer_id);
@@ -229,7 +243,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
                     recv(high_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if write_endpoint.send(&data).is_err() {
+                                if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();
@@ -248,7 +262,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
         });
         // READER LOOP
         loop {
-            match endpoint.receive() {
+            match endpoint.receive::<Id>() {
                 Ok(data) => {
                     if data.is_empty() {
                         // We arrive here in two cases:

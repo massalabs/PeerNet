@@ -10,7 +10,7 @@ use crate::{
     config::PeerNetCategoryInfo,
     messages::MessagesHandler,
     peer::PeerConnectionType,
-    types::{PeerNetId, PeerNetKeyPair},
+    types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey},
 };
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
@@ -420,7 +420,12 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
         Ok(())
     }
 
-    fn try_connect<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
+    fn try_connect<
+        H: InitConnectionHandler,
+        M: MessagesHandler,
+        K: PeerNetKeyPair,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: K,
         address: SocketAddr,

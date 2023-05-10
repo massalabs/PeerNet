@@ -54,9 +54,9 @@ impl<K: PeerNetKeyPair> PeerNetId for PeerId<K> {
 
 impl<K: PeerNetKeyPair> PeerId<K> {
     /// Create a new PeerId from a public key
-    pub fn from_public_key(public_key: K) -> PeerId<K> {
-        PeerId { public_key }
-    }
+    // pub fn from_public_key(public_key: K) -> PeerId<K> {
+    //     PeerId { public_key }
+    // }
 
     /// Convert the PeerId to a byte array
     pub fn to_bytes(&self) -> Vec<u8> {

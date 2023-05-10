@@ -3,8 +3,7 @@ use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
 use crate::error::{PeerNetError, PeerNetResult};
-use crate::peer_id::PeerId;
-use crate::types::{PeerNetId, PeerNetKeyPair, PublicKey, Signature};
+use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 
 use super::tcp::TcpEndpoint;
 use super::{
@@ -46,7 +45,12 @@ impl Endpoint {
         }
     }
 
-    pub(crate) fn handshake<Id: PeerNetId, K: PeerNetKeyPair>(
+    pub(crate) fn handshake<
+        Id: PeerNetId,
+        K: PeerNetKeyPair,
+        S: PeerNetSignature,
+        PubKey: PeerNetPubKey,
+    >(
         &mut self,
         self_keypair: &K,
     ) -> PeerNetResult<Id> {
@@ -56,27 +60,28 @@ impl Endpoint {
         let self_random_hash = Hash::compute_from(&self_random_bytes);
         let mut buf = [0u8; 64];
         buf[..32].copy_from_slice(&self_random_bytes);
-        buf[32..].copy_from_slice(self_keypair.get_public_key().to_bytes());
+        buf[32..].copy_from_slice(self_keypair.get_public_key::<PubKey>().to_bytes());
 
-        self.send(&buf)?;
-        let received = self.receive()?;
+        self.send::<Id>(&buf)?;
+        let received = self.receive::<Id>()?;
         let other_random_bytes: &[u8; 32] = received.as_slice()[..32].try_into().unwrap();
-        let other_public_key = PublicKey::from_bytes(received[32..].try_into().unwrap()).unwrap();
+        let other_public_key = PubKey::from_bytes(received[32..].try_into().unwrap()).unwrap();
+
+        let other_id = Id::from_public_key(other_public_key);
 
         // sign their random bytes
         let other_random_hash = Hash::compute_from(other_random_bytes);
-        let self_signature = self_keypair.sign(&other_random_hash).unwrap();
+        let self_signature: S = self_keypair.sign(&other_random_hash).unwrap();
 
         buf.copy_from_slice(&self_signature.to_bytes());
 
-        self.send(&buf)?;
-        let received = self.receive()?;
+        self.send::<Id>(&buf)?;
+        let received: Vec<u8> = self.receive::<Id>()?;
 
-        let other_signature =
-            Signature::from_bytes(received.as_slice().try_into().unwrap()).unwrap();
+        let other_signature = S::from_bytes(received.as_slice().try_into().unwrap()).unwrap();
 
         // check their signature
-        other_public_key
+        other_id
             .verify_signature(&self_random_hash, &other_signature)
             .map_err(|err| {
                 PeerNetError::HandshakeError.new(
@@ -89,8 +94,8 @@ impl Endpoint {
                 )
             })?;
 
-        let other_peer_id = PeerId::from_public_key(other_public_key);
-        Ok(other_peer_id)
+        // let other_peer_id = PeerId::from_public_key(other_public_key);
+        Ok(other_id)
     }
 
     pub fn shutdown(&mut self) {
