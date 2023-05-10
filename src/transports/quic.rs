@@ -53,8 +53,8 @@ type QuicConnection = (
 );
 type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
 
-pub(crate) struct QuicTransport<T: PeerNetIdTrait> {
-    pub active_connections: SharedActiveConnections<T>,
+pub(crate) struct QuicTransport<Id: PeerNetIdTrait> {
+    pub active_connections: SharedActiveConnections<Id>,
     //pub fallback_function: Option<&'static FallbackFunction>,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
@@ -90,11 +90,11 @@ pub struct QuicOutConnectionConfig {
     pub local_addr: SocketAddr,
 }
 
-impl<T: PeerNetIdTrait> QuicTransport<T> {
+impl<Id: PeerNetIdTrait> QuicTransport<Id> {
     pub fn new(
-        active_connections: SharedActiveConnections<T>,
+        active_connections: SharedActiveConnections<Id>,
         features: PeerNetFeatures,
-    ) -> QuicTransport<T> {
+    ) -> QuicTransport<Id> {
         let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
@@ -108,7 +108,7 @@ impl<T: PeerNetIdTrait> QuicTransport<T> {
     }
 }
 
-impl<T: PeerNetIdTrait> Transport for QuicTransport<T> {
+impl<Id: PeerNetIdTrait> Transport for QuicTransport<Id> {
     type OutConnectionConfig = QuicOutConnectionConfig;
 
     type Endpoint = QuicEndpoint;

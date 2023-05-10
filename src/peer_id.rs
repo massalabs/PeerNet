@@ -24,34 +24,41 @@ pub trait PeerNetIdTrait: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sy
     where
         Self: Sized;
     fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()>;
+
+    fn equals<Id: PeerNetIdTrait>(&self, other: &Id) -> bool;
 }
 
-// impl PeerNetIdTrait for PeerId {
-//     /// Create a new PeerId from a byte array
-//     fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<PeerId> {
-//         Ok(PeerId {
-//             public_key: PublicKey::from_bytes(bytes).map_err(|err| {
-//                 PeerNetError::PeerIdError.new(
-//                     "peerid pubk from bytes",
-//                     err,
-//                     Some(format!("{:?}", bytes)),
-//                 )
-//             })?,
-//         })
-//     }
-//     /// Verify a signature
-//     fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()> {
-//         self.public_key
-//             .verify_signature(hash, signature)
-//             .map_err(|err| {
-//                 PeerNetError::PeerIdError.new(
-//                     "peeid verify sign",
-//                     err,
-//                     Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
-//                 )
-//             })
-//     }
-// }
+impl PeerNetIdTrait for PeerId {
+    /// Create a new PeerId from a byte array
+    fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<PeerId> {
+        Ok(PeerId {
+            public_key: PublicKey::from_bytes(bytes).map_err(|err| {
+                PeerNetError::PeerIdError.new(
+                    "peerid pubk from bytes",
+                    err,
+                    Some(format!("{:?}", bytes)),
+                )
+            })?,
+        })
+    }
+    /// Verify a signature
+    fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()> {
+        self.public_key
+            .verify_signature(hash, signature)
+            .map_err(|err| {
+                PeerNetError::PeerIdError.new(
+                    "peeid verify sign",
+                    err,
+                    Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
+                )
+            })
+    }
+
+    fn equals<Id: PeerNetIdTrait>(&self, other: &Id) -> bool {
+        //self.public_key == other.get_public_key();
+        true
+    }
+}
 
 impl PeerId {
     /// Create a new PeerId from a public key
@@ -64,30 +71,30 @@ impl PeerId {
         self.public_key.to_bytes().to_vec()
     }
 
-    /// Create a new PeerId from a byte array
-    pub fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<PeerId> {
-        Ok(PeerId {
-            public_key: PublicKey::from_bytes(bytes).map_err(|err| {
-                PeerNetError::PeerIdError.new(
-                    "peerid pubk from bytes",
-                    err,
-                    Some(format!("{:?}", bytes)),
-                )
-            })?,
-        })
-    }
-    /// Verify a signature
-    pub fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()> {
-        self.public_key
-            .verify_signature(hash, signature)
-            .map_err(|err| {
-                PeerNetError::PeerIdError.new(
-                    "peeid verify sign",
-                    err,
-                    Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
-                )
-            })
-    }
+    // /// Create a new PeerId from a byte array
+    // pub fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<PeerId> {
+    //     Ok(PeerId {
+    //         public_key: PublicKey::from_bytes(bytes).map_err(|err| {
+    //             PeerNetError::PeerIdError.new(
+    //                 "peerid pubk from bytes",
+    //                 err,
+    //                 Some(format!("{:?}", bytes)),
+    //             )
+    //         })?,
+    //     })
+    // }
+    // /// Verify a signature
+    // pub fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()> {
+    //     self.public_key
+    //         .verify_signature(hash, signature)
+    //         .map_err(|err| {
+    //             PeerNetError::PeerIdError.new(
+    //                 "peeid verify sign",
+    //                 err,
+    //                 Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
+    //             )
+    //         })
+    // }
 }
 
 impl Display for PeerId {

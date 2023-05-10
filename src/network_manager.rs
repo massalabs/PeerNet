@@ -23,12 +23,12 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ActiveConnections<T: PeerNetIdTrait> {
+pub struct ActiveConnections<Id: PeerNetIdTrait> {
     pub nb_in_connections: usize,
     pub nb_out_connections: usize,
     /// Peers attempting to connect but not yet finished initialization
     pub connection_queue: Vec<(SocketAddr, Option<String>)>,
-    pub connections: HashMap<T, PeerConnection>,
+    pub connections: HashMap<Id, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
 
@@ -45,7 +45,7 @@ pub(crate) fn to_canonical(ip: IpAddr) -> IpAddr {
     }
 }
 
-impl<T: PeerNetIdTrait> ActiveConnections<T> {
+impl<Id: PeerNetIdTrait> ActiveConnections<Id> {
     /// Check if a new connection from a specific address can be accepted or not
     pub fn check_addr_accepted_pre_handshake(
         &self,
@@ -77,7 +77,7 @@ impl<T: PeerNetIdTrait> ActiveConnections<T> {
         addr: &SocketAddr,
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
-        id: &T,
+        id: &Id,
     ) -> bool {
         let mut nb_connection_for_this_ip = 0;
         let mut nb_connection_for_this_category = 0;
@@ -104,7 +104,7 @@ impl<T: PeerNetIdTrait> ActiveConnections<T> {
 
     pub fn confirm_connection(
         &mut self,
-        id: T,
+        id: Id,
         mut endpoint: Endpoint,
         send_channels: SendChannels,
         connection_type: PeerConnectionType,
@@ -139,7 +139,7 @@ impl<T: PeerNetIdTrait> ActiveConnections<T> {
         }
     }
 
-    pub fn remove_connection(&mut self, id: &T) {
+    pub fn remove_connection(&mut self, id: &Id) {
         println!("Removing connection from: {:?}", id);
         if let Some(mut connection) = self.connections.remove(id) {
             connection.shutdown();
@@ -161,21 +161,21 @@ impl<T: PeerNetIdTrait> ActiveConnections<T> {
     }
 }
 
-pub type SharedActiveConnections<T> = Arc<RwLock<ActiveConnections<T>>>;
+pub type SharedActiveConnections<Id> = Arc<RwLock<ActiveConnections<Id>>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
-pub struct PeerNetManager<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetIdTrait> {
+pub struct PeerNetManager<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait> {
     pub config: PeerNetConfiguration<T, M>,
-    pub active_connections: SharedActiveConnections<I>,
+    pub active_connections: SharedActiveConnections<Id>,
     message_handler: M,
     init_connection_handler: T,
     self_keypair: KeyPair,
-    transports: HashMap<TransportType, InternalTransportType<I>>,
+    transports: HashMap<TransportType, InternalTransportType<Id>>,
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetIdTrait> PeerNetManager<T, M, I> {
+impl<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait> PeerNetManager<T, M, Id> {
     /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
-    pub fn new(config: PeerNetConfiguration<T, M>) -> PeerNetManager<T, M, I> {
+    pub fn new(config: PeerNetConfiguration<T, M>) -> PeerNetManager<T, M, Id> {
         let self_keypair = config.self_keypair.clone();
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_out_connections: 0,
@@ -250,12 +250,12 @@ impl<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetIdTrait> PeerNetMan
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let transport = self
             .transports
-            .entry(TransportType::from_out_connection_config::<I>(
+            .entry(TransportType::from_out_connection_config::<Id>(
                 out_connection_config,
             ))
             .or_insert_with(|| {
                 InternalTransportType::from_transport_type(
-                    TransportType::from_out_connection_config::<I>(out_connection_config),
+                    TransportType::from_out_connection_config::<Id>(out_connection_config),
                     self.active_connections.clone(),
                     self.config.optional_features.clone(),
                     self.config.peers_categories.clone(),
@@ -278,8 +278,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetIdTrait> PeerNetMan
     }
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetIdTrait> Drop
-    for PeerNetManager<T, M, I>
+impl<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait> Drop
+    for PeerNetManager<T, M, Id>
 {
     fn drop(&mut self) {
         {

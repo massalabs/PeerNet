@@ -43,7 +43,7 @@ pub enum TransportType {
 
 impl TransportType {
     /// Extract the transport type from `OutConnectionConfig`
-    pub fn from_out_connection_config<T: PeerNetIdTrait>(config: &OutConnectionConfig) -> Self {
+    pub fn from_out_connection_config<Id: PeerNetIdTrait>(config: &OutConnectionConfig) -> Self {
         match config {
             OutConnectionConfig::Tcp(_) => TransportType::Tcp,
             OutConnectionConfig::Quic(_) => TransportType::Quic,
@@ -54,9 +54,9 @@ impl TransportType {
 // We define an enum instead of using a trait object because
 // we want to save runtime costs
 // Only problem with that, people can't implement their own transport
-pub(crate) enum InternalTransportType<T: PeerNetIdTrait> {
-    Tcp(TcpTransport<T>),
-    Quic(QuicTransport<T>),
+pub(crate) enum InternalTransportType<Id: PeerNetIdTrait> {
+    Tcp(TcpTransport<Id>),
+    Quic(QuicTransport<Id>),
 }
 
 /// All configurations for out connection depending on the transport type
@@ -82,7 +82,7 @@ pub enum OutConnectionConfig {
 
 // TODO: Macroize this I don't use enum_dispatch or enum_delegate as it generates a lot of code
 // to have everything generic and we don't need this.
-impl<T: PeerNetIdTrait> Transport for InternalTransportType<T> {
+impl<Id: PeerNetIdTrait> Transport for InternalTransportType<Id> {
     type OutConnectionConfig = OutConnectionConfig;
     type Endpoint = Endpoint;
 
@@ -153,23 +153,23 @@ impl<T: PeerNetIdTrait> Transport for InternalTransportType<T> {
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
         match endpoint {
-            Endpoint::Tcp(endpoint) => TcpTransport::<T>::send(endpoint, data),
-            Endpoint::Quic(endpoint) => QuicTransport::<T>::send(endpoint, data),
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send(endpoint, data),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::send(endpoint, data),
         }
     }
 
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         match endpoint {
-            Endpoint::Tcp(endpoint) => TcpTransport::<T>::receive(endpoint),
-            Endpoint::Quic(endpoint) => QuicTransport::<T>::receive(endpoint),
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
         }
     }
 }
 
-impl<T: PeerNetIdTrait> InternalTransportType<T> {
+impl<Id: PeerNetIdTrait> InternalTransportType<Id> {
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
-        active_connections: SharedActiveConnections<T>,
+        active_connections: SharedActiveConnections<Id>,
         features: PeerNetFeatures,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,

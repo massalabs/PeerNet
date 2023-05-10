@@ -30,23 +30,23 @@ impl Endpoint {
         }
     }
 
-    pub fn send<T: PeerNetIdTrait>(&mut self, data: &[u8]) -> PeerNetResult<()> {
+    pub fn send<Id: PeerNetIdTrait>(&mut self, data: &[u8]) -> PeerNetResult<()> {
         match self {
-            Endpoint::Tcp(endpoint) => TcpTransport::<T>::send(endpoint, data),
-            Endpoint::Quic(endpoint) => QuicTransport::<T>::send(endpoint, data),
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send(endpoint, data),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::send(endpoint, data),
         }
     }
-    pub fn receive<T: PeerNetIdTrait>(&mut self) -> PeerNetResult<Vec<u8>> {
+    pub fn receive<Id: PeerNetIdTrait>(&mut self) -> PeerNetResult<Vec<u8>> {
         match self {
-            Endpoint::Tcp(endpoint) => TcpTransport::<T>::receive(endpoint),
-            Endpoint::Quic(endpoint) => QuicTransport::<T>::receive(endpoint),
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
         }
     }
 
-    pub(crate) fn handshake<T: PeerNetIdTrait>(
+    pub(crate) fn handshake<Id: PeerNetIdTrait>(
         &mut self,
         self_keypair: &KeyPair,
-    ) -> PeerNetResult<T> {
+    ) -> PeerNetResult<Id> {
         //TODO: Add version in handshake
         let mut self_random_bytes = [0u8; 32];
         StdRng::from_entropy().fill_bytes(&mut self_random_bytes);

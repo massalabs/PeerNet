@@ -20,13 +20,13 @@ use crate::{
 };
 
 pub trait InitConnectionHandler: Send + Clone + 'static {
-    fn perform_handshake<M: MessagesHandler, T: PeerNetIdTrait>(
+    fn perform_handshake<M: MessagesHandler, Id: PeerNetIdTrait>(
         &mut self,
         keypair: &KeyPair,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
         _messages_handler: M,
-    ) -> PeerNetResult<T> {
+    ) -> PeerNetResult<Id> {
         endpoint.handshake(keypair)
     }
 
@@ -104,12 +104,12 @@ impl Debug for PeerConnection {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetIdTrait>(
+pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
     message_handler: M,
-    active_connections: SharedActiveConnections<I>,
+    active_connections: SharedActiveConnections<Id>,
     peer_stop: Receiver<()>,
     connection_type: PeerConnectionType,
     category_name: Option<String>,
@@ -159,8 +159,15 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetI
                 return;
             }
         };
+        
+        // compare peer_id with self_keypair.get_public_key()
 
-        // TODO replace PeerID::from_public_key with generic fn
+        let comp = PeerId::from_public_key(self_keypair.get_public_key());
+
+        let idem = peer_id.equals(&comp);
+
+        
+
         if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
             peer_id.clone(),
             endpoint_connection,
@@ -178,7 +185,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetI
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn({
-            let write_peer_id = peer_id.clone();
+            let write_peer_id: Id = peer_id.clone();
             let write_active_connections = active_connections.clone();
             let mut write_endpoint = match endpoint.try_clone() {
                 Ok(write_endpoint) => write_endpoint,

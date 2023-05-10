@@ -40,8 +40,8 @@ pub struct TcpTransportConfig {
     default_category_info: PeerNetCategoryInfo,
 }
 
-pub(crate) struct TcpTransport<T: PeerNetIdTrait> {
-    pub active_connections: SharedActiveConnections<T>,
+pub(crate) struct TcpTransport<Id: PeerNetIdTrait> {
+    pub active_connections: SharedActiveConnections<Id>,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
     _features: PeerNetFeatures,
@@ -105,13 +105,13 @@ impl TcpEndpoint {
     }
 }
 
-impl<T: PeerNetIdTrait> TcpTransport<T> {
+impl<Id: PeerNetIdTrait> TcpTransport<Id> {
     pub fn new(
-        active_connections: SharedActiveConnections<T>,
+        active_connections: SharedActiveConnections<Id>,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
-    ) -> TcpTransport<T> {
+    ) -> TcpTransport<Id> {
         let (peer_stop_tx, peer_stop_rx) = unbounded();
         TcpTransport {
             active_connections,
@@ -129,7 +129,7 @@ impl<T: PeerNetIdTrait> TcpTransport<T> {
     }
 }
 
-impl<T: PeerNetIdTrait> Drop for TcpTransport<T> {
+impl<Id: PeerNetIdTrait> Drop for TcpTransport<Id> {
     fn drop(&mut self) {
         let all_addresses: Vec<SocketAddr> = self.listeners.keys().cloned().collect();
         all_addresses
@@ -138,7 +138,7 @@ impl<T: PeerNetIdTrait> Drop for TcpTransport<T> {
     }
 }
 
-impl<T: PeerNetIdTrait> Transport for TcpTransport<T> {
+impl<Id: PeerNetIdTrait> Transport for TcpTransport<Id> {
     type OutConnectionConfig = TcpOutConnectionConfig;
 
     type Endpoint = TcpEndpoint;
