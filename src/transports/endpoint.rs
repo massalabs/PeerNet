@@ -78,7 +78,7 @@ impl Endpoint {
         self.send::<Id>(&buf)?;
         let received: Vec<u8> = self.receive::<Id>()?;
 
-        let other_signature = S::from_bytes(received.as_slice().try_into().unwrap()).unwrap();
+        let other_signature = S::from_bytes(received.as_slice()).unwrap();
 
         // check their signature
         other_id

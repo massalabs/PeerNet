@@ -10,9 +10,7 @@ use crate::error::PeerNetResult;
 
 pub const PUBLIC_KEY_SIZE_BYTES: usize = massa_signature::PUBLIC_KEY_SIZE_BYTES;
 
-pub trait PeerNetKeyPair:
-    Send + Sync + Clone + Debug + HashTrait + Eq + PartialEq + Display
-{
+pub trait PeerNetKeyPair: Send + Sync + Clone + Debug + Display + 'static {
     fn get_public_key<K: PeerNetPubKey>(&self) -> K;
     fn sign<S: PeerNetSignature>(&self, hash: &Hash) -> PeerNetResult<S>;
     fn to_bytes(&self) -> Vec<u8>;
@@ -20,7 +18,7 @@ pub trait PeerNetKeyPair:
 }
 
 /// Trait to implement with generic ID
-pub trait PeerNetId: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
+pub trait PeerNetId: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync + 'static {
     fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
     where
         Self: Sized;
@@ -33,12 +31,12 @@ pub trait PeerNetId: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
     fn from_public_key<K: PeerNetPubKey>(public_key: K) -> Self;
 }
 
-pub trait PeerNetPubKey: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
+pub trait PeerNetPubKey: Clone {
     fn to_bytes(&self) -> &[u8];
     fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self>;
 }
 
-pub trait PeerNetSignature: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
+pub trait PeerNetSignature: Debug + Clone {
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self>;
 }
