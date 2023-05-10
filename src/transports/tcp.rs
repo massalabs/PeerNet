@@ -9,6 +9,7 @@ use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
 use crate::network_manager::{to_canonical, SharedActiveConnections};
 use crate::peer::{new_peer, InitConnectionHandler, PeerConnectionType};
+use crate::peer_id::PeerNetIdTrait;
 use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
@@ -39,8 +40,8 @@ pub struct TcpTransportConfig {
     default_category_info: PeerNetCategoryInfo,
 }
 
-pub(crate) struct TcpTransport {
-    pub active_connections: SharedActiveConnections,
+pub(crate) struct TcpTransport<T: PeerNetIdTrait> {
+    pub active_connections: SharedActiveConnections<T>,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
     _features: PeerNetFeatures,
@@ -104,13 +105,13 @@ impl TcpEndpoint {
     }
 }
 
-impl TcpTransport {
+impl<T: PeerNetIdTrait> TcpTransport<T> {
     pub fn new(
-        active_connections: SharedActiveConnections,
+        active_connections: SharedActiveConnections<T>,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
-    ) -> TcpTransport {
+    ) -> TcpTransport<T> {
         let (peer_stop_tx, peer_stop_rx) = unbounded();
         TcpTransport {
             active_connections,
@@ -128,7 +129,7 @@ impl TcpTransport {
     }
 }
 
-impl Drop for TcpTransport {
+impl<T: PeerNetIdTrait> Drop for TcpTransport<T> {
     fn drop(&mut self) {
         let all_addresses: Vec<SocketAddr> = self.listeners.keys().cloned().collect();
         all_addresses
@@ -137,17 +138,17 @@ impl Drop for TcpTransport {
     }
 }
 
-impl Transport for TcpTransport {
+impl<T: PeerNetIdTrait> Transport for TcpTransport<T> {
     type OutConnectionConfig = TcpOutConnectionConfig;
 
     type Endpoint = TcpEndpoint;
 
-    fn start_listener<T: InitConnectionHandler, M: MessagesHandler>(
+    fn start_listener<H: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         message_handler: M,
-        mut init_connection_handler: T,
+        mut init_connection_handler: H,
     ) -> PeerNetResult<()> {
         let mut poll =
             Poll::new().map_err(|err| TcpError::InitListener.wrap().new("poll new", err, None))?;
@@ -282,14 +283,14 @@ impl Transport for TcpTransport {
         Ok(())
     }
 
-    fn try_connect<T: InitConnectionHandler, M: MessagesHandler>(
+    fn try_connect<H: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         timeout: Duration,
         _config: &Self::OutConnectionConfig,
         message_handler: M,
-        handshake_handler: T,
+        handshake_handler: H,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let peer_stop_rx = self.peer_stop_rx.clone();
         Ok(std::thread::Builder::new()

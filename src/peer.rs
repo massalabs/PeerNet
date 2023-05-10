@@ -6,6 +6,7 @@ use std::{fmt::Debug, net::SocketAddr};
 use crate::config::PeerNetCategoryInfo;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
+use crate::peer_id::PeerNetIdTrait;
 use crate::types::KeyPair;
 use crossbeam::{
     channel::{unbounded, Receiver, Sender, TryRecvError},
@@ -19,13 +20,13 @@ use crate::{
 };
 
 pub trait InitConnectionHandler: Send + Clone + 'static {
-    fn perform_handshake<M: MessagesHandler>(
+    fn perform_handshake<M: MessagesHandler, T: PeerNetIdTrait>(
         &mut self,
         keypair: &KeyPair,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
         _messages_handler: M,
-    ) -> PeerNetResult<PeerId> {
+    ) -> PeerNetResult<T> {
         endpoint.handshake(keypair)
     }
 
@@ -103,12 +104,12 @@ impl Debug for PeerConnection {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
+pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, I: PeerNetIdTrait>(
     self_keypair: KeyPair,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
     message_handler: M,
-    active_connections: SharedActiveConnections,
+    active_connections: SharedActiveConnections<I>,
     peer_stop: Receiver<()>,
     connection_type: PeerConnectionType,
     category_name: Option<String>,
@@ -158,6 +159,8 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 return;
             }
         };
+
+        // TODO replace PeerID::from_public_key with generic fn
         if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
             peer_id.clone(),
             endpoint_connection,

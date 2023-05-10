@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     config::PeerNetCategoryInfo, messages::MessagesHandler, peer::PeerConnectionType,
-    types::KeyPair,
+    peer_id::PeerNetIdTrait, types::KeyPair,
 };
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
@@ -19,7 +19,6 @@ use crate::{
     error::{PeerNetError, PeerNetResult},
     network_manager::SharedActiveConnections,
     peer::{new_peer, InitConnectionHandler},
-    peer_id::PeerId,
     transports::{Endpoint, TransportErrorType},
 };
 
@@ -54,8 +53,8 @@ type QuicConnection = (
 );
 type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
 
-pub(crate) struct QuicTransport {
-    pub active_connections: SharedActiveConnections,
+pub(crate) struct QuicTransport<T: PeerNetIdTrait> {
+    pub active_connections: SharedActiveConnections<T>,
     //pub fallback_function: Option<&'static FallbackFunction>,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
@@ -88,16 +87,14 @@ impl QuicEndpoint {
 
 #[derive(Clone)]
 pub struct QuicOutConnectionConfig {
-    // the peer we want to connect to
-    pub identity: PeerId,
     pub local_addr: SocketAddr,
 }
 
-impl QuicTransport {
+impl<T: PeerNetIdTrait> QuicTransport<T> {
     pub fn new(
-        active_connections: SharedActiveConnections,
+        active_connections: SharedActiveConnections<T>,
         features: PeerNetFeatures,
-    ) -> QuicTransport {
+    ) -> QuicTransport<T> {
         let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
@@ -111,17 +108,17 @@ impl QuicTransport {
     }
 }
 
-impl Transport for QuicTransport {
+impl<T: PeerNetIdTrait> Transport for QuicTransport<T> {
     type OutConnectionConfig = QuicOutConnectionConfig;
 
     type Endpoint = QuicEndpoint;
 
-    fn start_listener<T: InitConnectionHandler, M: MessagesHandler>(
+    fn start_listener<H: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         message_handler: M,
-        init_connection_handler: T,
+        init_connection_handler: H,
     ) -> PeerNetResult<()> {
         let mut poll = Poll::new()
             .map_err(|err| QuicError::InitListener.wrap().new("init poll", err, None))?;
@@ -421,14 +418,14 @@ impl Transport for QuicTransport {
         Ok(())
     }
 
-    fn try_connect<T: InitConnectionHandler, M: MessagesHandler>(
+    fn try_connect<H: InitConnectionHandler, M: MessagesHandler>(
         &mut self,
         self_keypair: KeyPair,
         address: SocketAddr,
         _timeout: Duration,
         config: &Self::OutConnectionConfig,
         message_handler: M,
-        init_connection_handler: T,
+        init_connection_handler: H,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let stop_peer_rx = self.stop_peer_rx.clone();
         //TODO: Use timeout

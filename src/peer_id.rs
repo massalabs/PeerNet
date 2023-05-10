@@ -3,6 +3,8 @@
 use crate::error::{PeerNetError, PeerNetErrorData, PeerNetResult};
 use crate::types::{PublicKey, Signature, PUBLIC_KEY_SIZE_BYTES};
 use massa_hash::Hash;
+use std::fmt::Debug;
+use std::hash::Hash as HashTrait;
 use std::{
     fmt::{Display, Formatter},
     str::FromStr,
@@ -16,10 +18,50 @@ pub struct PeerId {
     public_key: PublicKey,
 }
 
+/// Trait to implement with generic ID
+pub trait PeerNetIdTrait: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
+    fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
+    where
+        Self: Sized;
+    fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()>;
+}
+
+// impl PeerNetIdTrait for PeerId {
+//     /// Create a new PeerId from a byte array
+//     fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<PeerId> {
+//         Ok(PeerId {
+//             public_key: PublicKey::from_bytes(bytes).map_err(|err| {
+//                 PeerNetError::PeerIdError.new(
+//                     "peerid pubk from bytes",
+//                     err,
+//                     Some(format!("{:?}", bytes)),
+//                 )
+//             })?,
+//         })
+//     }
+//     /// Verify a signature
+//     fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()> {
+//         self.public_key
+//             .verify_signature(hash, signature)
+//             .map_err(|err| {
+//                 PeerNetError::PeerIdError.new(
+//                     "peeid verify sign",
+//                     err,
+//                     Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
+//                 )
+//             })
+//     }
+// }
+
 impl PeerId {
     /// Create a new PeerId from a public key
     pub fn from_public_key(public_key: PublicKey) -> PeerId {
         PeerId { public_key }
+    }
+
+    /// Convert the PeerId to a byte array
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.public_key.to_bytes().to_vec()
     }
 
     /// Create a new PeerId from a byte array
@@ -34,12 +76,6 @@ impl PeerId {
             })?,
         })
     }
-
-    /// Convert the PeerId to a byte array
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.public_key.to_bytes().to_vec()
-    }
-
     /// Verify a signature
     pub fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()> {
         self.public_key

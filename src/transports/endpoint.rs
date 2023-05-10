@@ -3,7 +3,7 @@ use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
 use crate::error::{PeerNetError, PeerNetResult};
-use crate::peer_id::PeerId;
+use crate::peer_id::{PeerId, PeerNetIdTrait};
 use crate::types::{KeyPair, PublicKey, Signature};
 
 use super::quic::QuicEndpoint;
@@ -30,20 +30,23 @@ impl Endpoint {
         }
     }
 
-    pub fn send(&mut self, data: &[u8]) -> PeerNetResult<()> {
+    pub fn send<T: PeerNetIdTrait>(&mut self, data: &[u8]) -> PeerNetResult<()> {
         match self {
-            Endpoint::Tcp(endpoint) => TcpTransport::send(endpoint, data),
-            Endpoint::Quic(endpoint) => QuicTransport::send(endpoint, data),
+            Endpoint::Tcp(endpoint) => TcpTransport::<T>::send(endpoint, data),
+            Endpoint::Quic(endpoint) => QuicTransport::<T>::send(endpoint, data),
         }
     }
-    pub fn receive(&mut self) -> PeerNetResult<Vec<u8>> {
+    pub fn receive<T: PeerNetIdTrait>(&mut self) -> PeerNetResult<Vec<u8>> {
         match self {
-            Endpoint::Tcp(endpoint) => TcpTransport::receive(endpoint),
-            Endpoint::Quic(endpoint) => QuicTransport::receive(endpoint),
+            Endpoint::Tcp(endpoint) => TcpTransport::<T>::receive(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::<T>::receive(endpoint),
         }
     }
 
-    pub(crate) fn handshake(&mut self, self_keypair: &KeyPair) -> PeerNetResult<PeerId> {
+    pub(crate) fn handshake<T: PeerNetIdTrait>(
+        &mut self,
+        self_keypair: &KeyPair,
+    ) -> PeerNetResult<T> {
         //TODO: Add version in handshake
         let mut self_random_bytes = [0u8; 32];
         StdRng::from_entropy().fill_bytes(&mut self_random_bytes);
