@@ -6,8 +6,7 @@ use std::{fmt::Debug, net::SocketAddr};
 use crate::config::PeerNetCategoryInfo;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
-use crate::peer_id::PeerNetIdTrait;
-use crate::types::KeyPair;
+use crate::types::{PeerNetKeyPair, PeerNetId};
 use crossbeam::{
     channel::{unbounded, Receiver, Sender, TryRecvError},
     select,
@@ -20,9 +19,9 @@ use crate::{
 };
 
 pub trait InitConnectionHandler: Send + Clone + 'static {
-    fn perform_handshake<M: MessagesHandler, Id: PeerNetIdTrait>(
+    fn perform_handshake<M: MessagesHandler, Id: PeerNetId, K: PeerNetKeyPair>(
         &mut self,
-        keypair: &KeyPair,
+        keypair: &K,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
         _messages_handler: M,
@@ -30,9 +29,9 @@ pub trait InitConnectionHandler: Send + Clone + 'static {
         endpoint.handshake(keypair)
     }
 
-    fn fallback_function(
+    fn fallback_function<K: PeerNetKeyPair>(
         &mut self,
-        _keypair: &KeyPair,
+        _keypair: &K,
         _endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
     ) -> PeerNetResult<()> {
@@ -104,8 +103,8 @@ impl Debug for PeerConnection {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait>(
-    self_keypair: KeyPair,
+pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetId, K: PeerNetKeyPair>(
+    self_keypair: K,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
     message_handler: M,
@@ -160,14 +159,6 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNet
             }
         };
         
-        // compare peer_id with self_keypair.get_public_key()
-
-        let comp = PeerId::from_public_key(self_keypair.get_public_key());
-
-        let idem = peer_id.equals(&comp);
-
-        
-
         if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
             peer_id.clone(),
             endpoint_connection,

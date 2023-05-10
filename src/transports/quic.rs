@@ -7,8 +7,10 @@ use std::{
 };
 
 use crate::{
-    config::PeerNetCategoryInfo, messages::MessagesHandler, peer::PeerConnectionType,
-    peer_id::PeerNetIdTrait, types::KeyPair,
+    config::PeerNetCategoryInfo,
+    messages::MessagesHandler,
+    peer::PeerConnectionType,
+    types::{PeerNetId, PeerNetKeyPair},
 };
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
@@ -53,7 +55,7 @@ type QuicConnection = (
 );
 type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
 
-pub(crate) struct QuicTransport<Id: PeerNetIdTrait> {
+pub(crate) struct QuicTransport<Id: PeerNetId> {
     pub active_connections: SharedActiveConnections<Id>,
     //pub fallback_function: Option<&'static FallbackFunction>,
     pub out_connection_attempts: WaitGroup,
@@ -90,7 +92,7 @@ pub struct QuicOutConnectionConfig {
     pub local_addr: SocketAddr,
 }
 
-impl<Id: PeerNetIdTrait> QuicTransport<Id> {
+impl<Id: PeerNetId> QuicTransport<Id> {
     pub fn new(
         active_connections: SharedActiveConnections<Id>,
         features: PeerNetFeatures,
@@ -108,14 +110,14 @@ impl<Id: PeerNetIdTrait> QuicTransport<Id> {
     }
 }
 
-impl<Id: PeerNetIdTrait> Transport for QuicTransport<Id> {
+impl<Id: PeerNetId> Transport for QuicTransport<Id> {
     type OutConnectionConfig = QuicOutConnectionConfig;
 
     type Endpoint = QuicEndpoint;
 
-    fn start_listener<H: InitConnectionHandler, M: MessagesHandler>(
+    fn start_listener<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
         &mut self,
-        self_keypair: KeyPair,
+        self_keypair: K,
         address: SocketAddr,
         message_handler: M,
         init_connection_handler: H,
@@ -418,9 +420,9 @@ impl<Id: PeerNetIdTrait> Transport for QuicTransport<Id> {
         Ok(())
     }
 
-    fn try_connect<H: InitConnectionHandler, M: MessagesHandler>(
+    fn try_connect<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
         &mut self,
-        self_keypair: KeyPair,
+        self_keypair: K,
         address: SocketAddr,
         _timeout: Duration,
         config: &Self::OutConnectionConfig,

@@ -1,10 +1,10 @@
 //! Definition of the PeerId type
 
 use crate::error::{PeerNetError, PeerNetErrorData, PeerNetResult};
-use crate::types::{PublicKey, Signature, PUBLIC_KEY_SIZE_BYTES};
+use crate::types::{PeerNetId, PeerNetKeyPair, PublicKey, Signature, PUBLIC_KEY_SIZE_BYTES};
 use massa_hash::Hash;
 use std::fmt::Debug;
-use std::hash::Hash as HashTrait;
+
 use std::{
     fmt::{Display, Formatter},
     str::FromStr,
@@ -12,57 +12,49 @@ use std::{
 
 /// Representation of a peer id
 #[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct PeerId {
+pub struct PeerId<K: PeerNetKeyPair> {
     /// The public key of the peer
     /// TODO: Offer multiple possibilities
-    public_key: PublicKey,
+    public_key: K,
 }
 
-/// Trait to implement with generic ID
-pub trait PeerNetIdTrait: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync {
-    fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
-    where
-        Self: Sized;
-    fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()>;
-
-    fn equals<Id: PeerNetIdTrait>(&self, other: &Id) -> bool;
-}
-
-impl PeerNetIdTrait for PeerId {
+impl<K: PeerNetKeyPair> PeerNetId for PeerId<K> {
     /// Create a new PeerId from a byte array
-    fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<PeerId> {
+    fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<PeerId<K>> {
+        // todo unwrap
         Ok(PeerId {
-            public_key: PublicKey::from_bytes(bytes).map_err(|err| {
-                PeerNetError::PeerIdError.new(
-                    "peerid pubk from bytes",
-                    err,
-                    Some(format!("{:?}", bytes)),
-                )
-            })?,
+            public_key: PublicKey::from_bytes(bytes)
+                .map_err(|err| {
+                    PeerNetError::PeerIdError.new(
+                        "peerid pubk from bytes",
+                        err,
+                        Some(format!("{:?}", bytes)),
+                    )
+                })
+                .unwrap(),
         })
     }
     /// Verify a signature
     fn verify_signature(&self, hash: &Hash, signature: &Signature) -> PeerNetResult<()> {
-        self.public_key
-            .verify_signature(hash, signature)
-            .map_err(|err| {
-                PeerNetError::PeerIdError.new(
-                    "peeid verify sign",
-                    err,
-                    Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
-                )
-            })
+        self.verify_signature(hash, signature).map_err(|err| {
+            PeerNetError::PeerIdError.new(
+                "peeid verify sign",
+                err,
+                Some(format!("hash: {:?}, signature: {:?}", hash, signature)),
+            )
+        })
     }
 
-    fn equals<Id: PeerNetIdTrait>(&self, other: &Id) -> bool {
-        //self.public_key == other.get_public_key();
-        true
+    fn from_public_key(public_key: K) -> Self {
+        PeerId {
+            public_key: public_key,
+        }
     }
 }
 
-impl PeerId {
+impl<K: PeerNetKeyPair> PeerId<K> {
     /// Create a new PeerId from a public key
-    pub fn from_public_key(public_key: PublicKey) -> PeerId {
+    pub fn from_public_key(public_key: K) -> PeerId<K> {
         PeerId { public_key }
     }
 
@@ -97,25 +89,28 @@ impl PeerId {
     // }
 }
 
-impl Display for PeerId {
+impl<K: PeerNetKeyPair> Display for PeerId<K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.public_key)
     }
 }
 
-impl FromStr for PeerId {
+impl<K: PeerNetKeyPair> FromStr for PeerId<K> {
     type Err = PeerNetErrorData;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // todo unwrap
         Ok(PeerId {
-            public_key: PublicKey::from_str(s).map_err(|err| {
-                PeerNetError::PeerIdError.new("peerid from str", err, Some(s.to_string()))
-            })?,
+            public_key: PublicKey::from_str(s)
+                .map_err(|err| {
+                    PeerNetError::PeerIdError.new("peerid from str", err, Some(s.to_string()))
+                })
+                .unwrap(),
         })
     }
 }
 
-impl ::serde::Serialize for PeerId {
+impl<K: PeerNetKeyPair> ::serde::Serialize for PeerId<K> {
     /// `::serde::Serialize` trait for `PeerId`
     ///
     /// # Example
@@ -133,13 +128,13 @@ impl ::serde::Serialize for PeerId {
     }
 }
 
-impl<'de> ::serde::Deserialize<'de> for PeerId {
+impl<'de, K: PeerNetKeyPair> ::serde::Deserialize<'de> for PeerId<K> {
     /// `::serde::Deserialize` trait for `PeerId`
-    fn deserialize<D: ::serde::Deserializer<'de>>(d: D) -> Result<PeerId, D::Error> {
+    fn deserialize<D: ::serde::Deserializer<'de>>(d: D) -> Result<PeerId<K>, D::Error> {
         struct Base58CheckVisitor;
 
         impl<'de> ::serde::de::Visitor<'de> for Base58CheckVisitor {
-            type Value = PeerId;
+            type Value = PeerId<K>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("an ASCII base58check string")

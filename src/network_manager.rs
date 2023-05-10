@@ -9,8 +9,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use crate::config::PeerNetCategoryInfo;
 use crate::messages::MessagesHandler;
 use crate::peer::PeerConnectionType;
-use crate::peer_id::PeerNetIdTrait;
-use crate::types::KeyPair;
+use crate::types::{PeerNetId, PeerNetKeyPair};
 use parking_lot::RwLock;
 
 use crate::{
@@ -23,7 +22,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ActiveConnections<Id: PeerNetIdTrait> {
+pub struct ActiveConnections<Id: PeerNetId> {
     pub nb_in_connections: usize,
     pub nb_out_connections: usize,
     /// Peers attempting to connect but not yet finished initialization
@@ -45,7 +44,7 @@ pub(crate) fn to_canonical(ip: IpAddr) -> IpAddr {
     }
 }
 
-impl<Id: PeerNetIdTrait> ActiveConnections<Id> {
+impl<Id: PeerNetId> ActiveConnections<Id> {
     /// Check if a new connection from a specific address can be accepted or not
     pub fn check_addr_accepted_pre_handshake(
         &self,
@@ -164,18 +163,25 @@ impl<Id: PeerNetIdTrait> ActiveConnections<Id> {
 pub type SharedActiveConnections<Id> = Arc<RwLock<ActiveConnections<Id>>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
-pub struct PeerNetManager<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait> {
-    pub config: PeerNetConfiguration<T, M>,
+pub struct PeerNetManager<
+    T: InitConnectionHandler,
+    M: MessagesHandler,
+    Id: PeerNetId,
+    K: PeerNetKeyPair,
+> {
+    pub config: PeerNetConfiguration<T, M, K>,
     pub active_connections: SharedActiveConnections<Id>,
     message_handler: M,
     init_connection_handler: T,
-    self_keypair: KeyPair,
+    self_keypair: K,
     transports: HashMap<TransportType, InternalTransportType<Id>>,
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait> PeerNetManager<T, M, Id> {
+impl<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetId, K: PeerNetKeyPair>
+    PeerNetManager<T, M, Id, K>
+{
     /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
-    pub fn new(config: PeerNetConfiguration<T, M>) -> PeerNetManager<T, M, Id> {
+    pub fn new(config: PeerNetConfiguration<T, M, K>) -> PeerNetManager<T, M, Id, K> {
         let self_keypair = config.self_keypair.clone();
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_out_connections: 0,
@@ -278,8 +284,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait> PeerNetMa
     }
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetIdTrait> Drop
-    for PeerNetManager<T, M, Id>
+impl<T: InitConnectionHandler, M: MessagesHandler, Id: PeerNetId, K: PeerNetKeyPair> Drop
+    for PeerNetManager<T, M, Id, K>
 {
     fn drop(&mut self) {
         {

@@ -3,12 +3,15 @@ use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
 use crate::error::{PeerNetError, PeerNetResult};
-use crate::peer_id::{PeerId, PeerNetIdTrait};
-use crate::types::{KeyPair, PublicKey, Signature};
+use crate::peer_id::PeerId;
+use crate::types::{PeerNetId, PeerNetKeyPair, PublicKey, Signature};
 
-use super::quic::QuicEndpoint;
 use super::tcp::TcpEndpoint;
-use super::{quic::QuicTransport, tcp::TcpTransport, Transport};
+use super::{
+    quic::{QuicEndpoint, QuicTransport},
+    tcp::TcpTransport,
+    Transport,
+};
 
 pub enum Endpoint {
     Tcp(TcpEndpoint),
@@ -30,22 +33,22 @@ impl Endpoint {
         }
     }
 
-    pub fn send<Id: PeerNetIdTrait>(&mut self, data: &[u8]) -> PeerNetResult<()> {
+    pub fn send<Id: PeerNetId>(&mut self, data: &[u8]) -> PeerNetResult<()> {
         match self {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send(endpoint, data),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send(endpoint, data),
         }
     }
-    pub fn receive<Id: PeerNetIdTrait>(&mut self) -> PeerNetResult<Vec<u8>> {
+    pub fn receive<Id: PeerNetId>(&mut self) -> PeerNetResult<Vec<u8>> {
         match self {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
         }
     }
 
-    pub(crate) fn handshake<Id: PeerNetIdTrait>(
+    pub(crate) fn handshake<Id: PeerNetId, K: PeerNetKeyPair>(
         &mut self,
-        self_keypair: &KeyPair,
+        self_keypair: &K,
     ) -> PeerNetResult<Id> {
         //TODO: Add version in handshake
         let mut self_random_bytes = [0u8; 32];

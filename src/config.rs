@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::messages::MessagesHandler;
 use crate::peer::InitConnectionHandler;
-use crate::types::KeyPair;
+use crate::types::PeerNetKeyPair;
 
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
@@ -22,9 +22,9 @@ pub struct PeerNetCategoryInfo {
 pub type PeerNetCategories = HashMap<String, (Vec<IpAddr>, PeerNetCategoryInfo)>;
 
 /// Struct containing the configuration for the PeerNet manager.
-pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler> {
+pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair> {
     /// Our peer id
-    pub self_keypair: KeyPair,
+    pub self_keypair: K,
     /// Optional function to trigger at handshake
     /// (local keypair, endpoint to the peer, remote peer_id, active_connections)
     pub init_connection_handler: T,
@@ -38,10 +38,12 @@ pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler> {
     pub default_category_info: PeerNetCategoryInfo,
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
-    pub fn default(init_connection_handler: T, message_handler: M) -> Self {
+impl<T: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>
+    PeerNetConfiguration<T, M, K>
+{
+    pub fn default(init_connection_handler: T, message_handler: M, keypair: K) -> Self {
         PeerNetConfiguration {
-            self_keypair: KeyPair::generate(),
+            self_keypair: keypair,
             init_connection_handler,
             optional_features: PeerNetFeatures::default(),
             message_handler,

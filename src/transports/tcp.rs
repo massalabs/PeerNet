@@ -9,12 +9,11 @@ use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
 use crate::network_manager::{to_canonical, SharedActiveConnections};
 use crate::peer::{new_peer, InitConnectionHandler, PeerConnectionType};
-use crate::peer_id::PeerNetIdTrait;
 use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
 
-use crate::types::KeyPair;
+use crate::types::{PeerNetId, PeerNetKeyPair};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
@@ -40,7 +39,7 @@ pub struct TcpTransportConfig {
     default_category_info: PeerNetCategoryInfo,
 }
 
-pub(crate) struct TcpTransport<Id: PeerNetIdTrait> {
+pub(crate) struct TcpTransport<Id: PeerNetId> {
     pub active_connections: SharedActiveConnections<Id>,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
@@ -105,7 +104,7 @@ impl TcpEndpoint {
     }
 }
 
-impl<Id: PeerNetIdTrait> TcpTransport<Id> {
+impl<Id: PeerNetId> TcpTransport<Id> {
     pub fn new(
         active_connections: SharedActiveConnections<Id>,
         peer_categories: PeerNetCategories,
@@ -129,7 +128,7 @@ impl<Id: PeerNetIdTrait> TcpTransport<Id> {
     }
 }
 
-impl<Id: PeerNetIdTrait> Drop for TcpTransport<Id> {
+impl<Id: PeerNetId> Drop for TcpTransport<Id> {
     fn drop(&mut self) {
         let all_addresses: Vec<SocketAddr> = self.listeners.keys().cloned().collect();
         all_addresses
@@ -138,14 +137,14 @@ impl<Id: PeerNetIdTrait> Drop for TcpTransport<Id> {
     }
 }
 
-impl<Id: PeerNetIdTrait> Transport for TcpTransport<Id> {
+impl<Id: PeerNetId> Transport for TcpTransport<Id> {
     type OutConnectionConfig = TcpOutConnectionConfig;
 
     type Endpoint = TcpEndpoint;
 
-    fn start_listener<H: InitConnectionHandler, M: MessagesHandler>(
+    fn start_listener<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
         &mut self,
-        self_keypair: KeyPair,
+        self_keypair: K,
         address: SocketAddr,
         message_handler: M,
         mut init_connection_handler: H,
@@ -283,9 +282,9 @@ impl<Id: PeerNetIdTrait> Transport for TcpTransport<Id> {
         Ok(())
     }
 
-    fn try_connect<H: InitConnectionHandler, M: MessagesHandler>(
+    fn try_connect<H: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>(
         &mut self,
-        self_keypair: KeyPair,
+        self_keypair: K,
         address: SocketAddr,
         timeout: Duration,
         _config: &Self::OutConnectionConfig,
