@@ -13,7 +13,7 @@ use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
 
-use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey};
+use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
@@ -147,6 +147,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
         M: MessagesHandler,
         K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
+        S: PeerNetSignature,
     >(
         &mut self,
         self_keypair: K,
@@ -254,7 +255,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                         continue;
                                     }
-                                    new_peer::<_, _, _, _,PubKey>(
+                                    new_peer::<H, M, Id, K, PubKey, S>(
                                         self_keypair.clone(),
                                         endpoint,
                                         init_connection_handler.clone(),
@@ -292,6 +293,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
         M: MessagesHandler,
         K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
+        S: PeerNetSignature,
     >(
         &mut self,
         self_keypair: K,
@@ -330,7 +332,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                         Some((category_name, info)) => (Some(category_name.clone()), info.1),
                         None => (None, config.default_category_info),
                     };
-                    new_peer::<_, _, _, _, PubKey>(
+                    new_peer::<H, M, Id, K, PubKey, S>(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
                             address,
