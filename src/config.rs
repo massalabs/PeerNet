@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::messages::MessagesHandler;
 use crate::peer::InitConnectionHandler;
-use crate::types::PeerNetKeyPair;
+use crate::types::{PeerNetKeyPair, PeerNetPubKey};
 
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
@@ -22,7 +22,12 @@ pub struct PeerNetCategoryInfo {
 pub type PeerNetCategories = HashMap<String, (Vec<IpAddr>, PeerNetCategoryInfo)>;
 
 /// Struct containing the configuration for the PeerNet manager.
-pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair> {
+pub struct PeerNetConfiguration<
+    T: InitConnectionHandler,
+    M: MessagesHandler,
+    K: PeerNetKeyPair<PubKey>,
+    PubKey: PeerNetPubKey,
+> {
     /// Our peer id
     pub self_keypair: K,
     /// Optional function to trigger at handshake
@@ -36,12 +41,19 @@ pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler, K:
     pub peers_categories: PeerNetCategories,
     /// Default category info for all peers not in a specific category (category info, number of connections accepted only for handshake //TODO: Remove when refactored on massa side)
     pub default_category_info: PeerNetCategoryInfo,
+
+    pub public_key: PubKey,
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>
-    PeerNetConfiguration<T, M, K>
+impl<
+        T: InitConnectionHandler,
+        M: MessagesHandler,
+        K: PeerNetKeyPair<PubKey>,
+        PubKey: PeerNetPubKey,
+    > PeerNetConfiguration<T, M, K, PubKey>
 {
     pub fn default(init_connection_handler: T, message_handler: M, keypair: K) -> Self {
+        let pub_k = keypair.get_public_key();
         PeerNetConfiguration {
             self_keypair: keypair,
             init_connection_handler,
@@ -53,6 +65,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler, K: PeerNetKeyPair>
                 max_in_connections_post_handshake: 0,
                 max_in_connections_per_ip: 0,
             },
+            public_key: pub_k,
         }
     }
 }

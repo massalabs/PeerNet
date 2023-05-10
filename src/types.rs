@@ -10,8 +10,8 @@ use crate::error::PeerNetResult;
 
 pub const PUBLIC_KEY_SIZE_BYTES: usize = massa_signature::PUBLIC_KEY_SIZE_BYTES;
 
-pub trait PeerNetKeyPair: Send + Sync + Clone + Debug + Display + 'static {
-    fn get_public_key<K: PeerNetPubKey>(&self) -> K;
+pub trait PeerNetKeyPair<K>: Send + Sync + Clone + Debug + Display + 'static {
+    fn get_public_key(&self) -> K;
     fn sign<S: PeerNetSignature>(&self, hash: &Hash) -> PeerNetResult<S>;
     fn to_bytes(&self) -> Vec<u8>;
     // fn from_bytes(bytes: &[u8]) -> Self;

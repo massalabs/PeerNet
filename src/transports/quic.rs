@@ -118,7 +118,7 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
     fn start_listener<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
     >(
@@ -429,7 +429,7 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
     fn try_connect<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
     >(
