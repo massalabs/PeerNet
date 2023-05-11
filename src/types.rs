@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::hash::Hash as HashTrait;
+use std::hash::Hash;
 
 use crate::error::PeerNetResult;
 
@@ -14,7 +14,7 @@ pub trait PeerNetKeyPair: Send + Sync + Clone + Debug + Display + 'static {
 }
 
 /// Trait to implement with generic ID
-pub trait PeerNetId: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync + 'static {
+pub trait PeerNetId: PartialEq + Eq + Hash + Debug + Clone + Send + Sync + 'static {
     // fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
     // where
     //     Self: Sized;
