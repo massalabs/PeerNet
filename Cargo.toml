@@ -14,7 +14,7 @@ enum_delegate = "0.2.0"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 #massa_hash = { git = "https://github.com/massalabs/massa", package = "massa_hash" }
 #massa_serialization = { git = "https://github.com/massalabs/massa", package = "massa_serialization" }
-massa_signature = { git = "https://github.com/massalabs/massa", package = "massa_signature" }
+#massa_signature = { git = "https://github.com/massalabs/massa", package = "massa_signature" }
 serde = { version = "1.0", features = ["derive"] }
 stream_limiter = "1.2.0"
 thiserror = "1.0.39"

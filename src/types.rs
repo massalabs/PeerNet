@@ -1,13 +1,10 @@
-pub use massa_signature::KeyPair;
-pub use massa_signature::PublicKey;
-pub use massa_signature::Signature;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash as HashTrait;
 
 use crate::error::PeerNetResult;
 
-pub const PUBLIC_KEY_SIZE_BYTES: usize = massa_signature::PUBLIC_KEY_SIZE_BYTES;
+// pub const PUBLIC_KEY_SIZE_BYTES: usize = massa_signature::PUBLIC_KEY_SIZE_BYTES;
 
 pub trait PeerNetKeyPair: Send + Sync + Clone + Debug + Display + 'static {
     fn get_public_key<K: PeerNetPubKey>(&self) -> K;
@@ -18,9 +15,9 @@ pub trait PeerNetKeyPair: Send + Sync + Clone + Debug + Display + 'static {
 
 /// Trait to implement with generic ID
 pub trait PeerNetId: PartialEq + Eq + HashTrait + Debug + Clone + Send + Sync + 'static {
-    fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
-    where
-        Self: Sized;
+    // fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
+    // where
+    //     Self: Sized;
     fn verify_signature<S: PeerNetSignature, H: PeerNetHasher>(
         &self,
         hash: &H,
