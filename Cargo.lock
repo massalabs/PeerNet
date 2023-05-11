@@ -520,7 +520,6 @@ version = "0.1.0"
 dependencies = [
  "crossbeam",
  "enum_delegate",
- "massa_hash",
  "massa_signature",
  "mio",
  "parking_lot",
