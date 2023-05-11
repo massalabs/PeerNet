@@ -20,7 +20,7 @@ pub mod endpoint;
 mod quic;
 mod tcp;
 
-use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
+use crate::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 pub use quic::QuicOutConnectionConfig;
 use serde::{Deserialize, Serialize};
 pub use tcp::TcpOutConnectionConfig;
@@ -88,9 +88,10 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     fn start_listener<
         H: InitConnectionHandler + 'static,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,
@@ -100,14 +101,14 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     ) -> PeerNetResult<()> {
         match self {
             InternalTransportType::Tcp(transport) => transport
-                .start_listener::<_, M, K, PubKey, S>(
+                .start_listener::<_, M, K, PubKey, S, Hasher>(
                     self_keypair,
                     address,
                     message_handler,
                     init_connection_handler,
                 ),
             InternalTransportType::Quic(transport) => transport
-                .start_listener::<_, M, K, PubKey, S>(
+                .start_listener::<_, M, K, PubKey, S, Hasher>(
                     self_keypair,
                     address,
                     message_handler,
@@ -119,9 +120,10 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     fn try_connect<
         H: InitConnectionHandler + 'static,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,
@@ -133,25 +135,27 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         match self {
             InternalTransportType::Tcp(transport) => match config {
-                OutConnectionConfig::Tcp(config) => transport.try_connect::<H, M, K, PubKey, S>(
-                    self_keypair,
-                    address,
-                    timeout,
-                    config,
-                    message_handler,
-                    init_connection_handler,
-                ),
+                OutConnectionConfig::Tcp(config) => transport
+                    .try_connect::<H, M, K, PubKey, S, Hasher>(
+                        self_keypair,
+                        address,
+                        timeout,
+                        config,
+                        message_handler,
+                        init_connection_handler,
+                    ),
                 _ => Err(PeerNetError::WrongConfigType.error("try_connect match tcp", None)),
             },
             InternalTransportType::Quic(transport) => match config {
-                OutConnectionConfig::Quic(config) => transport.try_connect::<H, M, K, PubKey, S>(
-                    self_keypair,
-                    address,
-                    timeout,
-                    config,
-                    message_handler,
-                    init_connection_handler,
-                ),
+                OutConnectionConfig::Quic(config) => transport
+                    .try_connect::<H, M, K, PubKey, S, Hasher>(
+                        self_keypair,
+                        address,
+                        timeout,
+                        config,
+                        message_handler,
+                        init_connection_handler,
+                    ),
                 _ => Err(PeerNetError::WrongConfigType.error("try_connect match quic", None)),
             },
         }
@@ -212,9 +216,10 @@ pub trait Transport {
     fn start_listener<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,
@@ -226,9 +231,10 @@ pub trait Transport {
     fn try_connect<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,

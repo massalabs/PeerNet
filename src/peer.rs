@@ -6,7 +6,7 @@ use std::{fmt::Debug, net::SocketAddr};
 use crate::config::PeerNetCategoryInfo;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
-use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
+use crate::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 use crossbeam::{
     channel::{unbounded, Receiver, Sender, TryRecvError},
     select,
@@ -21,9 +21,10 @@ pub trait InitConnectionHandler: Send + Clone + 'static {
     fn perform_handshake<
         M: MessagesHandler,
         Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         S: PeerNetSignature,
         PubKey: PeerNetPubKey,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         keypair: &K,
@@ -31,15 +32,16 @@ pub trait InitConnectionHandler: Send + Clone + 'static {
         _listeners: &HashMap<SocketAddr, TransportType>,
         _messages_handler: M,
     ) -> PeerNetResult<Id> {
-        endpoint.handshake::<Id, K, S, PubKey>(keypair)
+        endpoint.handshake::<Id, K, S, PubKey, Hasher>(keypair)
     }
 
-    fn fallback_function<K: PeerNetKeyPair<PubKey>, PubKey: PeerNetPubKey>(
+    fn fallback_function<K: PeerNetKeyPair, PubKey: PeerNetPubKey, Hasher: PeerNetHasher>(
         &mut self,
         _keypair: &K,
         _endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
     ) -> PeerNetResult<()> {
+        // TODO ?
         Ok(())
     }
 }
@@ -112,9 +114,10 @@ pub(crate) fn new_peer<
     T: InitConnectionHandler,
     M: MessagesHandler,
     Id: PeerNetId,
-    K: PeerNetKeyPair<PubKey>,
+    K: PeerNetKeyPair,
     PubKey: PeerNetPubKey,
     S: PeerNetSignature,
+    Hasher: PeerNetHasher,
 >(
     self_keypair: K,
     mut endpoint: Endpoint,
@@ -135,7 +138,7 @@ pub(crate) fn new_peer<
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = match handshake_handler.perform_handshake::<M, Id, K, S, PubKey>(
+        let peer_id = match handshake_handler.perform_handshake::<M, Id, K, S, PubKey, Hasher>(
             &self_keypair,
             &mut endpoint,
             &listeners,
@@ -171,7 +174,7 @@ pub(crate) fn new_peer<
             }
         };
 
-        let id = Id::from_public_key(self_keypair.get_public_key());
+        let id = Id::from_public_key(self_keypair.get_public_key::<PubKey>());
         // if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
         if peer_id == id || !active_connections.write().confirm_connection(
             peer_id.clone(),

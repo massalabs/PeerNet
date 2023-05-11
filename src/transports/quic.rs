@@ -10,7 +10,7 @@ use crate::{
     config::PeerNetCategoryInfo,
     messages::MessagesHandler,
     peer::PeerConnectionType,
-    types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature},
+    types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature},
 };
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
@@ -118,9 +118,10 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
     fn start_listener<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,
@@ -278,7 +279,7 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
                                                     (connection, send_rx, recv_tx, false),
                                                 );
                                             }
-                                            new_peer::<H, M, Id, K, PubKey, S>(
+                                            new_peer::<H, M, Id, K, PubKey, S, Hasher>(
                                                 self_keypair.clone(),
                                                 Endpoint::Quic(QuicEndpoint {
                                                     data_receiver: recv_rx,
@@ -429,9 +430,10 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
     fn try_connect<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,
@@ -449,7 +451,7 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
                 .get(&config.local_addr)
                 .expect("Listener not found")
         } else {
-            self.start_listener::<H, M, K, PubKey, S>(
+            self.start_listener::<H, M, K, PubKey, S, Hasher>(
                 self_keypair.clone(),
                 config.local_addr,
                 message_handler.clone(),
@@ -538,7 +540,7 @@ impl<Id: PeerNetId> Transport for QuicTransport<Id> {
                     //TODO: Config
                     let (send_tx, _send_rx) = channel::bounded(10000);
                     let (_recv_tx, recv_rx) = channel::bounded(10000);
-                    new_peer::<H, M, Id, K, PubKey, S>(
+                    new_peer::<H, M, Id, K, PubKey, S, Hasher>(
                         self_keypair.clone(),
                         Endpoint::Quic(QuicEndpoint {
                             data_receiver: recv_rx,

@@ -1,9 +1,8 @@
-use massa_hash::Hash;
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 
 use crate::error::{PeerNetError, PeerNetResult};
-use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
+use crate::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 
 use super::tcp::TcpEndpoint;
 use super::{
@@ -47,9 +46,10 @@ impl Endpoint {
 
     pub(crate) fn handshake<
         Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         S: PeerNetSignature,
         PubKey: PeerNetPubKey,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: &K,
@@ -57,10 +57,10 @@ impl Endpoint {
         //TODO: Add version in handshake
         let mut self_random_bytes = [0u8; 32];
         StdRng::from_entropy().fill_bytes(&mut self_random_bytes);
-        let self_random_hash = Hash::compute_from(&self_random_bytes);
+        let self_random_hash = Hasher::compute_from(&self_random_bytes);
         let mut buf = [0u8; 64];
         buf[..32].copy_from_slice(&self_random_bytes);
-        buf[32..].copy_from_slice(self_keypair.get_public_key().to_bytes());
+        buf[32..].copy_from_slice(self_keypair.get_public_key::<PubKey>().to_bytes());
 
         self.send::<Id>(&buf)?;
         let received = self.receive::<Id>()?;
@@ -70,8 +70,8 @@ impl Endpoint {
         let other_id = Id::from_public_key(other_public_key);
 
         // sign their random bytes
-        let other_random_hash = Hash::compute_from(other_random_bytes);
-        let self_signature: S = self_keypair.sign(&other_random_hash).unwrap();
+        let other_random_hash = Hasher::compute_from(other_random_bytes);
+        let self_signature = self_keypair.sign::<S, Hasher>(&other_random_hash).unwrap();
 
         buf.copy_from_slice(&self_signature.to_bytes());
 

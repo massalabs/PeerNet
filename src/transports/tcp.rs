@@ -13,7 +13,7 @@ use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
 
-use crate::types::{PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
+use crate::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
@@ -145,9 +145,10 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
     fn start_listener<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,
@@ -246,7 +247,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
-                                        if let Err(err) = init_connection_handler.fallback_function(
+                                        if let Err(err) = init_connection_handler.fallback_function::<K, PubKey, Hasher>(
                                             &self_keypair,
                                             &mut endpoint,
                                             &listeners,
@@ -255,7 +256,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                         continue;
                                     }
-                                    new_peer::<H, M, Id, K, PubKey, S>(
+                                    new_peer::<H, M, Id, K, PubKey, S, Hasher>(
                                         self_keypair.clone(),
                                         endpoint,
                                         init_connection_handler.clone(),
@@ -291,9 +292,10 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
     fn try_connect<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
+        K: PeerNetKeyPair,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
+        Hasher: PeerNetHasher,
     >(
         &mut self,
         self_keypair: K,
@@ -332,7 +334,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                         Some((category_name, info)) => (Some(category_name.clone()), info.1),
                         None => (None, config.default_category_info),
                     };
-                    new_peer::<H, M, Id, K, PubKey, S>(
+                    new_peer::<H, M, Id, K, PubKey, S, Hasher>(
                         self_keypair.clone(),
                         Endpoint::Tcp(TcpEndpoint {
                             address,
