@@ -180,6 +180,8 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             }
         }
 
+        println!("Peer connected: {:?}", peer_id);
+
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288
         let write_thread_handle = std::thread::spawn({
