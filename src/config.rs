@@ -32,6 +32,8 @@ pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler> {
     pub optional_features: PeerNetFeatures,
     /// Structure for message handler
     pub message_handler: M,
+    /// Maximum number of in connections if we have more we just don't accept the connection
+    pub max_in_connections: usize,
     /// List of categories of peers
     pub peers_categories: PeerNetCategories,
     /// Default category info for all peers not in a specific category (category info, number of connections accepted only for handshake //TODO: Remove when refactored on massa side)
@@ -42,6 +44,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
     pub fn default(init_connection_handler: T, message_handler: M) -> Self {
         PeerNetConfiguration {
             self_keypair: KeyPair::generate(),
+            max_in_connections: 10,
             init_connection_handler,
             optional_features: PeerNetFeatures::default(),
             message_handler,

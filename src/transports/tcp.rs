@@ -34,6 +34,7 @@ impl TcpError {
 
 #[derive(Default, Clone)]
 pub struct TcpTransportConfig {
+    max_in_connections: usize,
     out_connection_config: TcpOutConnectionConfig,
     peer_categories: PeerNetCategories,
     default_category_info: PeerNetCategoryInfo,
@@ -107,6 +108,7 @@ impl TcpEndpoint {
 impl TcpTransport {
     pub fn new(
         active_connections: SharedActiveConnections,
+        max_in_connections: usize,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
@@ -120,6 +122,7 @@ impl TcpTransport {
             peer_stop_rx,
             peer_stop_tx,
             config: TcpTransportConfig {
+                max_in_connections,
                 out_connection_config: Default::default(),
                 peer_categories,
                 default_category_info,
@@ -189,6 +192,18 @@ impl Transport for TcpTransport {
                         for event in events.iter() {
                             match event.token() {
                                 NEW_CONNECTION => {
+                                    {
+                                        let read_active_connections = active_connections.read();
+                                        let total_in_connections = read_active_connections
+                                        .connections
+                                        .iter()
+                                        .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
+                                        .count() +  read_active_connections
+                                        .connection_queue.len();
+                                        if total_in_connections >= config.max_in_connections {
+                                            continue;
+                                        }
+                                    }
                                     let (stream, address) = match server.accept().map_err(|err| {
                                         TcpError::ConnectionError.wrap().new(
                                             "listener accept",

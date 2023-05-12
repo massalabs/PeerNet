@@ -82,6 +82,7 @@ fn two_peers_tcp_with_one_message() {
     let keypair1 = KeyPair::generate();
     let config = PeerNetConfiguration {
         self_keypair: keypair1,
+        max_in_connections: 10,
         init_connection_handler: EmptyInitConnection {},
         message_handler: TestMessagesHandler {
             test_sender: sender.clone(),
@@ -101,6 +102,7 @@ fn two_peers_tcp_with_one_message() {
 
     let config = PeerNetConfiguration {
         self_keypair: keypair2,
+        max_in_connections: 10,
         init_connection_handler: EmptyInitConnection {},
         message_handler: TestMessagesHandler {
             test_sender: sender,

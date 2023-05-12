@@ -37,6 +37,7 @@
 //! // Setup configuration for the first peer
 //! let config = PeerNetConfiguration {
 //!     self_keypair: keypair1.clone(),
+//!     max_in_connections: 10,
 //!     message_handler: MessageHandler {},
 //!     init_connection_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),
@@ -60,6 +61,7 @@
 //! // Setup configuration for the second peer
 //! let config = PeerNetConfiguration {
 //!     self_keypair: keypair1.clone(),
+//!     max_in_connections: 10,
 //!     message_handler: MessageHandler {},
 //!     init_connection_handler: DefaultHandshake,
 //!     optional_features: PeerNetFeatures::default(),

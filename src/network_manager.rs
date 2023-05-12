@@ -111,8 +111,6 @@ impl ActiveConnections {
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
     ) -> bool {
-        self.connection_queue
-            .retain(|(addr, _)| addr != endpoint.get_target_addr());
         if self.check_addr_accepted_post_handshake(
             endpoint.get_target_addr(),
             category_name.clone(),
@@ -204,6 +202,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
         let transport = self.transports.entry(transport_type).or_insert_with(|| {
             InternalTransportType::from_transport_type(
                 transport_type,
+                self.config.max_in_connections,
                 self.active_connections.clone(),
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
@@ -229,6 +228,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
         let transport = self.transports.entry(transport_type).or_insert_with(|| {
             InternalTransportType::from_transport_type(
                 transport_type,
+                self.config.max_in_connections,
                 self.active_connections.clone(),
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
@@ -256,6 +256,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
             .or_insert_with(|| {
                 InternalTransportType::from_transport_type(
                     TransportType::from_out_connection_config(out_connection_config),
+                    self.config.max_in_connections,
                     self.active_connections.clone(),
                     self.config.optional_features.clone(),
                     self.config.peers_categories.clone(),
