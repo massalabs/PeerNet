@@ -35,6 +35,7 @@ fn simple() {
     let keypair = KeyPair::generate();
     let config = PeerNetConfiguration {
         self_keypair: keypair,
+        max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -67,6 +68,7 @@ fn simple_no_place() {
     let keypair = KeyPair::generate();
     let config = PeerNetConfiguration {
         self_keypair: keypair,
+        max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -99,6 +101,7 @@ fn simple_no_place_after_handshake() {
     let keypair = KeyPair::generate();
     let config = PeerNetConfiguration {
         self_keypair: keypair,
+        max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -131,6 +134,7 @@ fn simple_with_different_limit_pre_post_handshake() {
     let keypair = KeyPair::generate();
     let config = PeerNetConfiguration {
         self_keypair: keypair,
+        max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -175,6 +179,7 @@ fn simple_with_category() {
     );
     let config = PeerNetConfiguration {
         self_keypair: keypair,
+        max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -207,6 +212,7 @@ fn two_peers_tcp() {
     let keypair1 = KeyPair::generate();
     let config = PeerNetConfiguration {
         self_keypair: keypair1,
+        max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -225,6 +231,7 @@ fn two_peers_tcp() {
     let keypair2 = KeyPair::generate();
     let config = PeerNetConfiguration {
         self_keypair: keypair2,
+        max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},

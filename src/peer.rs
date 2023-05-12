@@ -153,23 +153,31 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 println!("Error while cloning endpoint: {:?}", err);
                 {
                     let mut write_active_connections = active_connections.write();
+                    write_active_connections
+                    .connection_queue
+                    .retain(|(addr, _)| addr != endpoint.get_target_addr());
                     write_active_connections.remove_connection(&peer_id);
                 }
                 return;
             }
         };
-        if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
-            peer_id.clone(),
-            endpoint_connection,
-            SendChannels {
-                low_priority: low_write_tx,
-                high_priority: high_write_tx,
-            },
-            connection_type,
-            category_name,
-            category_info
-        ) {
-            return;
+        {
+            let mut write_active_connections = active_connections.write();
+            write_active_connections.connection_queue
+            .retain(|(addr, _)| addr != endpoint.get_target_addr());
+            if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !write_active_connections.confirm_connection(
+                peer_id.clone(),
+                endpoint_connection,
+                SendChannels {
+                    low_priority: low_write_tx,
+                    high_priority: high_write_tx,
+                },
+                connection_type,
+                category_name,
+                category_info
+            ) {
+                return;
+            }
         }
 
         // SPAWN WRITING THREAD
