@@ -12,7 +12,7 @@ use peernet::{
 };
 use util::{create_clients, DefaultMessagesHandler};
 
-use crate::util::{TestHasher, TestKeyPair, TestPubKey, TestSignature};
+use crate::util::{TestHasher, TestId, TestKeyPair, TestPubKey, TestSignature};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
@@ -40,6 +40,7 @@ impl InitConnectionHandler for DefaultInitConnection {
 fn simple() {
     let keypair = TestKeyPair::generate();
     let pub_key = keypair.get_public_key();
+    let signature = TestSignature::new(None);
 
     let config = PeerNetConfiguration::<
         DefaultInitConnection,
@@ -62,10 +63,19 @@ fn simple() {
         signature,
     };
 
-    let mut manager = PeerNetManager::new::<DefaultInitConnection, DefaultMessagesHandler>(config);
+    let mut manager: PeerNetManager<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestId,
+        TestKeyPair,
+        TestPubKey,
+        TestSignature,
+    > = PeerNetManager::new(config);
+
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .start_listener::<TestHasher>(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
+
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
     let _ = create_clients(11, "127.0.0.1:64850");
@@ -78,12 +88,20 @@ fn simple() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
 }
-/*
+
 #[test]
 fn simple_no_place() {
     let keypair = TestKeyPair::generate();
     let pub_key = keypair.get_public_key();
-    let config = PeerNetConfiguration {
+    let signature = TestSignature::new(None);
+
+    let config = PeerNetConfiguration::<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestKeyPair,
+        TestPubKey,
+        TestSignature,
+    > {
         self_keypair: keypair,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -95,10 +113,19 @@ fn simple_no_place() {
             max_in_connections_per_ip: 1,
         },
         public_key: pub_key,
+        signature,
     };
-    let mut manager = PeerNetManager::new(config);
+    let mut manager: PeerNetManager<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestId,
+        TestKeyPair,
+        TestPubKey,
+        TestSignature,
+    > = PeerNetManager::new(config);
+
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
+        .start_listener::<TestHasher>(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -115,8 +142,17 @@ fn simple_no_place() {
 
 #[test]
 fn simple_no_place_after_handshake() {
-    let keypair = KeyPair::generate();
-    let config = PeerNetConfiguration {
+    let keypair = TestKeyPair::generate();
+    let pub_key = keypair.get_public_key();
+    let signature = TestSignature::new(None);
+
+    let config = PeerNetConfiguration::<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestKeyPair,
+        TestPubKey,
+        TestSignature,
+    > {
         self_keypair: keypair,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -127,10 +163,20 @@ fn simple_no_place_after_handshake() {
             max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 1,
         },
+        public_key: pub_key,
+        signature,
     };
-    let mut manager = PeerNetManager::new(config);
+    let mut manager: PeerNetManager<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestId,
+        TestKeyPair,
+        TestPubKey,
+        TestSignature,
+    > = PeerNetManager::new(config);
+
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
+        .start_listener::<TestHasher>(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -144,6 +190,7 @@ fn simple_no_place_after_handshake() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
         .unwrap();
 }
+/*
 
 #[test]
 fn simple_with_different_limit_pre_post_handshake() {

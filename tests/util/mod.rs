@@ -48,25 +48,29 @@ pub fn create_clients(nb_clients: usize, to_ip: &str) -> Vec<JoinHandle<()>> {
 }
 
 #[derive(Clone, Debug)]
-pub struct TestSignature(massa_signature::Signature);
+pub struct TestSignature {
+    massa_signature: Option<massa_signature::Signature>,
+}
 
 impl TestSignature {
-    pub fn new(massa_signature: massa_signature::Signature) -> TestSignature {
-        TestSignature(massa_signature)
+    pub fn new(massa_signature: Option<massa_signature::Signature>) -> TestSignature {
+        TestSignature {
+            massa_signature: massa_signature,
+        }
     }
 }
 
 impl PeerNetSignature for TestSignature {
     fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_bytes().to_vec()
+        unimplemented!()
     }
 
     fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self> {
         let data: &[u8; 64] = bytes.try_into().unwrap();
 
-        Ok(TestSignature(
-            massa_signature::Signature::from_bytes(data).unwrap(),
-        ))
+        Ok(TestSignature {
+            massa_signature: Some(massa_signature::Signature::from_bytes(data).unwrap()),
+        })
     }
 }
 
@@ -90,11 +94,12 @@ pub struct TestPubKey(massa_signature::PublicKey);
 
 impl PeerNetPubKey for TestPubKey {
     fn to_bytes(&self) -> &[u8] {
-        self.to_bytes()
+        let bytes = self.0.to_bytes();
+        bytes
     }
 
     fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self> {
-        todo!();
+        unimplemented!()
         // massa_signature::PublicKey::from_bytes(bytes)
         //     .map(|massa_pubkey| TestPubKey { massa_pubkey })
         //     .map_err(|err| PeerNetError::new(PeerNetError::SignError, "test", err, None))
@@ -118,7 +123,7 @@ impl PeerNetKeyPair<TestPubKey, TestSignature> for TestKeyPair {
         let signature = self.0.sign(&temp).unwrap();
 
         // let massa_signature = self.0.sign(hash.get_hash()).unwrap();
-        let sign = TestSignature(signature);
+        let sign = TestSignature::new(Some(signature));
         Ok(sign)
     }
 
@@ -143,21 +148,23 @@ impl PeerNetHasher for TestHasher {
 }
 // use std::marker::PhantomData;
 
-// #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-// pub struct TestId(String);
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct TestId(Vec<u8>);
 
-// impl PeerNetId for TestId<TestPubKey> {
-//     fn verify_signature(
-//         &self,
-//         hash: &impl PeerNetHasher,
-//         signature: &impl PeerNetSignature,
-//     ) -> PeerNetResult<()> {
-//         todo!()
-//     }
+impl PeerNetId for TestId {
+    fn verify_signature(
+        &self,
+        hash: &impl PeerNetHasher,
+        signature: &impl PeerNetSignature,
+    ) -> PeerNetResult<()> {
+        unimplemented!()
+    }
 
-//     fn from_public_key(public_key: TestPubKey) -> Self {
-//         TestId {
-//             0: public_key.to_string(),
-//         }
-//     }
-// }
+    fn from_string(id: String) -> Self {
+        unimplemented!()
+    }
+
+    fn from_public_key(key: impl PeerNetPubKey) -> Self {
+        TestId(key.to_bytes().to_vec())
+    }
+}

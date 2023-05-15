@@ -44,6 +44,8 @@ pub struct PeerNetConfiguration<
     pub default_category_info: PeerNetCategoryInfo,
 
     pub public_key: PubKey,
+
+    pub signature: S,
 }
 
 impl<
@@ -73,6 +75,7 @@ impl<
                 max_in_connections_per_ip: 0,
             },
             public_key,
+            signature,
         }
     }
 }
