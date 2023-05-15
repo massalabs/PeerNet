@@ -56,19 +56,21 @@ impl<Id: PeerNetId> ActiveConnections<Id> {
         let mut nb_connection_for_this_category = 0;
         let ip = to_canonical(addr.ip());
 
-        for connection in &self.connection_queue {
-            let connection_ip = to_canonical(connection.0.ip());
-            // Check if a connection is already established with the same IP
-            if connection_ip == ip {
-                nb_connection_for_this_ip += 1;
-            }
-            // Check the number of connection for the same category
-            if connection.1 == category_name {
-                nb_connection_for_this_category += 1;
+        for connection in self.connections.values() {
+            if connection.connection_type == PeerConnectionType::IN {
+                let connection_ip = to_canonical(connection.endpoint.get_target_addr().ip());
+                // Check if a connection is already established with the same IP
+                if connection_ip == ip {
+                    nb_connection_for_this_ip += 1;
+                }
+                // Check the number of connection for the same category
+                if connection.category_name == category_name {
+                    nb_connection_for_this_category += 1;
+                }
             }
         }
         nb_connection_for_this_ip < category_info.max_in_connections_per_ip
-            && nb_connection_for_this_category < category_info.max_in_connections_pre_handshake
+            && nb_connection_for_this_category < category_info.max_in_connections_post_handshake
     }
 
     pub fn check_addr_accepted_post_handshake(
@@ -110,8 +112,6 @@ impl<Id: PeerNetId> ActiveConnections<Id> {
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
     ) -> bool {
-        self.connection_queue
-            .retain(|(addr, _)| addr != endpoint.get_target_addr());
         if self.check_addr_accepted_post_handshake(
             endpoint.get_target_addr(),
             category_name.clone(),
@@ -219,6 +219,7 @@ impl<
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
+                self.config.max_in_connections,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
@@ -244,6 +245,7 @@ impl<
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
+                self.config.max_in_connections,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
@@ -271,6 +273,7 @@ impl<
                 InternalTransportType::from_transport_type(
                     TransportType::from_out_connection_config::<Id>(out_connection_config),
                     self.active_connections.clone(),
+                    self.config.max_in_connections,
                     self.config.optional_features.clone(),
                     self.config.peers_categories.clone(),
                     self.config.default_category_info,

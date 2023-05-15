@@ -187,6 +187,7 @@ impl<Id: PeerNetId> InternalTransportType<Id> {
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
         active_connections: SharedActiveConnections<Id>,
+        max_in_connections: usize,
         features: PeerNetFeatures,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,
@@ -194,6 +195,7 @@ impl<Id: PeerNetId> InternalTransportType<Id> {
         match transport_type {
             TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
                 active_connections,
+                max_in_connections,
                 peer_categories,
                 default_category_info,
                 features,

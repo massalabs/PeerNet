@@ -48,15 +48,11 @@ pub fn create_clients(nb_clients: usize, to_ip: &str) -> Vec<JoinHandle<()>> {
 }
 
 #[derive(Clone, Debug)]
-pub struct TestSignature {
-    massa_signature: Option<massa_signature::Signature>,
-}
+pub struct TestSignature(massa_signature::Signature);
 
 impl TestSignature {
-    pub fn new(massa_signature: Option<massa_signature::Signature>) -> TestSignature {
-        TestSignature {
-            massa_signature: massa_signature,
-        }
+    pub fn new(massa_signature: massa_signature::Signature) -> TestSignature {
+        TestSignature(massa_signature)
     }
 }
 
@@ -68,9 +64,9 @@ impl PeerNetSignature for TestSignature {
     fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self> {
         let data: &[u8; 64] = bytes.try_into().unwrap();
 
-        Ok(TestSignature {
-            massa_signature: Some(massa_signature::Signature::from_bytes(data).unwrap()),
-        })
+        Ok(TestSignature(
+            massa_signature::Signature::from_bytes(data).unwrap(),
+        ))
     }
 }
 
@@ -116,13 +112,10 @@ impl PeerNetKeyPair<TestPubKey> for TestKeyPair {
     }
 
     fn sign(&self, hasher: &impl PeerNetHasher) -> PeerNetResult<Vec<u8>> {
-        // let hasher = TestHasher::compute_from(b"coucou");
-
         let temp = massa_hash::Hash::compute_from(hasher.to_bytes());
 
         let signature = self.0.sign(&temp).unwrap();
 
-        // let massa_signature = self.0.sign(hash.get_hash()).unwrap();
         Ok(signature.to_bytes().to_vec())
     }
 
