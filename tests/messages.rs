@@ -1,17 +1,20 @@
-/* use std::collections::HashMap;
+/*mod util;
+use std::collections::HashMap;
 use std::time::Duration;
 
 use crossbeam::channel::Sender;
 use peernet::config::PeerNetCategoryInfo;
 use peernet::error::{PeerNetError, PeerNetResult};
 use peernet::messages::{MessagesHandler, MessagesSerializer};
-use peernet::types::{KeyPair, PeerNetId};
+use peernet::types::PeerNetId;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     transports::{OutConnectionConfig, TransportType},
 };
+
+use crate::util::{TestHasher, TestId, TestKeyPair, TestPubKey, TestSignature};
 
 #[derive(Clone)]
 struct EmptyInitConnection;
@@ -24,7 +27,7 @@ enum TestMessages {
 
 #[derive(Clone)]
 struct TestMessagesHandler {
-    pub test_sender: Sender<(PeerId, TestMessages)>,
+    pub test_sender: Sender<(TestId, TestMessages)>,
 }
 
 impl MessagesHandler for TestMessagesHandler {
@@ -64,6 +67,7 @@ impl MessagesSerializer<Vec<u8>> for MessageSerializer {
         Ok(())
     }
 }
+
 
 #[test]
 fn two_peers_tcp_with_one_message() {

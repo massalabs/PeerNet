@@ -106,7 +106,7 @@ impl PeerNetPubKey for TestPubKey {
     }
 }
 
-impl PeerNetKeyPair<TestPubKey, TestSignature> for TestKeyPair {
+impl PeerNetKeyPair<TestPubKey> for TestKeyPair {
     fn get_public_key(&self) -> TestPubKey {
         //self.0.get_public_key();
         let key = TestPubKey(self.0.get_public_key());
@@ -115,7 +115,7 @@ impl PeerNetKeyPair<TestPubKey, TestSignature> for TestKeyPair {
         // self.0.get_public_key()
     }
 
-    fn sign(&self, hasher: &impl PeerNetHasher) -> PeerNetResult<TestSignature> {
+    fn sign(&self, hasher: &impl PeerNetHasher) -> PeerNetResult<Vec<u8>> {
         // let hasher = TestHasher::compute_from(b"coucou");
 
         let temp = massa_hash::Hash::compute_from(hasher.to_bytes());
@@ -123,8 +123,7 @@ impl PeerNetKeyPair<TestPubKey, TestSignature> for TestKeyPair {
         let signature = self.0.sign(&temp).unwrap();
 
         // let massa_signature = self.0.sign(hash.get_hash()).unwrap();
-        let sign = TestSignature::new(Some(signature));
-        Ok(sign)
+        Ok(signature.to_bytes().to_vec())
     }
 
     // fn sign(&self, hash: &TestHasher) -> PeerNetResult<TestSignature> {

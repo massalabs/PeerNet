@@ -20,7 +20,7 @@ impl InitConnectionHandler for DefaultInitConnection {
     fn perform_handshake<
         M: peernet::messages::MessagesHandler,
         Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey, S>,
+        K: PeerNetKeyPair<PubKey>,
         S: PeerNetSignature,
         PubKey: PeerNetPubKey,
         Hasher: PeerNetHasher,
@@ -40,14 +40,12 @@ impl InitConnectionHandler for DefaultInitConnection {
 fn simple() {
     let keypair = TestKeyPair::generate();
     let pub_key = keypair.get_public_key();
-    let signature = TestSignature::new(None);
 
     let config = PeerNetConfiguration::<
         DefaultInitConnection,
         DefaultMessagesHandler,
         TestKeyPair,
         TestPubKey,
-        TestSignature,
     > {
         self_keypair: keypair,
         init_connection_handler: DefaultInitConnection,
@@ -60,7 +58,6 @@ fn simple() {
             max_in_connections_per_ip: 10,
         },
         public_key: pub_key,
-        signature,
     };
 
     let mut manager: PeerNetManager<
@@ -69,11 +66,13 @@ fn simple() {
         TestId,
         TestKeyPair,
         TestPubKey,
-        TestSignature,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher>(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .start_listener::<TestHasher, TestSignature>(
+            TransportType::Tcp,
+            "127.0.0.1:64850".parse().unwrap(),
+        )
         .unwrap();
 
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
@@ -93,14 +92,12 @@ fn simple() {
 fn simple_no_place() {
     let keypair = TestKeyPair::generate();
     let pub_key = keypair.get_public_key();
-    let signature = TestSignature::new(None);
 
     let config = PeerNetConfiguration::<
         DefaultInitConnection,
         DefaultMessagesHandler,
         TestKeyPair,
         TestPubKey,
-        TestSignature,
     > {
         self_keypair: keypair,
         init_connection_handler: DefaultInitConnection,
@@ -113,7 +110,6 @@ fn simple_no_place() {
             max_in_connections_per_ip: 1,
         },
         public_key: pub_key,
-        signature,
     };
     let mut manager: PeerNetManager<
         DefaultInitConnection,
@@ -121,11 +117,13 @@ fn simple_no_place() {
         TestId,
         TestKeyPair,
         TestPubKey,
-        TestSignature,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher>(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
+        .start_listener::<TestHasher, TestSignature>(
+            TransportType::Tcp,
+            "127.0.0.1:64851".parse().unwrap(),
+        )
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -144,14 +142,12 @@ fn simple_no_place() {
 fn simple_no_place_after_handshake() {
     let keypair = TestKeyPair::generate();
     let pub_key = keypair.get_public_key();
-    let signature = TestSignature::new(None);
 
     let config = PeerNetConfiguration::<
         DefaultInitConnection,
         DefaultMessagesHandler,
         TestKeyPair,
         TestPubKey,
-        TestSignature,
     > {
         self_keypair: keypair,
         init_connection_handler: DefaultInitConnection,
@@ -164,7 +160,6 @@ fn simple_no_place_after_handshake() {
             max_in_connections_per_ip: 1,
         },
         public_key: pub_key,
-        signature,
     };
     let mut manager: PeerNetManager<
         DefaultInitConnection,
@@ -172,11 +167,13 @@ fn simple_no_place_after_handshake() {
         TestId,
         TestKeyPair,
         TestPubKey,
-        TestSignature,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher>(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
+        .start_listener::<TestHasher, TestSignature>(
+            TransportType::Tcp,
+            "127.0.0.1:64852".parse().unwrap(),
+        )
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));

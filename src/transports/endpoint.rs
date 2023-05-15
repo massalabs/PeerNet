@@ -46,7 +46,7 @@ impl Endpoint {
 
     pub(crate) fn handshake<
         Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey, S>,
+        K: PeerNetKeyPair<PubKey>,
         S: PeerNetSignature,
         PubKey: PeerNetPubKey,
         Hasher: PeerNetHasher,
@@ -71,9 +71,9 @@ impl Endpoint {
 
         // sign their random bytes
         let other_random_hash = Hasher::compute_from(other_random_bytes);
-        let self_signature = self_keypair.sign(&other_random_hash).unwrap();
+        let self_signature_bytes = self_keypair.sign(&other_random_hash).unwrap();
 
-        buf.copy_from_slice(&self_signature.to_bytes());
+        buf.copy_from_slice(&self_signature_bytes);
 
         self.send::<Id>(&buf)?;
         let received: Vec<u8> = self.receive::<Id>()?;

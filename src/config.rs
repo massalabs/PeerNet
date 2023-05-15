@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::messages::MessagesHandler;
 use crate::peer::InitConnectionHandler;
-use crate::types::{PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
+use crate::types::{PeerNetKeyPair, PeerNetPubKey};
 
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
@@ -25,9 +25,8 @@ pub type PeerNetCategories = HashMap<String, (Vec<IpAddr>, PeerNetCategoryInfo)>
 pub struct PeerNetConfiguration<
     T: InitConnectionHandler,
     M: MessagesHandler,
-    K: PeerNetKeyPair<PubKey, S>,
+    K: PeerNetKeyPair<PubKey>,
     PubKey: PeerNetPubKey,
-    S: PeerNetSignature,
 > {
     /// Our peer id
     pub self_keypair: K,
@@ -44,24 +43,20 @@ pub struct PeerNetConfiguration<
     pub default_category_info: PeerNetCategoryInfo,
 
     pub public_key: PubKey,
-
-    pub signature: S,
 }
 
 impl<
         T: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey, S>,
+        K: PeerNetKeyPair<PubKey>,
         PubKey: PeerNetPubKey,
-        S: PeerNetSignature,
-    > PeerNetConfiguration<T, M, K, PubKey, S>
+    > PeerNetConfiguration<T, M, K, PubKey>
 {
     pub fn default(
         init_connection_handler: T,
         message_handler: M,
         keypair: K,
         public_key: PubKey,
-        signature: S,
     ) -> Self {
         PeerNetConfiguration {
             self_keypair: keypair,
@@ -75,7 +70,6 @@ impl<
                 max_in_connections_per_ip: 0,
             },
             public_key,
-            signature,
         }
     }
 }

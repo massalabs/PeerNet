@@ -21,7 +21,7 @@ pub trait InitConnectionHandler: Send + Clone + 'static {
     fn perform_handshake<
         M: MessagesHandler,
         Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey, S>,
+        K: PeerNetKeyPair<PubKey>,
         S: PeerNetSignature,
         PubKey: PeerNetPubKey,
         Hasher: PeerNetHasher,
@@ -118,7 +118,7 @@ pub(crate) fn new_peer<
     T: InitConnectionHandler,
     M: MessagesHandler,
     Id: PeerNetId,
-    K: PeerNetKeyPair<PubKey, S>,
+    K: PeerNetKeyPair<PubKey>,
     PubKey: PeerNetPubKey,
     S: PeerNetSignature,
     Hasher: PeerNetHasher,
