@@ -21,7 +21,7 @@ pub trait InitConnectionHandler: Send + Clone + 'static {
     fn perform_handshake<
         M: MessagesHandler,
         Id: PeerNetId,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey, S>,
         S: PeerNetSignature,
         PubKey: PeerNetPubKey,
         Hasher: PeerNetHasher,
@@ -35,9 +35,13 @@ pub trait InitConnectionHandler: Send + Clone + 'static {
         endpoint.handshake::<Id, K, S, PubKey, Hasher>(keypair)
     }
 
-    fn fallback_function<K: PeerNetKeyPair, PubKey: PeerNetPubKey, Hasher: PeerNetHasher>(
+    fn fallback_function<
+        // K: PeerNetKeyPair<PubKey, S>,
+        PubKey: PeerNetPubKey,
+        Hasher: PeerNetHasher,
+    >(
         &mut self,
-        _keypair: &K,
+        // _keypair: &K,
         _endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
     ) -> PeerNetResult<()> {
@@ -114,7 +118,7 @@ pub(crate) fn new_peer<
     T: InitConnectionHandler,
     M: MessagesHandler,
     Id: PeerNetId,
-    K: PeerNetKeyPair,
+    K: PeerNetKeyPair<PubKey, S>,
     PubKey: PeerNetPubKey,
     S: PeerNetSignature,
     Hasher: PeerNetHasher,
@@ -174,7 +178,7 @@ pub(crate) fn new_peer<
             }
         };
 
-        let id = Id::from_public_key(self_keypair.get_public_key::<PubKey>());
+        let id: Id = Id::from_public_key(self_keypair.get_public_key());
         // if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
         if peer_id == id || !active_connections.write().confirm_connection(
             peer_id.clone(),

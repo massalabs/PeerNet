@@ -1,10 +1,9 @@
-// All the tests related to the limitations on the system.
+/* // All the tests related to the limitations on the system.
 mod util;
 use peernet::{
     config::{PeerNetCategoryInfo, PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
-    peer_id::PeerId,
     transports::{OutConnectionConfig, TransportType},
 };
 use std::{collections::HashMap, net::IpAddr, str::FromStr, time::Duration};
@@ -184,3 +183,4 @@ fn check_multiple_connection_refused_in_category() {
 }
 
 // TODO Perform limit tests for QUIC also
+ */

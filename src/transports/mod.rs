@@ -88,7 +88,7 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     fn start_listener<
         H: InitConnectionHandler + 'static,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey, S>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
         Hasher: PeerNetHasher,
@@ -120,7 +120,7 @@ impl<Id: PeerNetId> Transport for InternalTransportType<Id> {
     fn try_connect<
         H: InitConnectionHandler + 'static,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey, S>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
         Hasher: PeerNetHasher,
@@ -216,7 +216,7 @@ pub trait Transport {
     fn start_listener<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey, S>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
         Hasher: PeerNetHasher,
@@ -231,7 +231,7 @@ pub trait Transport {
     fn try_connect<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey, S>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
         Hasher: PeerNetHasher,

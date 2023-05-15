@@ -145,7 +145,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
     fn start_listener<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey, S>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
         Hasher: PeerNetHasher,
@@ -247,8 +247,8 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
-                                        if let Err(err) = init_connection_handler.fallback_function::<K, PubKey, Hasher>(
-                                            &self_keypair,
+                                        if let Err(err) = init_connection_handler.fallback_function::< PubKey, Hasher>(
+                                            // &self_keypair,
                                             &mut endpoint,
                                             &listeners,
                                         ) {
@@ -292,7 +292,7 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
     fn try_connect<
         H: InitConnectionHandler,
         M: MessagesHandler,
-        K: PeerNetKeyPair,
+        K: PeerNetKeyPair<PubKey, S>,
         PubKey: PeerNetPubKey,
         S: PeerNetSignature,
         Hasher: PeerNetHasher,
