@@ -18,7 +18,7 @@ where
 }
 
 /// Trait to implement with generic ID
-pub trait PeerNetId: PartialEq + Eq + Hash + Debug + Clone + Send + Sync + 'static {
+pub trait PeerNetId: PartialEq + Eq + Hash + Debug + Clone + Send + Sync + Ord + 'static {
     // fn from_bytes(bytes: &[u8; PUBLIC_KEY_SIZE_BYTES]) -> PeerNetResult<Self>
     // where
     //     Self: Sized;

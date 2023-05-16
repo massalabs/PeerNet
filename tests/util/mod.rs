@@ -140,7 +140,7 @@ impl PeerNetHasher for TestHasher {
 }
 // use std::marker::PhantomData;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct TestId(Vec<u8>);
 
 impl PeerNetId for TestId {
