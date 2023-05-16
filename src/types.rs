@@ -32,7 +32,7 @@ pub trait PeerNetId: PartialEq + Eq + Hash + Debug + Clone + Send + Sync + 'stat
 }
 
 pub trait PeerNetPubKey: Clone {
-    fn to_bytes(&self) -> &[u8];
+    fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self>;
 }
 
@@ -43,5 +43,5 @@ pub trait PeerNetSignature: Debug + Clone {
 
 pub trait PeerNetHasher: Debug {
     fn compute_from(data: &[u8]) -> Self;
-    fn to_bytes(&self) -> &[u8];
+    fn to_bytes(&self) -> Vec<u8>;
 }

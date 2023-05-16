@@ -89,9 +89,9 @@ impl TestKeyPair {
 pub struct TestPubKey(massa_signature::PublicKey);
 
 impl PeerNetPubKey for TestPubKey {
-    fn to_bytes(&self) -> &[u8] {
+    fn to_bytes(&self) -> Vec<u8> {
         let bytes = self.0.to_bytes();
-        bytes
+        bytes.to_vec()
     }
 
     fn from_bytes(bytes: &[u8]) -> PeerNetResult<Self> {
@@ -112,7 +112,7 @@ impl PeerNetKeyPair<TestPubKey> for TestKeyPair {
     }
 
     fn sign(&self, hasher: &impl PeerNetHasher) -> PeerNetResult<Vec<u8>> {
-        let temp = massa_hash::Hash::compute_from(hasher.to_bytes());
+        let temp = massa_hash::Hash::compute_from(&hasher.to_bytes());
 
         let signature = self.0.sign(&temp).unwrap();
 
@@ -134,8 +134,8 @@ impl PeerNetHasher for TestHasher {
         TestHasher(massa_hash::Hash::compute_from(data))
     }
 
-    fn to_bytes(&self) -> &[u8] {
-        self.0.to_bytes()
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_bytes().to_vec()
     }
 }
 // use std::marker::PhantomData;
