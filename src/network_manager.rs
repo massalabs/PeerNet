@@ -118,7 +118,6 @@ impl<Id: PeerNetId> ActiveConnections<Id> {
             category_info,
             &id,
         ) {
-            let endpoint_addr = endpoint.get_target_addr().clone();
             self.connections.insert(
                 id,
                 PeerConnection {
@@ -130,8 +129,6 @@ impl<Id: PeerNetId> ActiveConnections<Id> {
                     connection_type,
                 },
             );
-            self.connection_queue
-                .retain(|(addr, _)| addr != &endpoint_addr);
             self.compute_counters();
             true
         } else {
