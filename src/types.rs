@@ -28,7 +28,7 @@ pub trait PeerNetId: PartialEq + Eq + Hash + Debug + Clone + Send + Sync + 'stat
         signature: &impl PeerNetSignature,
     ) -> PeerNetResult<()>;
 
-    fn from_public_key(key: impl PeerNetPubKey) -> Self;
+    fn from_public_key<K: PeerNetPubKey>(key: K) -> Self;
 }
 
 pub trait PeerNetPubKey: Clone {

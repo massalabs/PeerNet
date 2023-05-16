@@ -152,11 +152,7 @@ impl PeerNetId for TestId {
         unimplemented!()
     }
 
-    fn from_string(id: String) -> Self {
-        unimplemented!()
-    }
-
-    fn from_public_key(key: impl PeerNetPubKey) -> Self {
+    fn from_public_key<K: PeerNetPubKey>(key: K) -> Self {
         TestId(key.to_bytes().to_vec())
     }
 }
