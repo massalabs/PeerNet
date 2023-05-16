@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::{thread::sleep, time::Duration};
 
 use peernet::config::PeerNetCategoryInfo;
+use peernet::transports::OutConnectionConfig;
 use peernet::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
@@ -10,6 +11,8 @@ use peernet::{
     peer::InitConnectionHandler,
     transports::TransportType,
 };
+use std::net::IpAddr;
+use std::str::FromStr;
 use util::{create_clients, DefaultMessagesHandler};
 
 use crate::util::{TestHasher, TestId, TestKeyPair, TestPubKey, TestSignature};
@@ -190,12 +193,18 @@ fn simple_no_place_after_handshake() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
         .unwrap();
 }
-/*
 
 #[test]
 fn simple_with_different_limit_pre_post_handshake() {
-    let keypair = KeyPair::generate();
-    let config = PeerNetConfiguration {
+    let keypair = TestKeyPair::generate();
+    let pub_key = keypair.get_public_key();
+
+    let config = PeerNetConfiguration::<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestKeyPair,
+        TestPubKey,
+    > {
         self_keypair: keypair,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
@@ -207,10 +216,22 @@ fn simple_with_different_limit_pre_post_handshake() {
             max_in_connections_post_handshake: 5,
             max_in_connections_per_ip: 10,
         },
+        public_key: pub_key,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestId,
+        TestKeyPair,
+        TestPubKey,
+    > = PeerNetManager::new(config);
+
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64854".parse().unwrap())
+        .start_listener::<TestHasher, TestSignature>(
+            TransportType::Tcp,
+            "127.0.0.1:64854".parse().unwrap(),
+        )
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -227,7 +248,7 @@ fn simple_with_different_limit_pre_post_handshake() {
 
 #[test]
 fn simple_with_category() {
-    let keypair = KeyPair::generate();
+    // let keypair = KeyPair::generate();
     let mut peers_categories = HashMap::default();
     peers_categories.insert(
         String::from("Bootstrap"),
@@ -240,7 +261,15 @@ fn simple_with_category() {
             },
         ),
     );
-    let config = PeerNetConfiguration {
+    let keypair = TestKeyPair::generate();
+    let pub_key = keypair.get_public_key();
+
+    let config = PeerNetConfiguration::<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestKeyPair,
+        TestPubKey,
+    > {
         self_keypair: keypair,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
@@ -252,10 +281,22 @@ fn simple_with_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 0,
         },
+        public_key: pub_key,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestId,
+        TestKeyPair,
+        TestPubKey,
+    > = PeerNetManager::new(config);
+
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64859".parse().unwrap())
+        .start_listener::<TestHasher, TestSignature>(
+            TransportType::Tcp,
+            "127.0.0.1:64859".parse().unwrap(),
+        )
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -272,8 +313,15 @@ fn simple_with_category() {
 
 #[test]
 fn two_peers_tcp() {
-    let keypair1 = KeyPair::generate();
-    let config = PeerNetConfiguration {
+    let keypair1 = TestKeyPair::generate();
+    let pub_key1 = keypair1.get_public_key();
+
+    let config = PeerNetConfiguration::<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestKeyPair,
+        TestPubKey,
+    > {
         self_keypair: keypair1,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
@@ -285,14 +333,33 @@ fn two_peers_tcp() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        public_key: pub_key1,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestId,
+        TestKeyPair,
+        TestPubKey,
+    > = PeerNetManager::new(config);
+
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .start_listener::<TestHasher, TestSignature>(
+            TransportType::Tcp,
+            "127.0.0.1:8081".parse().unwrap(),
+        )
         .unwrap();
 
-    let keypair2 = KeyPair::generate();
-    let config = PeerNetConfiguration {
+    let keypair2 = TestKeyPair::generate();
+    let pub_key2 = keypair2.get_public_key();
+
+    let config = PeerNetConfiguration::<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestKeyPair,
+        TestPubKey,
+    > {
         self_keypair: keypair2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
@@ -304,11 +371,19 @@ fn two_peers_tcp() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        public_key: pub_key2,
     };
-    let mut manager2 = PeerNetManager::new(config);
-    sleep(Duration::from_secs(3));
+
+    let mut manager2: PeerNetManager<
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+        TestId,
+        TestKeyPair,
+        TestPubKey,
+    > = PeerNetManager::new(config);
+
     manager2
-        .try_connect(
+        .try_connect::<TestHasher, TestSignature>(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
             &OutConnectionConfig::Tcp(Box::default()),
@@ -319,7 +394,7 @@ fn two_peers_tcp() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
     assert!(manager.nb_in_connections().eq(&1));
-} */
+}
 
 // #[test]
 // fn two_peers_quic() {
