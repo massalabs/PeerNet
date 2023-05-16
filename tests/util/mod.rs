@@ -144,6 +144,11 @@ impl PeerNetHasher for TestHasher {
 pub struct TestId(Vec<u8>);
 
 impl PeerNetId for TestId {
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.clone()
+    }
+
     fn verify_signature(
         &self,
         hash: &impl PeerNetHasher,
