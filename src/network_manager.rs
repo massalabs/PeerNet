@@ -7,9 +7,10 @@ use std::thread::JoinHandle;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::config::PeerNetCategoryInfo;
+use crate::context::Context;
 use crate::messages::MessagesHandler;
 use crate::peer::PeerConnectionType;
-use crate::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
+use crate::peer_id::PeerId;
 use parking_lot::RwLock;
 
 use crate::{
@@ -22,7 +23,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ActiveConnections<Id: PeerNetId> {
+pub struct ActiveConnections<Id: PeerId> {
     pub nb_in_connections: usize,
     pub nb_out_connections: usize,
     /// Peers attempting to connect but not yet finished initialization
@@ -44,7 +45,7 @@ pub(crate) fn to_canonical(ip: IpAddr) -> IpAddr {
     }
 }
 
-impl<Id: PeerNetId> ActiveConnections<Id> {
+impl<Id: PeerId> ActiveConnections<Id> {
     /// Check if a new connection from a specific address can be accepted or not
     pub fn check_addr_accepted_pre_handshake(
         &self,
@@ -164,33 +165,29 @@ pub type SharedActiveConnections<Id> = Arc<RwLock<ActiveConnections<Id>>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
 pub struct PeerNetManager<
-    H: InitConnectionHandler,
-    M: MessagesHandler,
-    Id: PeerNetId,
-    K: PeerNetKeyPair<PubKey>,
-    PubKey: PeerNetPubKey,
+    Id: PeerId,
+    Ctx: Context<Id>,
+    I: InitConnectionHandler<Id, Ctx, M>,
+    M: MessagesHandler<Id>,
 > {
-    pub config: PeerNetConfiguration<H, M, K, PubKey>,
+    pub config: PeerNetConfiguration<Id, Ctx, I, M>,
     pub active_connections: SharedActiveConnections<Id>,
     message_handler: M,
-    init_connection_handler: H,
-    self_keypair: K,
+    init_connection_handler: I,
+    context: Ctx,
     transports: HashMap<TransportType, InternalTransportType<Id>>,
 }
 
 impl<
-        H: InitConnectionHandler,
-        M: MessagesHandler,
-        Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey>,
-        PubKey: PeerNetPubKey,
-    > PeerNetManager<H, M, Id, K, PubKey>
+        Id: PeerId,
+        Ctx: Context<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
+        M: MessagesHandler<Id>,
+    > PeerNetManager<Id, Ctx, I, M>
 {
     /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
-    pub fn new(
-        config: PeerNetConfiguration<H, M, K, PubKey>,
-    ) -> PeerNetManager<H, M, Id, K, PubKey> {
-        let self_keypair = config.self_keypair.clone();
+    pub fn new(config: PeerNetConfiguration<Id, Ctx, I, M>) -> PeerNetManager<Id, Ctx, I, M> {
+        let context = config.context.clone();
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_out_connections: 0,
             nb_in_connections: 0,
@@ -202,7 +199,7 @@ impl<
             init_connection_handler: config.init_connection_handler.clone(),
             message_handler: config.message_handler.clone(),
             config,
-            self_keypair,
+            context,
             transports: Default::default(),
             active_connections,
         }
@@ -210,7 +207,7 @@ impl<
 
     /// Starts a listener on the given address and transport type.
     /// The listener will accept incoming connections, verify we have seats for the peer and then create a new peer and his thread.
-    pub fn start_listener<Hasher: PeerNetHasher, S: PeerNetSignature>(
+    pub fn start_listener(
         &mut self,
         transport_type: TransportType,
         addr: SocketAddr,
@@ -225,8 +222,8 @@ impl<
                 self.config.default_category_info,
             )
         });
-        transport.start_listener::<H, M, K, PubKey, S, Hasher>(
-            self.self_keypair.clone(),
+        transport.start_listener(
+            self.context.clone(),
             addr,
             self.message_handler.clone(),
             self.init_connection_handler.clone(),
@@ -258,7 +255,7 @@ impl<
     /// Tries to connect to the given address and transport type.
     /// The transport used is defined by the variant of the OutConnectionConfig.
     /// If the connection can be established, a new peer is created and his thread is started.
-    pub fn try_connect<Hasher: PeerNetHasher, S: PeerNetSignature>(
+    pub fn try_connect(
         &mut self,
         addr: SocketAddr,
         timeout: std::time::Duration,
@@ -266,12 +263,12 @@ impl<
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let transport = self
             .transports
-            .entry(TransportType::from_out_connection_config::<Id>(
+            .entry(TransportType::from_out_connection_config(
                 out_connection_config,
             ))
             .or_insert_with(|| {
                 InternalTransportType::from_transport_type(
-                    TransportType::from_out_connection_config::<Id>(out_connection_config),
+                    TransportType::from_out_connection_config(out_connection_config),
                     self.active_connections.clone(),
                     self.config.max_in_connections,
                     self.config.optional_features.clone(),
@@ -279,8 +276,8 @@ impl<
                     self.config.default_category_info,
                 )
             });
-        transport.try_connect::<H, M, K, PubKey, S, Hasher>(
-            self.self_keypair.clone(),
+        transport.try_connect(
+            self.context.clone(),
             addr,
             timeout,
             out_connection_config,
@@ -296,12 +293,11 @@ impl<
 }
 
 impl<
-        T: InitConnectionHandler,
-        M: MessagesHandler,
-        Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey>,
-        PubKey: PeerNetPubKey,
-    > Drop for PeerNetManager<T, M, Id, K, PubKey>
+        Id: PeerId,
+        Ctx: Context<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
+        M: MessagesHandler<Id>,
+    > Drop for PeerNetManager<Id, Ctx, I, M>
 {
     fn drop(&mut self) {
         {

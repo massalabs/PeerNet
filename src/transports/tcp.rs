@@ -5,15 +5,16 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use crate::config::{PeerNetCategories, PeerNetCategoryInfo, PeerNetFeatures};
+use crate::context::Context;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
 use crate::network_manager::{to_canonical, SharedActiveConnections};
 use crate::peer::{new_peer, InitConnectionHandler, PeerConnectionType};
+use crate::peer_id::PeerId;
 use crate::transports::Endpoint;
 
 use super::{Transport, TransportErrorType};
 
-use crate::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
@@ -40,7 +41,7 @@ pub struct TcpTransportConfig {
     default_category_info: PeerNetCategoryInfo,
 }
 
-pub(crate) struct TcpTransport<Id: PeerNetId> {
+pub(crate) struct TcpTransport<Id: PeerId> {
     pub active_connections: SharedActiveConnections<Id>,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, JoinHandle<PeerNetResult<()>>)>,
@@ -105,7 +106,7 @@ impl TcpEndpoint {
     }
 }
 
-impl<Id: PeerNetId> TcpTransport<Id> {
+impl<Id: PeerId> TcpTransport<Id> {
     pub fn new(
         active_connections: SharedActiveConnections<Id>,
         max_in_connections: usize,
@@ -131,7 +132,7 @@ impl<Id: PeerNetId> TcpTransport<Id> {
     }
 }
 
-impl<Id: PeerNetId> Drop for TcpTransport<Id> {
+impl<Id: PeerId> Drop for TcpTransport<Id> {
     fn drop(&mut self) {
         let all_addresses: Vec<SocketAddr> = self.listeners.keys().cloned().collect();
         all_addresses
@@ -140,24 +141,21 @@ impl<Id: PeerNetId> Drop for TcpTransport<Id> {
     }
 }
 
-impl<Id: PeerNetId> Transport for TcpTransport<Id> {
+impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
     type OutConnectionConfig = TcpOutConnectionConfig;
 
     type Endpoint = TcpEndpoint;
 
     fn start_listener<
-        H: InitConnectionHandler,
-        M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
-        PubKey: PeerNetPubKey,
-        S: PeerNetSignature,
-        Hasher: PeerNetHasher,
+        Ctx: Context<Id>,
+        M: MessagesHandler<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
     >(
         &mut self,
-        self_keypair: K,
+        context: Ctx,
         address: SocketAddr,
         message_handler: M,
-        mut init_connection_handler: H,
+        mut init_connection_handler: I,
     ) -> PeerNetResult<()> {
         let mut poll =
             Poll::new().map_err(|err| TcpError::InitListener.wrap().new("poll new", err, None))?;
@@ -262,8 +260,8 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
-                                        if let Err(err) = init_connection_handler.fallback_function::<K, PubKey, Hasher>(
-                                            &self_keypair,
+                                        if let Err(err) = init_connection_handler.fallback_function(
+                                            &context,
                                             &mut endpoint,
                                             &listeners,
                                         ) {
@@ -271,8 +269,8 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                         continue;
                                     }
-                                    new_peer::<H, M, Id, K, PubKey, S, Hasher>(
-                                        self_keypair.clone(),
+                                    new_peer(
+                                        context.clone(),
                                         endpoint,
                                         init_connection_handler.clone(),
                                         message_handler.clone(),
@@ -305,20 +303,17 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
     }
 
     fn try_connect<
-        H: InitConnectionHandler,
-        M: MessagesHandler,
-        K: PeerNetKeyPair<PubKey>,
-        PubKey: PeerNetPubKey,
-        S: PeerNetSignature,
-        Hasher: PeerNetHasher,
+        Ctx: Context<Id>,
+        M: MessagesHandler<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
     >(
         &mut self,
-        self_keypair: K,
+        context: Ctx,
         address: SocketAddr,
         timeout: Duration,
         _config: &Self::OutConnectionConfig,
         message_handler: M,
-        handshake_handler: H,
+        handshake_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let peer_stop_rx = self.peer_stop_rx.clone();
         Ok(std::thread::Builder::new()
@@ -349,8 +344,8 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                         Some((category_name, info)) => (Some(category_name.clone()), info.1),
                         None => (None, config.default_category_info),
                     };
-                    new_peer::<H, M, Id, K, PubKey, S, Hasher>(
-                        self_keypair.clone(),
+                    new_peer(
+                        context.clone(),
                         Endpoint::Tcp(TcpEndpoint {
                             address,
                             stream,

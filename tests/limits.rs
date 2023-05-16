@@ -5,7 +5,7 @@ use peernet::{
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     transports::{OutConnectionConfig, TransportType},
-    types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature},
+    types::{PeerNetHash, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature},
 };
 use std::{collections::HashMap, net::IpAddr, str::FromStr, time::Duration};
 
@@ -24,7 +24,7 @@ impl InitConnectionHandler for DefaultInitConnection {
         K: PeerNetKeyPair<PubKey>,
         S: PeerNetSignature,
         PubKey: PeerNetPubKey,
-        Hasher: PeerNetHasher,
+        Hasher: PeerNetHash,
     >(
         &mut self,
         _keypair: &K,

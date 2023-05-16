@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
 use crate::config::PeerNetCategoryInfo;
+use crate::context::Context;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
-use crate::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
+use crate::peer_id::PeerId;
 use crossbeam::{
     channel::{unbounded, Receiver, Sender, TryRecvError},
     select,
@@ -17,31 +18,22 @@ use crate::{
     transports::{endpoint::Endpoint, TransportType},
 };
 
-pub trait InitConnectionHandler: Send + Clone + 'static {
-    fn perform_handshake<
-        M: MessagesHandler,
-        Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey>,
-        S: PeerNetSignature,
-        PubKey: PeerNetPubKey,
-        Hasher: PeerNetHasher,
-    >(
+pub trait InitConnectionHandler<Id: PeerId, Ctx: Context<Id>, M: MessagesHandler<Id>>:
+    Send + Clone + 'static
+{
+    fn perform_handshake(
         &mut self,
-        keypair: &K,
+        context: &Ctx,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
         _messages_handler: M,
     ) -> PeerNetResult<Id> {
-        endpoint.handshake::<Id, K, S, PubKey, Hasher>(keypair)
+        endpoint.handshake(context.clone())
     }
 
-    fn fallback_function<
-        K: PeerNetKeyPair<PubKey>,
-        PubKey: PeerNetPubKey,
-        Hasher: PeerNetHasher,
-    >(
+    fn fallback_function(
         &mut self,
-        _keypair: &K,
+        _context: &Ctx,
         _endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
     ) -> PeerNetResult<()> {
@@ -115,15 +107,12 @@ impl Debug for PeerConnection {
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn new_peer<
-    T: InitConnectionHandler,
-    M: MessagesHandler,
-    Id: PeerNetId,
-    K: PeerNetKeyPair<PubKey>,
-    PubKey: PeerNetPubKey,
-    S: PeerNetSignature,
-    Hasher: PeerNetHasher,
+    Id: PeerId,
+    Ctx: Context<Id>,
+    T: InitConnectionHandler<Id, Ctx, M>,
+    M: MessagesHandler<Id>,
 >(
-    self_keypair: K,
+    context: Ctx,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
     message_handler: M,
@@ -142,8 +131,8 @@ pub(crate) fn new_peer<
             active_connections.listeners.clone()
         };
         //HANDSHAKE
-        let peer_id = match handshake_handler.perform_handshake::<M, Id, K, S, PubKey, Hasher>(
-            &self_keypair,
+        let peer_id = match handshake_handler.perform_handshake(
+            &context,
             &mut endpoint,
             &listeners,
             message_handler.clone(),
@@ -182,7 +171,7 @@ pub(crate) fn new_peer<
         };
 
          {
-            let id: Id = Id::from_public_key(self_keypair.get_public_key());
+            let id: Id = context.get_peer_id();
 
             let mut write_active_connections = active_connections.write();
             write_active_connections.connection_queue

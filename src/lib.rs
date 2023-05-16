@@ -91,10 +91,10 @@
 //!
 
 pub mod config;
+pub mod context;
 pub mod error;
 pub mod messages;
 pub mod network_manager;
 pub mod peer;
 pub mod peer_id;
 pub mod transports;
-pub mod types;

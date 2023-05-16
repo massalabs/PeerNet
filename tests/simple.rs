@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::{thread::sleep, time::Duration};
 
 use peernet::config::PeerNetCategoryInfo;
+use peernet::peer_id::PeerId;
 use peernet::transports::OutConnectionConfig;
-use peernet::types::{PeerNetHasher, PeerNetId, PeerNetKeyPair, PeerNetPubKey, PeerNetSignature};
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
@@ -15,42 +15,32 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use util::{create_clients, DefaultMessagesHandler};
 
-use crate::util::{TestHasher, TestId, TestKeyPair, TestPubKey, TestSignature};
+use crate::util::{DefaultContext, DefaultPeerId};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
-impl InitConnectionHandler for DefaultInitConnection {
-    fn perform_handshake<
-        M: peernet::messages::MessagesHandler,
-        Id: PeerNetId,
-        K: PeerNetKeyPair<PubKey>,
-        S: PeerNetSignature,
-        PubKey: PeerNetPubKey,
-        Hasher: PeerNetHasher,
-    >(
+impl InitConnectionHandler<DefaultPeerId, DefaultContext, DefaultMessagesHandler>
+    for DefaultInitConnection
+{
+    fn perform_handshake(
         &mut self,
-        _keypair: &K,
+        _keypair: &DefaultContext,
         _endpoint: &mut peernet::transports::endpoint::Endpoint,
         _listeners: &std::collections::HashMap<std::net::SocketAddr, TransportType>,
-        _messages_handler: M,
-    ) -> peernet::error::PeerNetResult<Id> {
-        let keypair = TestKeyPair::generate();
-        Ok(Id::from_public_key(keypair.get_public_key()))
+        _messages_handler: DefaultMessagesHandler,
+    ) -> peernet::error::PeerNetResult<DefaultPeerId> {
+        Ok(DefaultPeerId::generate())
     }
 }
 
 #[test]
 fn simple() {
-    let keypair = TestKeyPair::generate();
-    let pub_key = keypair.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
 
-    let config = PeerNetConfiguration::<
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-        TestKeyPair,
-        TestPubKey,
-    > {
-        self_keypair: keypair,
+    let config = PeerNetConfiguration {
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -61,22 +51,18 @@ fn simple() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 10,
         },
-        public_key: pub_key,
+        _phantom: std::marker::PhantomData,
     };
 
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:64850".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
 
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
@@ -94,16 +80,12 @@ fn simple() {
 
 #[test]
 fn simple_no_place() {
-    let keypair = TestKeyPair::generate();
-    let pub_key = keypair.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
 
-    let config = PeerNetConfiguration::<
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-        TestKeyPair,
-        TestPubKey,
-    > {
-        self_keypair: keypair,
+    let config = PeerNetConfiguration {
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -114,21 +96,17 @@ fn simple_no_place() {
             max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 1,
         },
-        public_key: pub_key,
+        _phantom: std::marker::PhantomData,
     };
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:64851".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -145,16 +123,12 @@ fn simple_no_place() {
 
 #[test]
 fn simple_no_place_after_handshake() {
-    let keypair = TestKeyPair::generate();
-    let pub_key = keypair.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
 
-    let config = PeerNetConfiguration::<
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-        TestKeyPair,
-        TestPubKey,
-    > {
-        self_keypair: keypair,
+    let config = PeerNetConfiguration {
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -165,21 +139,17 @@ fn simple_no_place_after_handshake() {
             max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 1,
         },
-        public_key: pub_key,
+        _phantom: std::marker::PhantomData,
     };
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:64852".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -196,16 +166,12 @@ fn simple_no_place_after_handshake() {
 
 #[test]
 fn simple_with_different_limit_pre_post_handshake() {
-    let keypair = TestKeyPair::generate();
-    let pub_key = keypair.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
 
-    let config = PeerNetConfiguration::<
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-        TestKeyPair,
-        TestPubKey,
-    > {
-        self_keypair: keypair,
+    let config = PeerNetConfiguration {
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -216,22 +182,17 @@ fn simple_with_different_limit_pre_post_handshake() {
             max_in_connections_post_handshake: 5,
             max_in_connections_per_ip: 10,
         },
-        public_key: pub_key,
+        _phantom: std::marker::PhantomData,
     };
-
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:64854".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:64854".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -261,16 +222,12 @@ fn simple_with_category() {
             },
         ),
     );
-    let keypair = TestKeyPair::generate();
-    let pub_key = keypair.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
 
-    let config = PeerNetConfiguration::<
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-        TestKeyPair,
-        TestPubKey,
-    > {
-        self_keypair: keypair,
+    let config = PeerNetConfiguration {
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -281,22 +238,18 @@ fn simple_with_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 0,
         },
-        public_key: pub_key,
+        _phantom: std::marker::PhantomData,
     };
 
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:64859".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:64859".parse().unwrap())
         .unwrap();
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -313,16 +266,12 @@ fn simple_with_category() {
 
 #[test]
 fn two_peers_tcp() {
-    let keypair1 = TestKeyPair::generate();
-    let pub_key1 = keypair1.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
 
-    let config = PeerNetConfiguration::<
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-        TestKeyPair,
-        TestPubKey,
-    > {
-        self_keypair: keypair1,
+    let config = PeerNetConfiguration {
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -333,34 +282,26 @@ fn two_peers_tcp() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
-        public_key: pub_key1,
+        _phantom: std::marker::PhantomData,
     };
 
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:8081".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 
-    let keypair2 = TestKeyPair::generate();
-    let pub_key2 = keypair2.get_public_key();
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
 
-    let config = PeerNetConfiguration::<
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-        TestKeyPair,
-        TestPubKey,
-    > {
-        self_keypair: keypair2,
+    let config = PeerNetConfiguration {
+        context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -371,19 +312,18 @@ fn two_peers_tcp() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
-        public_key: pub_key2,
+        _phantom: std::marker::PhantomData,
     };
 
     let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager2
-        .try_connect::<TestHasher, TestSignature>(
+        .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
             &OutConnectionConfig::Tcp(Box::default()),
