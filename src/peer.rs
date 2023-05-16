@@ -202,7 +202,6 @@ pub(crate) fn new_peer<
                 return;
             }
          }
-     
 
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288
