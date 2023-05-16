@@ -36,12 +36,12 @@ pub trait InitConnectionHandler: Send + Clone + 'static {
     }
 
     fn fallback_function<
-        // K: PeerNetKeyPair<PubKey, S>,
+        K: PeerNetKeyPair<PubKey>,
         PubKey: PeerNetPubKey,
         Hasher: PeerNetHasher,
     >(
         &mut self,
-        // _keypair: &K,
+        _keypair: &K,
         _endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
     ) -> PeerNetResult<()> {

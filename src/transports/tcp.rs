@@ -262,8 +262,8 @@ impl<Id: PeerNetId> Transport for TcpTransport<Id> {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
-                                        if let Err(err) = init_connection_handler.fallback_function::< PubKey, Hasher>(
-                                            // &self_keypair,
+                                        if let Err(err) = init_connection_handler.fallback_function::<K, PubKey, Hasher>(
+                                            &self_keypair,
                                             &mut endpoint,
                                             &listeners,
                                         ) {
