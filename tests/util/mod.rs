@@ -5,6 +5,7 @@ use std::{
 };
 
 use peernet::{context::Context, error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
+use rand::Rng;
 
 #[derive(Clone)]
 pub struct DefaultContext {
@@ -19,7 +20,9 @@ pub struct DefaultPeerId {
 impl PeerId for DefaultPeerId {
     fn generate() -> Self {
         //TODO: Add rand
-        DefaultPeerId { id: 0 }
+        let mut rng = rand::thread_rng();
+        let random_number: u64 = rng.gen();
+        DefaultPeerId { id: random_number }
     }
 }
 
