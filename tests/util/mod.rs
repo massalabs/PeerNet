@@ -19,7 +19,6 @@ pub struct DefaultPeerId {
 
 impl PeerId for DefaultPeerId {
     fn generate() -> Self {
-        //TODO: Add rand
         let mut rng = rand::thread_rng();
         let random_number: u64 = rng.gen();
         DefaultPeerId { id: random_number }
