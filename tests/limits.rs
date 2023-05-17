@@ -131,13 +131,14 @@ fn check_multiple_connection_refused() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 }
-/*
+
 #[test]
 fn check_too_much_in_refuse() {
-    let keypair1 = TestKeyPair::generate();
-    let pub_key = keypair1.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair1,
+        context: context,
         max_in_connections: 1,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -148,27 +149,24 @@ fn check_too_much_in_refuse() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 10,
         },
-        public_key: pub_key,
+        _phantom: std::marker::PhantomData,
     };
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:8080".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
         .unwrap();
 
-    let keypair2 = TestKeyPair::generate();
-    let pub_key2 = keypair2.get_public_key();
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair2.clone(),
+        context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -179,18 +177,17 @@ fn check_too_much_in_refuse() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
-        public_key: pub_key2,
+        _phantom: std::marker::PhantomData,
     };
 
     let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
     manager2
-        .try_connect::<TestHasher, TestSignature>(
+        .try_connect(
             "127.0.0.1:8080".parse().unwrap(),
             Duration::from_secs(3),
             &mut OutConnectionConfig::Tcp(Box::default()),
@@ -198,10 +195,11 @@ fn check_too_much_in_refuse() {
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
 
-    let keypair3 = TestKeyPair::generate();
-    let pub_key3 = keypair3.get_public_key();
+    let context3 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair3,
+        context: context3,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -212,17 +210,17 @@ fn check_too_much_in_refuse() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
-        public_key: pub_key3,
+        _phantom: std::marker::PhantomData,
     };
+
     let mut manager3: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
     manager3
-        .try_connect::<TestHasher, TestSignature>(
+        .try_connect(
             "127.0.0.1:8080".parse().unwrap(),
             Duration::from_secs(3),
             &mut OutConnectionConfig::Tcp(Box::default()),
@@ -238,8 +236,9 @@ fn check_too_much_in_refuse() {
 
 #[test]
 fn check_multiple_connection_refused_in_category() {
-    let keypair1 = TestKeyPair::generate();
-    let pub_key = keypair1.get_public_key();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let mut peers_categories = HashMap::default();
     peers_categories.insert(
         String::from("Bootstrap"),
@@ -253,7 +252,7 @@ fn check_multiple_connection_refused_in_category() {
         ),
     );
     let config = PeerNetConfiguration {
-        self_keypair: keypair1,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -264,26 +263,24 @@ fn check_multiple_connection_refused_in_category() {
             max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 0,
         },
-        public_key: pub_key,
+        _phantom: std::marker::PhantomData,
     };
+
     let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
     manager
-        .start_listener::<TestHasher, TestSignature>(
-            TransportType::Tcp,
-            "127.0.0.1:8082".parse().unwrap(),
-        )
+        .start_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
 
-    let keypair2 = TestKeyPair::generate();
-    let pub_key2 = keypair2.get_public_key();
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair2.clone(),
+        context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -294,17 +291,17 @@ fn check_multiple_connection_refused_in_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
-        public_key: pub_key2.clone(),
+        _phantom: std::marker::PhantomData,
     };
+
     let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
     manager2
-        .try_connect::<TestHasher, TestSignature>(
+        .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
             &mut OutConnectionConfig::Tcp(Box::default()),
@@ -312,8 +309,11 @@ fn check_multiple_connection_refused_in_category() {
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
 
+    let context3 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair2,
+        context: context3,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -324,17 +324,17 @@ fn check_multiple_connection_refused_in_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
-        public_key: pub_key2,
+        _phantom: std::marker::PhantomData,
     };
+
     let mut manager3: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
         DefaultInitConnection,
         DefaultMessagesHandler,
-        TestId,
-        TestKeyPair,
-        TestPubKey,
     > = PeerNetManager::new(config);
     manager3
-        .try_connect::<TestHasher, TestSignature>(
+        .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
             &mut OutConnectionConfig::Tcp(Box::default()),
@@ -349,4 +349,3 @@ fn check_multiple_connection_refused_in_category() {
 }
 
 // TODO Perform limit tests for QUIC also
-*/
