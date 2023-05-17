@@ -4,21 +4,46 @@ use std::{
     time::Duration,
 };
 
-use peernet::{error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
+use peernet::{context::Context, error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
+use rand::Rng;
+
+#[derive(Clone)]
+pub struct DefaultContext {
+    pub our_id: DefaultPeerId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DefaultPeerId {
+    pub id: u64,
+}
+
+impl PeerId for DefaultPeerId {
+    fn generate() -> Self {
+        let mut rng = rand::thread_rng();
+        let random_number: u64 = rng.gen();
+        DefaultPeerId { id: random_number }
+    }
+}
+
+impl Context<DefaultPeerId> for DefaultContext {
+    fn get_peer_id(&self) -> DefaultPeerId {
+        self.our_id.clone()
+    }
+}
 
 #[derive(Clone)]
 pub struct DefaultMessagesHandler {}
 
-impl MessagesHandler for DefaultMessagesHandler {
+impl MessagesHandler<DefaultPeerId> for DefaultMessagesHandler {
     fn deserialize_id<'a>(
         &self,
         data: &'a [u8],
-        _peer_id: &PeerId,
+        _peer_id: &DefaultPeerId,
     ) -> PeerNetResult<(&'a [u8], u64)> {
         Ok((data, 0))
     }
 
-    fn handle(&self, _id: u64, _data: &[u8], _peer_id: &PeerId) -> PeerNetResult<()> {
+    fn handle(&self, _id: u64, _data: &[u8], _peer_id: &DefaultPeerId) -> PeerNetResult<()> {
         Ok(())
     }
 }

@@ -1,40 +1,46 @@
 mod util;
 use std::collections::HashMap;
-use std::net::IpAddr;
-use std::str::FromStr;
 use std::{thread::sleep, time::Duration};
 
 use peernet::config::PeerNetCategoryInfo;
-use peernet::types::KeyPair;
+use peernet::peer_id::PeerId;
+use peernet::transports::OutConnectionConfig;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
-    peer_id::PeerId,
-    transports::{OutConnectionConfig, TransportType},
+    transports::TransportType,
 };
+use std::net::IpAddr;
+use std::str::FromStr;
 use util::{create_clients, DefaultMessagesHandler};
+
+use crate::util::{DefaultContext, DefaultPeerId};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
-impl InitConnectionHandler for DefaultInitConnection {
-    fn perform_handshake<M: peernet::messages::MessagesHandler>(
+impl InitConnectionHandler<DefaultPeerId, DefaultContext, DefaultMessagesHandler>
+    for DefaultInitConnection
+{
+    fn perform_handshake(
         &mut self,
-        _keypair: &KeyPair,
+        _keypair: &DefaultContext,
         _endpoint: &mut peernet::transports::endpoint::Endpoint,
         _listeners: &std::collections::HashMap<std::net::SocketAddr, TransportType>,
-        _messages_handler: M,
-    ) -> peernet::error::PeerNetResult<PeerId> {
-        let keypair = KeyPair::generate();
-        Ok(PeerId::from_public_key(keypair.get_public_key()))
+        _messages_handler: DefaultMessagesHandler,
+    ) -> peernet::error::PeerNetResult<DefaultPeerId> {
+        Ok(DefaultPeerId::generate())
     }
 }
 
 #[test]
 fn simple() {
-    let keypair = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -45,11 +51,20 @@ fn simple() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 10,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
         .unwrap();
+
     //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
     let _ = create_clients(11, "127.0.0.1:64850");
@@ -65,9 +80,12 @@ fn simple() {
 
 #[test]
 fn simple_no_place() {
-    let keypair = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -78,8 +96,15 @@ fn simple_no_place() {
             max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 1,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
         .unwrap();
@@ -98,9 +123,12 @@ fn simple_no_place() {
 
 #[test]
 fn simple_no_place_after_handshake() {
-    let keypair = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -111,8 +139,15 @@ fn simple_no_place_after_handshake() {
             max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 1,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
         .unwrap();
@@ -131,9 +166,12 @@ fn simple_no_place_after_handshake() {
 
 #[test]
 fn simple_with_different_limit_pre_post_handshake() {
-    let keypair = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -144,8 +182,15 @@ fn simple_with_different_limit_pre_post_handshake() {
             max_in_connections_post_handshake: 5,
             max_in_connections_per_ip: 10,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:64854".parse().unwrap())
         .unwrap();
@@ -164,7 +209,7 @@ fn simple_with_different_limit_pre_post_handshake() {
 
 #[test]
 fn simple_with_category() {
-    let keypair = KeyPair::generate();
+    // let keypair = KeyPair::generate();
     let mut peers_categories = HashMap::default();
     peers_categories.insert(
         String::from("Bootstrap"),
@@ -177,8 +222,12 @@ fn simple_with_category() {
             },
         ),
     );
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -189,8 +238,16 @@ fn simple_with_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 0,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:64859".parse().unwrap())
         .unwrap();
@@ -209,9 +266,12 @@ fn simple_with_category() {
 
 #[test]
 fn two_peers_tcp() {
-    let keypair1 = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair1,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -222,15 +282,26 @@ fn two_peers_tcp() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 
-    let keypair2 = KeyPair::generate();
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair2,
+        context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -241,9 +312,16 @@ fn two_peers_tcp() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager2 = PeerNetManager::new(config);
-    sleep(Duration::from_secs(3));
+
+    let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager2
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),

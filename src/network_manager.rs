@@ -7,28 +7,28 @@ use std::thread::JoinHandle;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use crate::config::PeerNetCategoryInfo;
+use crate::context::Context;
 use crate::messages::MessagesHandler;
 use crate::peer::PeerConnectionType;
-use crate::types::KeyPair;
+use crate::peer_id::PeerId;
 use parking_lot::RwLock;
 
 use crate::{
     config::PeerNetConfiguration,
     error::PeerNetResult,
     peer::{InitConnectionHandler, PeerConnection, SendChannels},
-    peer_id::PeerId,
     transports::{
         endpoint::Endpoint, InternalTransportType, OutConnectionConfig, Transport, TransportType,
     },
 };
 
 #[derive(Debug)]
-pub struct ActiveConnections {
+pub struct ActiveConnections<Id: PeerId> {
     pub nb_in_connections: usize,
     pub nb_out_connections: usize,
     /// Peers attempting to connect but not yet finished initialization
     pub connection_queue: Vec<(SocketAddr, Option<String>)>,
-    pub connections: HashMap<PeerId, PeerConnection>,
+    pub connections: HashMap<Id, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
 
@@ -45,7 +45,7 @@ pub(crate) fn to_canonical(ip: IpAddr) -> IpAddr {
     }
 }
 
-impl ActiveConnections {
+impl<Id: PeerId> ActiveConnections<Id> {
     /// Check if a new connection from a specific address can be accepted or not
     pub fn check_addr_accepted_pre_handshake(
         &self,
@@ -79,7 +79,7 @@ impl ActiveConnections {
         addr: &SocketAddr,
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
-        id: &PeerId,
+        id: &Id,
     ) -> bool {
         let mut nb_connection_for_this_ip = 0;
         let mut nb_connection_for_this_category = 0;
@@ -106,7 +106,7 @@ impl ActiveConnections {
 
     pub fn confirm_connection(
         &mut self,
-        id: PeerId,
+        id: Id,
         mut endpoint: Endpoint,
         send_channels: SendChannels,
         connection_type: PeerConnectionType,
@@ -139,7 +139,7 @@ impl ActiveConnections {
         }
     }
 
-    pub fn remove_connection(&mut self, id: &PeerId) {
+    pub fn remove_connection(&mut self, id: &Id) {
         println!("Removing connection from: {:?}", id);
         if let Some(mut connection) = self.connections.remove(id) {
             connection.shutdown();
@@ -161,22 +161,33 @@ impl ActiveConnections {
     }
 }
 
-pub type SharedActiveConnections = Arc<RwLock<ActiveConnections>>;
+pub type SharedActiveConnections<Id> = Arc<RwLock<ActiveConnections<Id>>>;
 
 /// Main structure of the PeerNet library used to manage the transports and the peers.
-pub struct PeerNetManager<T: InitConnectionHandler, M: MessagesHandler> {
-    pub config: PeerNetConfiguration<T, M>,
-    pub active_connections: SharedActiveConnections,
+pub struct PeerNetManager<
+    Id: PeerId,
+    Ctx: Context<Id>,
+    I: InitConnectionHandler<Id, Ctx, M>,
+    M: MessagesHandler<Id>,
+> {
+    pub config: PeerNetConfiguration<Id, Ctx, I, M>,
+    pub active_connections: SharedActiveConnections<Id>,
     message_handler: M,
-    init_connection_handler: T,
-    self_keypair: KeyPair,
-    transports: HashMap<TransportType, InternalTransportType>,
+    init_connection_handler: I,
+    context: Ctx,
+    transports: HashMap<TransportType, InternalTransportType<Id>>,
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
+impl<
+        Id: PeerId,
+        Ctx: Context<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
+        M: MessagesHandler<Id>,
+    > PeerNetManager<Id, Ctx, I, M>
+{
     /// Creates a new PeerNetManager. Initializes a new database of peers and have no transports by default.
-    pub fn new(config: PeerNetConfiguration<T, M>) -> PeerNetManager<T, M> {
-        let self_keypair = config.self_keypair.clone();
+    pub fn new(config: PeerNetConfiguration<Id, Ctx, I, M>) -> PeerNetManager<Id, Ctx, I, M> {
+        let context = config.context.clone();
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_out_connections: 0,
             nb_in_connections: 0,
@@ -188,7 +199,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
             init_connection_handler: config.init_connection_handler.clone(),
             message_handler: config.message_handler.clone(),
             config,
-            self_keypair,
+            context,
             transports: Default::default(),
             active_connections,
         }
@@ -204,15 +215,15 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
         let transport = self.transports.entry(transport_type).or_insert_with(|| {
             InternalTransportType::from_transport_type(
                 transport_type,
-                self.config.max_in_connections,
                 self.active_connections.clone(),
+                self.config.max_in_connections,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
             )
         });
         transport.start_listener(
-            self.self_keypair.clone(),
+            self.context.clone(),
             addr,
             self.message_handler.clone(),
             self.init_connection_handler.clone(),
@@ -230,8 +241,8 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
         let transport = self.transports.entry(transport_type).or_insert_with(|| {
             InternalTransportType::from_transport_type(
                 transport_type,
-                self.config.max_in_connections,
                 self.active_connections.clone(),
+                self.config.max_in_connections,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
@@ -258,15 +269,15 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
             .or_insert_with(|| {
                 InternalTransportType::from_transport_type(
                     TransportType::from_out_connection_config(out_connection_config),
-                    self.config.max_in_connections,
                     self.active_connections.clone(),
+                    self.config.max_in_connections,
                     self.config.optional_features.clone(),
                     self.config.peers_categories.clone(),
                     self.config.default_category_info,
                 )
             });
         transport.try_connect(
-            self.self_keypair.clone(),
+            self.context.clone(),
             addr,
             timeout,
             out_connection_config,
@@ -281,7 +292,13 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetManager<T, M> {
     }
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler> Drop for PeerNetManager<T, M> {
+impl<
+        Id: PeerId,
+        Ctx: Context<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
+        M: MessagesHandler<Id>,
+    > Drop for PeerNetManager<Id, Ctx, I, M>
+{
     fn drop(&mut self) {
         {
             let mut active_connections = self.active_connections.write();

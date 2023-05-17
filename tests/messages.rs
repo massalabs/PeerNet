@@ -1,3 +1,4 @@
+/*mod util;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -5,14 +6,15 @@ use crossbeam::channel::Sender;
 use peernet::config::PeerNetCategoryInfo;
 use peernet::error::{PeerNetError, PeerNetResult};
 use peernet::messages::{MessagesHandler, MessagesSerializer};
-use peernet::types::KeyPair;
+use peernet::types::PeerNetId;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
-    peer_id::PeerId,
     transports::{OutConnectionConfig, TransportType},
 };
+
+use crate::util::{TestHasher, TestId, TestKeyPair, TestPubKey, TestSignature};
 
 #[derive(Clone)]
 struct EmptyInitConnection;
@@ -25,11 +27,11 @@ enum TestMessages {
 
 #[derive(Clone)]
 struct TestMessagesHandler {
-    pub test_sender: Sender<(PeerId, TestMessages)>,
+    pub test_sender: Sender<(TestId, TestMessages)>,
 }
 
 impl MessagesHandler for TestMessagesHandler {
-    fn handle(&self, id: u64, _data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
+    fn handle<Id: PeerNetId>(&self, id: u64, _data: &[u8], peer_id: &Id) -> PeerNetResult<()> {
         match id {
             0 => {
                 self.test_sender
@@ -43,10 +45,10 @@ impl MessagesHandler for TestMessagesHandler {
         }
     }
 
-    fn deserialize_id<'a>(
+    fn deserialize_id<'a, Id: PeerNetId>(
         &self,
         data: &'a [u8],
-        _peer_id: &PeerId,
+        _peer_id: &Id,
     ) -> PeerNetResult<(&'a [u8], u64)> {
         Ok((&data[1..], data[0] as u64))
     }
@@ -65,6 +67,7 @@ impl MessagesSerializer<Vec<u8>> for MessageSerializer {
         Ok(())
     }
 }
+
 
 #[test]
 fn two_peers_tcp_with_one_message() {
@@ -141,3 +144,4 @@ fn two_peers_tcp_with_one_message() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 }
+ */

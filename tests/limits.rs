@@ -9,30 +9,34 @@ use peernet::{
 };
 use std::{collections::HashMap, net::IpAddr, str::FromStr, time::Duration};
 
-use peernet::types::KeyPair;
+// use peernet::types::KeyPair;
 
-use util::DefaultMessagesHandler;
+use util::{DefaultContext, DefaultMessagesHandler, DefaultPeerId};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
-impl InitConnectionHandler for DefaultInitConnection {
-    fn perform_handshake<M: peernet::messages::MessagesHandler>(
+impl InitConnectionHandler<DefaultPeerId, DefaultContext, DefaultMessagesHandler>
+    for DefaultInitConnection
+{
+    fn perform_handshake(
         &mut self,
-        _keypair: &KeyPair,
+        _keypair: &DefaultContext,
         _endpoint: &mut peernet::transports::endpoint::Endpoint,
-        _listeners: &HashMap<std::net::SocketAddr, TransportType>,
-        _messages_handler: M,
-    ) -> peernet::error::PeerNetResult<peernet::peer_id::PeerId> {
-        let keypair = KeyPair::generate();
-        Ok(PeerId::from_public_key(keypair.get_public_key()))
+        _listeners: &std::collections::HashMap<std::net::SocketAddr, TransportType>,
+        _messages_handler: DefaultMessagesHandler,
+    ) -> peernet::error::PeerNetResult<DefaultPeerId> {
+        Ok(DefaultPeerId::generate())
     }
 }
 
 #[test]
 fn check_multiple_connection_refused() {
-    let keypair1 = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
     let config = PeerNetConfiguration {
-        self_keypair: keypair1,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -43,15 +47,25 @@ fn check_multiple_connection_refused() {
             max_in_connections_post_handshake: 1,
             max_in_connections_per_ip: 1,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 
-    let keypair2 = KeyPair::generate();
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair2.clone(),
+        context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -62,8 +76,15 @@ fn check_multiple_connection_refused() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager2 = PeerNetManager::new(config);
+
+    let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
     manager2
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
@@ -73,9 +94,11 @@ fn check_multiple_connection_refused() {
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
 
-    let keypair3 = KeyPair::generate();
+    let context3 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair3,
+        context: context3,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -86,8 +109,14 @@ fn check_multiple_connection_refused() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager3 = PeerNetManager::new(config);
+    let mut manager3: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
     manager3
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
@@ -105,9 +134,11 @@ fn check_multiple_connection_refused() {
 
 #[test]
 fn check_too_much_in_refuse() {
-    let keypair1 = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair1,
+        context: context,
         max_in_connections: 1,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -118,15 +149,24 @@ fn check_too_much_in_refuse() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 10,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
         .unwrap();
 
-    let keypair2 = KeyPair::generate();
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair2.clone(),
+        context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -137,8 +177,15 @@ fn check_too_much_in_refuse() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager2 = PeerNetManager::new(config);
+
+    let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
     manager2
         .try_connect(
             "127.0.0.1:8080".parse().unwrap(),
@@ -148,9 +195,11 @@ fn check_too_much_in_refuse() {
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
 
-    let keypair3 = KeyPair::generate();
+    let context3 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair3,
+        context: context3,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -161,8 +210,15 @@ fn check_too_much_in_refuse() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager3 = PeerNetManager::new(config);
+
+    let mut manager3: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
     manager3
         .try_connect(
             "127.0.0.1:8080".parse().unwrap(),
@@ -180,7 +236,9 @@ fn check_too_much_in_refuse() {
 
 #[test]
 fn check_multiple_connection_refused_in_category() {
-    let keypair1 = KeyPair::generate();
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let mut peers_categories = HashMap::default();
     peers_categories.insert(
         String::from("Bootstrap"),
@@ -194,7 +252,7 @@ fn check_multiple_connection_refused_in_category() {
         ),
     );
     let config = PeerNetConfiguration {
-        self_keypair: keypair1,
+        context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -205,15 +263,24 @@ fn check_multiple_connection_refused_in_category() {
             max_in_connections_post_handshake: 0,
             max_in_connections_per_ip: 0,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager = PeerNetManager::new(config);
+
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
     manager
         .start_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
         .unwrap();
 
-    let keypair2 = KeyPair::generate();
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair2.clone(),
+        context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -224,8 +291,15 @@ fn check_multiple_connection_refused_in_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager2 = PeerNetManager::new(config);
+
+    let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
     manager2
         .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
@@ -235,8 +309,11 @@ fn check_multiple_connection_refused_in_category() {
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
 
+    let context3 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
     let config = PeerNetConfiguration {
-        self_keypair: keypair2,
+        context: context3,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -247,8 +324,15 @@ fn check_multiple_connection_refused_in_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        _phantom: std::marker::PhantomData,
     };
-    let mut manager3 = PeerNetManager::new(config);
+
+    let mut manager3: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
     manager3
         .try_connect(
             "127.0.0.1:8082".parse().unwrap(),

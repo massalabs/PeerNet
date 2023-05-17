@@ -8,9 +8,10 @@ use std::net::IpAddr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::context::Context;
 use crate::messages::MessagesHandler;
 use crate::peer::InitConnectionHandler;
-use crate::types::KeyPair;
+use crate::peer_id::PeerId;
 
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
@@ -22,12 +23,17 @@ pub struct PeerNetCategoryInfo {
 pub type PeerNetCategories = HashMap<String, (Vec<IpAddr>, PeerNetCategoryInfo)>;
 
 /// Struct containing the configuration for the PeerNet manager.
-pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler> {
-    /// Our peer id
-    pub self_keypair: KeyPair,
+pub struct PeerNetConfiguration<
+    Id: PeerId,
+    Ctx: Context<Id>,
+    I: InitConnectionHandler<Id, Ctx, M>,
+    M: MessagesHandler<Id>,
+> {
+    /// Context that can save useful data such as our private key or our peer_id
+    pub context: Ctx,
     /// Optional function to trigger at handshake
     /// (local keypair, endpoint to the peer, remote peer_id, active_connections)
-    pub init_connection_handler: T,
+    pub init_connection_handler: I,
     /// Optional features to enable for the manager
     pub optional_features: PeerNetFeatures,
     /// Structure for message handler
@@ -38,12 +44,19 @@ pub struct PeerNetConfiguration<T: InitConnectionHandler, M: MessagesHandler> {
     pub peers_categories: PeerNetCategories,
     /// Default category info for all peers not in a specific category (category info, number of connections accepted only for handshake //TODO: Remove when refactored on massa side)
     pub default_category_info: PeerNetCategoryInfo,
+    pub _phantom: std::marker::PhantomData<Id>,
 }
 
-impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
-    pub fn default(init_connection_handler: T, message_handler: M) -> Self {
+impl<
+        Id: PeerId,
+        Ctx: Context<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
+        M: MessagesHandler<Id>,
+    > PeerNetConfiguration<Id, Ctx, I, M>
+{
+    pub fn default(init_connection_handler: I, message_handler: M, context: Ctx) -> Self {
         PeerNetConfiguration {
-            self_keypair: KeyPair::generate(),
+            context,
             max_in_connections: 10,
             init_connection_handler,
             optional_features: PeerNetFeatures::default(),
@@ -54,6 +67,7 @@ impl<T: InitConnectionHandler, M: MessagesHandler> PeerNetConfiguration<T, M> {
                 max_in_connections_post_handshake: 0,
                 max_in_connections_per_ip: 0,
             },
+            _phantom: std::marker::PhantomData,
         }
     }
 }
