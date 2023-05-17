@@ -18,5 +18,3 @@ thiserror = "1.0.39"
 
 [dev-dependencies]
 serde_json = "1.0.95"
-massa_signature = { git = "https://github.com/massalabs/massa", package = "massa_signature" }
-massa_hash = { git = "https://github.com/massalabs/massa", package = "massa_hash" }
