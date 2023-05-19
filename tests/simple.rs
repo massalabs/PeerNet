@@ -4,7 +4,7 @@ use std::{thread::sleep, time::Duration};
 
 use peernet::config::PeerNetCategoryInfo;
 use peernet::peer_id::PeerId;
-use peernet::transports::OutConnectionConfig;
+use peernet::transports::ConnectionConfig;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
@@ -51,6 +51,7 @@ fn simple() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 10,
         },
+        max_message_size_read: 1048576000,
         _phantom: std::marker::PhantomData,
     };
 
@@ -91,6 +92,7 @@ fn simple_no_place() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
+        max_message_size_read: 1048576000,
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 0,
             max_in_connections_post_handshake: 0,
@@ -132,6 +134,7 @@ fn simple_no_place_after_handshake() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
+        max_message_size_read: 1048576000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -175,6 +178,7 @@ fn simple_with_different_limit_pre_post_handshake() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
+        max_message_size_read: 1048576000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -230,6 +234,7 @@ fn simple_with_category() {
         context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
+        max_message_size_read: 1048576000,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories,
@@ -276,6 +281,7 @@ fn two_peers_tcp() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
+        max_message_size_read: 1048576000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
@@ -305,6 +311,7 @@ fn two_peers_tcp() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
+        max_message_size_read: 1048576000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -326,7 +333,7 @@ fn two_peers_tcp() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &OutConnectionConfig::Tcp(Box::default()),
+            &ConnectionConfig::Tcp(Box::default()),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
