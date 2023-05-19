@@ -7,7 +7,7 @@
 //!     config::{PeerNetConfiguration, PeerNetFeatures, PeerNetCategoryInfo},
 //!     network_manager::PeerNetManager,
 //!     peer::InitConnectionHandler,
-//!     transports::{TransportType, OutConnectionConfig},
+//!     transports::{TransportType, ConnectionConfig},
 //! };
 //!
 //! use rand::Rng;
@@ -77,6 +77,7 @@
 //! let config = PeerNetConfiguration {
 //!     context: context,
 //!     max_in_connections: 10,
+//!     max_message_size_read: 1048576000,
 //!     init_connection_handler: DefaultInitConnection,
 //!     optional_features: PeerNetFeatures::default(),
 //!     message_handler: DefaultMessagesHandler {},
@@ -109,6 +110,7 @@
 //! let config = PeerNetConfiguration {
 //!     context: context2,
 //!     max_in_connections: 10,
+//!     max_message_size_read: 1048576000,
 //!     message_handler: DefaultMessagesHandler {},
 //!     init_connection_handler: DefaultInitConnection,
 //!     optional_features: PeerNetFeatures::default(),
@@ -132,7 +134,7 @@
 //!     .try_connect(
 //!         "127.0.0.1:8081".parse().unwrap(),
 //!         Duration::from_secs(3),
-//!         &mut OutConnectionConfig::Tcp(Box::default()),
+//!         &mut ConnectionConfig::Tcp(Box::default()),
 //!     )
 //!     .unwrap();
 //! std::thread::sleep(std::time::Duration::from_secs(3));
