@@ -340,7 +340,6 @@ fn two_peers_tcp() {
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(100));
     assert!(manager.nb_in_connections().eq(&1));
 }
 
