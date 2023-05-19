@@ -40,7 +40,7 @@ pub struct PeerNetConfiguration<
     pub message_handler: M,
     /// Maximum number of in connections if we have more we just don't accept the connection
     pub max_in_connections: usize,
-
+    /// Maximum size of a message that we can read
     pub max_message_size_read: usize,
     /// List of categories of peers
     pub peers_categories: PeerNetCategories,

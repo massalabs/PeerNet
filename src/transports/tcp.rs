@@ -34,9 +34,11 @@ impl TcpError {
 }
 
 #[derive(Default, Clone)]
+#[allow(dead_code)]
 pub struct TcpTransportConfig {
     max_in_connections: usize,
     max_message_size_read: usize,
+
     out_connection_config: TcpOutConnectionConfig,
     peer_categories: PeerNetCategories,
     default_category_info: PeerNetCategoryInfo,
@@ -281,6 +283,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         PeerConnectionType::IN,
                                         category_name,
                                         category_info,
+                                        config.clone().into()
                                     );
                                 }
                                 STOP_LISTENER => {
@@ -318,6 +321,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         handshake_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let peer_stop_rx = self.peer_stop_rx.clone();
+        let conf = self.config.clone();
         Ok(std::thread::Builder::new()
             .name(format!("tcp_try_connect_{:?}", address))
             .spawn({
@@ -360,6 +364,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         PeerConnectionType::OUT,
                         category_name,
                         category_info,
+                        conf.into(),
                     );
                     drop(wg);
                     Ok(())
@@ -437,7 +442,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
         }
-        let mut data = vec![0u8; res_size as usize];
+        let mut data = vec![0u8; res_size];
         endpoint
             .stream
             .read_exact(&mut data)

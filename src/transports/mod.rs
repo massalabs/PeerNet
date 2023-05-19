@@ -16,6 +16,7 @@ use crate::{
     peer::InitConnectionHandler,
 };
 
+use self::quic::QuicConnectionConfig;
 use self::tcp::TcpTransportConfig;
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
 
@@ -64,7 +65,19 @@ pub(crate) enum InternalTransportType<Id: PeerId> {
 #[derive(Clone)]
 pub enum ConnectionConfig {
     Tcp(Box<TcpTransportConfig>),
-    Quic(Box<QuicOutConnectionConfig>),
+    Quic(Box<QuicConnectionConfig>),
+}
+
+impl From<TcpTransportConfig> for ConnectionConfig {
+    fn from(inner: TcpTransportConfig) -> Self {
+        ConnectionConfig::Tcp(Box::new(inner))
+    }
+}
+
+impl From<QuicConnectionConfig> for ConnectionConfig {
+    fn from(inner: QuicConnectionConfig) -> Self {
+        ConnectionConfig::Quic(Box::new(inner))
+    }
 }
 
 // impl From<<TcpTransport as Transport>::OutConnectionConfig> for OutConnectionConfig {
