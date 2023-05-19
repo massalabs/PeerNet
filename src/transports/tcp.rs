@@ -36,6 +36,7 @@ impl TcpError {
 #[derive(Default, Clone)]
 pub struct TcpTransportConfig {
     max_in_connections: usize,
+    max_message_size_read: usize,
     out_connection_config: TcpOutConnectionConfig,
     peer_categories: PeerNetCategories,
     default_category_info: PeerNetCategoryInfo,
@@ -81,7 +82,7 @@ impl Default for TcpOutConnectionConfig {
 
 //TODO: IN/OUT different types because TCP ports are not reliable
 pub struct TcpEndpoint {
-    config: TcpOutConnectionConfig,
+    config: TcpTransportConfig,
     pub address: SocketAddr,
     pub stream: TcpStream,
 }
@@ -110,6 +111,7 @@ impl<Id: PeerId> TcpTransport<Id> {
     pub fn new(
         active_connections: SharedActiveConnections<Id>,
         max_in_connections: usize,
+        max_message_size_read: usize,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
@@ -127,6 +129,7 @@ impl<Id: PeerId> TcpTransport<Id> {
                 out_connection_config: Default::default(),
                 peer_categories,
                 default_category_info,
+                max_message_size_read,
             },
         }
     }
@@ -142,7 +145,7 @@ impl<Id: PeerId> Drop for TcpTransport<Id> {
 }
 
 impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
-    type OutConnectionConfig = TcpOutConnectionConfig;
+    type TransportConfig = TcpTransportConfig;
 
     type Endpoint = TcpEndpoint;
 
@@ -168,7 +171,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let active_connections = self.active_connections.clone();
                 let peer_stop_rx = self.peer_stop_rx.clone();
                 let peer_stop_tx = self.peer_stop_tx.clone();
-                let out_conn_config = self.config.out_connection_config.clone();
                 let config = self.config.clone();
                 move || {
                     let server = TcpListener::bind(address).unwrap_or_else(|_| {
@@ -235,7 +237,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                     };
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
-                                        config: out_conn_config.clone(),
+                                        config: config.clone(),
                                         address,
                                         stream, // stream: Limiter::new(
                                                 //     stream,
@@ -311,7 +313,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         context: Ctx,
         address: SocketAddr,
         timeout: Duration,
-        _config: &Self::OutConnectionConfig,
+        _config: &Self::TransportConfig,
         message_handler: M,
         handshake_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
@@ -349,7 +351,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         Endpoint::Tcp(TcpEndpoint {
                             address,
                             stream,
-                            config: config.out_connection_config.clone(),
+                            config: config.clone(),
                         }),
                         handshake_handler.clone(),
                         message_handler.clone(),
@@ -414,19 +416,23 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         Ok(())
     }
 
-    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
+    fn receive(
+        endpoint: &mut Self::Endpoint,
+        config: &Self::TransportConfig,
+    ) -> PeerNetResult<Vec<u8>> {
         //TODO: Config one
         let mut len_bytes = vec![0u8; 4];
         endpoint
             .stream
             .read_exact(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
-        let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
+        let res_size = usize::from_be_bytes(len_bytes.try_into().map_err(|err| {
             TcpError::ConnectionError
                 .wrap()
                 .error("recv len", Some(format!("{:?}", err)))
         })?);
-        if res_size > 1048576000 {
+
+        if res_size > config.max_message_size_read {
             return Err(
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );

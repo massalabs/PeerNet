@@ -109,7 +109,7 @@ impl<Id: PeerId> QuicTransport<Id> {
 }
 
 impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
-    type OutConnectionConfig = QuicOutConnectionConfig;
+    type TransportConfig = QuicOutConnectionConfig;
 
     type Endpoint = QuicEndpoint;
 
@@ -431,7 +431,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
         self_keypair: Ctx,
         address: SocketAddr,
         _timeout: Duration,
-        config: &Self::OutConnectionConfig,
+        config: &Self::TransportConfig,
         message_handler: M,
         init_connection_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
@@ -592,7 +592,10 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             })
     }
 
-    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
+    fn receive(
+        endpoint: &mut Self::Endpoint,
+        _config: &Self::TransportConfig,
+    ) -> PeerNetResult<Vec<u8>> {
         let data = endpoint.data_receiver.recv().map_err(|err| {
             QuicError::ConnectionError
                 .wrap()

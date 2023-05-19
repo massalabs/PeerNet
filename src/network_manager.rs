@@ -11,15 +11,14 @@ use crate::context::Context;
 use crate::messages::MessagesHandler;
 use crate::peer::PeerConnectionType;
 use crate::peer_id::PeerId;
+use crate::transports::ConnectionConfig;
 use parking_lot::RwLock;
 
 use crate::{
     config::PeerNetConfiguration,
     error::PeerNetResult,
     peer::{InitConnectionHandler, PeerConnection, SendChannels},
-    transports::{
-        endpoint::Endpoint, InternalTransportType, OutConnectionConfig, Transport, TransportType,
-    },
+    transports::{endpoint::Endpoint, InternalTransportType, Transport, TransportType},
 };
 
 #[derive(Debug)]
@@ -217,6 +216,7 @@ impl<
                 transport_type,
                 self.active_connections.clone(),
                 self.config.max_in_connections,
+                self.config.max_message_size_read,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
@@ -243,6 +243,7 @@ impl<
                 transport_type,
                 self.active_connections.clone(),
                 self.config.max_in_connections,
+                self.config.max_message_size_read,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
@@ -259,18 +260,17 @@ impl<
         &mut self,
         addr: SocketAddr,
         timeout: std::time::Duration,
-        out_connection_config: &OutConnectionConfig,
+        connection_config: &ConnectionConfig,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let transport = self
             .transports
-            .entry(TransportType::from_out_connection_config(
-                out_connection_config,
-            ))
+            .entry(TransportType::from_out_connection_config(connection_config))
             .or_insert_with(|| {
                 InternalTransportType::from_transport_type(
-                    TransportType::from_out_connection_config(out_connection_config),
+                    TransportType::from_out_connection_config(connection_config),
                     self.active_connections.clone(),
                     self.config.max_in_connections,
+                    self.config.max_message_size_read,
                     self.config.optional_features.clone(),
                     self.config.peers_categories.clone(),
                     self.config.default_category_info,
@@ -280,7 +280,7 @@ impl<
             self.context.clone(),
             addr,
             timeout,
-            out_connection_config,
+            connection_config,
             self.message_handler.clone(),
             self.init_connection_handler.clone(),
         )

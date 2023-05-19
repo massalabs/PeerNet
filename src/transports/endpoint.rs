@@ -1,8 +1,9 @@
 use crate::context::Context;
-use crate::error::PeerNetResult;
+use crate::error::{PeerNetError, PeerNetResult};
 use crate::peer_id::PeerId;
 
 use super::tcp::TcpEndpoint;
+use super::ConnectionConfig;
 use super::{
     quic::{QuicEndpoint, QuicTransport},
     tcp::TcpTransport,
@@ -35,10 +36,24 @@ impl Endpoint {
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send(endpoint, data),
         }
     }
-    pub fn receive<Id: PeerId>(&mut self) -> PeerNetResult<Vec<u8>> {
+    pub fn receive<Id: PeerId>(&mut self, config: ConnectionConfig) -> PeerNetResult<Vec<u8>> {
         match self {
-            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
-            Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
+            Endpoint::Tcp(endpoint) => {
+                let tcp_config = match config {
+                    ConnectionConfig::Tcp(conf) => conf,
+                    _ => return Err(PeerNetError::WrongConfigType.error("receive match tcp", None)),
+                };
+                TcpTransport::<Id>::receive(endpoint, &tcp_config)
+            }
+            Endpoint::Quic(endpoint) => {
+                let quic_config = match config {
+                    ConnectionConfig::Quic(conf) => conf,
+                    _ => {
+                        return Err(PeerNetError::WrongConfigType.error("receive match quic", None))
+                    }
+                };
+                QuicTransport::<Id>::receive(endpoint, &quic_config)
+            }
         }
     }
 
