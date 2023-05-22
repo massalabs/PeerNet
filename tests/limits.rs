@@ -460,6 +460,7 @@ fn max_message_size() {
 
     let mut tuple = handle.join().unwrap();
     let error = tuple.1.unwrap_err();
+    dbg!(&error);
     assert!(error.to_string().contains("len too long"));
 
     tuple
