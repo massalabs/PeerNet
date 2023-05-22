@@ -2,7 +2,7 @@
 mod util;
 use peernet::{
     config::{PeerNetCategoryInfo, PeerNetConfiguration, PeerNetFeatures},
-    error::{PeerNetError, PeerNetErrorData},
+    error::PeerNetError,
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     peer_id::PeerId,
