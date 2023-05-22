@@ -4,7 +4,6 @@ use std::{thread::sleep, time::Duration};
 
 use peernet::config::PeerNetCategoryInfo;
 use peernet::peer_id::PeerId;
-use peernet::transports::ConnectionConfig;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
@@ -15,7 +14,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use util::{create_clients, DefaultMessagesHandler};
 
-use crate::util::{DefaultContext, DefaultPeerId};
+use crate::util::{get_default_tcp_config, DefaultContext, DefaultPeerId};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
@@ -333,7 +332,7 @@ fn two_peers_tcp() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &ConnectionConfig::Tcp(Box::default()),
+            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));

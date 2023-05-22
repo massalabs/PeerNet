@@ -2,6 +2,7 @@
 mod util;
 use peernet::{
     config::{PeerNetCategoryInfo, PeerNetConfiguration, PeerNetFeatures},
+    error::{PeerNetError, PeerNetErrorData},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     peer_id::PeerId,
@@ -12,6 +13,8 @@ use std::{collections::HashMap, net::IpAddr, str::FromStr, time::Duration};
 // use peernet::types::KeyPair;
 
 use util::{DefaultContext, DefaultMessagesHandler, DefaultPeerId};
+
+use crate::util::get_default_tcp_config;
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
@@ -124,7 +127,7 @@ fn check_multiple_connection_refused() {
         .try_connect(
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut ConnectionConfig::Tcp(Box::default()),
+            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -195,7 +198,7 @@ fn check_too_much_in_refuse() {
         .try_connect(
             "127.0.0.1:8080".parse().unwrap(),
             Duration::from_secs(3),
-            &mut ConnectionConfig::Tcp(Box::default()),
+            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -229,7 +232,7 @@ fn check_too_much_in_refuse() {
         .try_connect(
             "127.0.0.1:8080".parse().unwrap(),
             Duration::from_secs(3),
-            &mut ConnectionConfig::Tcp(Box::default()),
+            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -312,7 +315,7 @@ fn check_multiple_connection_refused_in_category() {
         .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
-            &mut ConnectionConfig::Tcp(Box::default()),
+            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -346,7 +349,7 @@ fn check_multiple_connection_refused_in_category() {
         .try_connect(
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
-            &mut ConnectionConfig::Tcp(Box::default()),
+            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -354,6 +357,114 @@ fn check_multiple_connection_refused_in_category() {
     assert_eq!(manager.nb_in_connections(), 1);
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
+        .unwrap();
+}
+
+#[test]
+fn max_message_size() {
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
+    let config = PeerNetConfiguration {
+        context: context,
+        max_in_connections: 10,
+        init_connection_handler: DefaultInitConnection {},
+        optional_features: PeerNetFeatures::default(),
+        message_handler: DefaultMessagesHandler {},
+        max_message_size_read: 10,
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
+            max_in_connections_per_ip: 2,
+        },
+        _phantom: std::marker::PhantomData,
+    };
+
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
+    manager
+        .start_listener(TransportType::Tcp, "127.0.0.1:8085".parse().unwrap())
+        .unwrap();
+
+    let context2 = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
+    let config = PeerNetConfiguration {
+        context: context2,
+        max_in_connections: 10,
+        init_connection_handler: DefaultInitConnection {},
+        optional_features: PeerNetFeatures::default(),
+        max_message_size_read: 1048576000,
+        message_handler: DefaultMessagesHandler {},
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
+            max_in_connections_per_ip: 2,
+        },
+        _phantom: std::marker::PhantomData,
+    };
+
+    let mut manager2: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
+    manager2
+        .try_connect(
+            "127.0.0.1:8085".parse().unwrap(),
+            Duration::from_secs(3),
+            &get_default_tcp_config(),
+        )
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(3));
+    assert!(manager.nb_in_connections().eq(&1));
+
+    let handle = std::thread::spawn(move || {
+        let mut result = Err(PeerNetError::PeerConnectionError.error("test", None));
+
+        for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
+            result = conn.endpoint.receive::<DefaultPeerId>(
+                peernet::transports::TcpTransportConfig {
+                    max_in_connections: 10,
+                    max_message_size_read: 10,
+                    default_category_info: PeerNetCategoryInfo {
+                        max_in_connections_pre_handshake: 10,
+                        max_in_connections_post_handshake: 10,
+                        max_in_connections_per_ip: 2,
+                    },
+                    ..Default::default()
+                }
+                .into(),
+            );
+            break;
+        }
+        (manager, result)
+    });
+
+    for (_peer_id, conn) in manager2.active_connections.write().connections.iter_mut() {
+        // send msg with 20 bytes length
+        conn.endpoint.send::<DefaultPeerId>(&[0; 20]).unwrap();
+        break;
+    }
+
+    let mut tuple = handle.join().unwrap();
+    let error = tuple.1.unwrap_err();
+    assert!(error.to_string().contains("len too long"));
+
+    tuple
+        .0
+        .stop_listener(TransportType::Tcp, "127.0.0.1:8085".parse().unwrap())
         .unwrap();
 }
 
