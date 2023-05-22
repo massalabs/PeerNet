@@ -458,6 +458,7 @@ fn max_message_size() {
         break;
     }
 
+    std::thread::sleep(std::time::Duration::from_secs(1));
     let mut tuple = handle.join().unwrap();
     let error = tuple.1.unwrap_err();
     dbg!(&error);
