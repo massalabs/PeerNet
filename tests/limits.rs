@@ -372,7 +372,7 @@ fn max_message_size() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size_read: 10,
+        max_message_size_read: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
