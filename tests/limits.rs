@@ -447,7 +447,9 @@ fn max_message_size() {
                 }
                 .into(),
             );
-            break;
+            if result.is_err() {
+                break;
+            }
         }
         (manager, result)
     });
