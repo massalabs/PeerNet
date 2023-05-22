@@ -152,7 +152,7 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
                     message_handler,
                     init_connection_handler,
                 ),
-            _ => Err(PeerNetError::WrongConfigType.error("try_connect match quic", None)),
+            _ => Err(PeerNetError::WrongConfigType.error("try_connect match Transport", None)),
         }
     }
 

@@ -437,9 +437,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .error("recv len", Some(format!("{:?}", err)))
         })?);
 
-        dbg!(&res_size);
-        dbg!(config.max_message_size_read);
-
         if res_size as usize > config.max_message_size_read {
             return Err(
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
