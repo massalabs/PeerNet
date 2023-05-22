@@ -76,12 +76,12 @@ impl TcpOutConnectionConfig {
     }
 }
 
-impl Into<LimiterOptions> for TcpOutConnectionConfig {
-    fn into(self) -> LimiterOptions {
+impl From<TcpOutConnectionConfig> for LimiterOptions {
+    fn from(val: TcpOutConnectionConfig) -> Self {
         LimiterOptions::new(
-            self.rate_limit,
-            self.rate_time_window,
-            self.rate_bucket_size,
+            val.rate_limit,
+            val.rate_time_window,
+            val.rate_bucket_size,
         )
     }
 }

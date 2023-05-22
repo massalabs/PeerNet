@@ -10,6 +10,7 @@ use super::{
     Transport,
 };
 
+#[allow(clippy::large_enum_variant)]
 pub enum Endpoint {
     Tcp(TcpEndpoint),
     Quic(QuicEndpoint),

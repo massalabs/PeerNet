@@ -43,7 +43,7 @@ fn check_multiple_connection_refused() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -148,7 +148,7 @@ fn check_too_much_in_refuse() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 1,
         max_message_size_read: 1048576000,
         init_connection_handler: DefaultInitConnection {},
@@ -265,7 +265,7 @@ fn check_multiple_connection_refused_in_category() {
         ),
     );
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         max_message_size_read: 1048576000,
