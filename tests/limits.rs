@@ -390,7 +390,7 @@ fn max_message_size() {
     > = PeerNetManager::new(config);
 
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8085".parse().unwrap())
+        .start_listener(TransportType::Tcp, "127.0.0.1:28085".parse().unwrap())
         .unwrap();
 
     let context2 = DefaultContext {
@@ -422,7 +422,7 @@ fn max_message_size() {
 
     manager2
         .try_connect(
-            "127.0.0.1:8085".parse().unwrap(),
+            "127.0.0.1:28085".parse().unwrap(),
             Duration::from_secs(3),
             &get_default_tcp_config(),
         )
@@ -468,7 +468,7 @@ fn max_message_size() {
 
     tuple
         .0
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8085".parse().unwrap())
+        .stop_listener(TransportType::Tcp, "127.0.0.1:28085".parse().unwrap())
         .unwrap();
 }
 
