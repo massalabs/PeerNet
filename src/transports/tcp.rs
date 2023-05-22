@@ -38,7 +38,7 @@ impl TcpError {
 pub struct TcpTransportConfig {
     max_in_connections: usize,
     max_message_size_read: usize,
-
+    pub data_channel_size: usize,
     out_connection_config: TcpOutConnectionConfig,
     peer_categories: PeerNetCategories,
     default_category_info: PeerNetCategoryInfo,
@@ -115,6 +115,7 @@ impl<Id: PeerId> TcpTransport<Id> {
         max_in_connections: usize,
         max_message_size_read: usize,
         peer_categories: PeerNetCategories,
+        data_channel_size: usize,
         default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
     ) -> TcpTransport<Id> {
@@ -132,6 +133,7 @@ impl<Id: PeerId> TcpTransport<Id> {
                 peer_categories,
                 default_category_info,
                 max_message_size_read,
+                data_channel_size,
             },
         }
     }
@@ -283,7 +285,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         PeerConnectionType::IN,
                                         category_name,
                                         category_info,
-                                        config.clone().into()
+                                        config.clone().into(),
                                     );
                                 }
                                 STOP_LISTENER => {

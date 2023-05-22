@@ -217,9 +217,11 @@ impl<
                 self.active_connections.clone(),
                 self.config.max_in_connections,
                 self.config.max_message_size_read,
+                self.config.data_channel_size,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
+                addr,
             )
         });
         transport.start_listener(
@@ -244,9 +246,11 @@ impl<
                 self.active_connections.clone(),
                 self.config.max_in_connections,
                 self.config.max_message_size_read,
+                self.config.data_channel_size,
                 self.config.optional_features.clone(),
                 self.config.peers_categories.clone(),
                 self.config.default_category_info,
+                addr,
             )
         });
         transport.stop_listener(addr)?;
@@ -271,9 +275,11 @@ impl<
                     self.active_connections.clone(),
                     self.config.max_in_connections,
                     self.config.max_message_size_read,
+                    self.config.data_channel_size,
                     self.config.optional_features.clone(),
                     self.config.peers_categories.clone(),
                     self.config.default_category_info,
+                    addr,
                 )
             });
         transport.try_connect(

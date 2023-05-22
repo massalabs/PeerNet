@@ -42,6 +42,7 @@ fn check_multiple_connection_refused() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         max_message_size_read: 1048576000,
+        data_channel_size: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 1,
@@ -68,6 +69,7 @@ fn check_multiple_connection_refused() {
     let config = PeerNetConfiguration {
         context: context2,
         max_in_connections: 10,
+        data_channel_size: 1000,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -105,6 +107,7 @@ fn check_multiple_connection_refused() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         max_message_size_read: 1048576000,
+        data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -144,6 +147,7 @@ fn check_too_much_in_refuse() {
         context: context,
         max_in_connections: 1,
         max_message_size_read: 1048576000,
+        data_channel_size: 1000,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -172,6 +176,7 @@ fn check_too_much_in_refuse() {
     let config = PeerNetConfiguration {
         context: context2,
         max_in_connections: 10,
+        data_channel_size: 1000,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         max_message_size_read: 1048576000,
@@ -206,6 +211,7 @@ fn check_too_much_in_refuse() {
     let config = PeerNetConfiguration {
         context: context3,
         max_in_connections: 10,
+        data_channel_size: 1000,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -262,6 +268,7 @@ fn check_multiple_connection_refused_in_category() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         max_message_size_read: 1048576000,
+        data_channel_size: 1000,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories,
@@ -291,6 +298,7 @@ fn check_multiple_connection_refused_in_category() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         max_message_size_read: 1048576000,
+        data_channel_size: 1000,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
@@ -333,6 +341,7 @@ fn check_multiple_connection_refused_in_category() {
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
         },
+        data_channel_size: 1000,
         _phantom: std::marker::PhantomData,
     };
 
