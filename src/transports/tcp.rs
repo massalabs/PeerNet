@@ -19,6 +19,7 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
+use stream_limiter::{Limiter, LimiterOptions};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TcpError {
@@ -60,24 +61,37 @@ const STOP_LISTENER: Token = Token(10);
 
 #[derive(Clone, Debug)]
 pub struct TcpOutConnectionConfig {
-    pub _rate_limit: u128,
-    pub _rate_time_window: Duration,
+    pub rate_limit: u128,
+    pub rate_time_window: Duration,
+    pub rate_bucket_size: usize,
 }
 
 impl TcpOutConnectionConfig {
-    pub fn new(rate_limit: u128, rate_time_window: Duration) -> Self {
+    pub fn new(rate_limit: u128, rate_time_window: Duration, rate_bucket_size: usize) -> Self {
         TcpOutConnectionConfig {
-            _rate_limit: rate_limit,
-            _rate_time_window: rate_time_window,
+            rate_limit,
+            rate_time_window,
+            rate_bucket_size,
         }
+    }
+}
+
+impl Into<LimiterOptions> for TcpOutConnectionConfig {
+    fn into(self) -> LimiterOptions {
+        LimiterOptions::new(
+            self.rate_limit,
+            self.rate_time_window,
+            self.rate_bucket_size,
+        )
     }
 }
 
 impl Default for TcpOutConnectionConfig {
     fn default() -> Self {
         TcpOutConnectionConfig {
-            _rate_limit: 10 * 1024,
-            _rate_time_window: Duration::from_secs(1),
+            rate_limit: 10 * 1024,
+            rate_time_window: Duration::from_secs(1),
+            rate_bucket_size: 10*1024,
         }
     }
 }
@@ -86,26 +100,30 @@ impl Default for TcpOutConnectionConfig {
 pub struct TcpEndpoint {
     pub config: TcpTransportConfig,
     pub address: SocketAddr,
-    pub stream: TcpStream,
+    pub stream: Limiter<TcpStream>,
 }
 
 impl TcpEndpoint {
     pub fn try_clone(&self) -> PeerNetResult<Self> {
         Ok(TcpEndpoint {
-            config: self.config.clone(),
             address: self.address,
-            stream: self.stream.try_clone().map_err(|err| {
-                TcpError::ConnectionError
-                    .wrap()
-                    .new("cannot clone stream", err, None)
-            })?,
+            stream: Limiter::new(
+                self.stream.stream.try_clone().map_err(|err| {
+                    TcpError::ConnectionError
+                        .wrap()
+                        .new("cannot clone stream", err, None)
+                })?,
+                Some(self.config.out_connection_config.clone().into()),
+                Some(self.config.out_connection_config.clone().into()),
+            ),
+            config: self.config.clone(),
         })
     }
 }
 
 impl TcpEndpoint {
     pub fn shutdown(&mut self) {
-        let _ = self.stream.shutdown(std::net::Shutdown::Both);
+        let _ = self.stream.stream.shutdown(std::net::Shutdown::Both);
     }
 }
 
@@ -239,13 +257,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                     };
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
-                                        config: config.clone(),
                                         address,
-                                        stream, // stream: Limiter::new(
-                                                //     stream,
-                                                //     out_conn_config.rate_limit,
-                                                //     out_conn_config.rate_time_window,
-                                                // ),
+                                        stream: Limiter::new(
+                                            stream,
+                                            Some(config.out_connection_config.clone().into()),
+                                            Some(config.out_connection_config.clone().into()),
+                                        ),
+                                        config: config.clone(),
                                     });
                                     let listeners = {
                                         let mut active_connections = active_connections.write();
@@ -336,11 +354,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
-                    // let stream = Limiter::new(
-                    //     stream,
-                    //     out_conn_config.rate_limit,
-                    //     out_conn_config.rate_time_window,
-                    // );
+                    let stream = Limiter::new(
+                        stream,
+                        Some(config.out_connection_config.clone().into()),
+                        Some(config.out_connection_config.clone().into()),
+                    );
                     let ip_canonical = to_canonical(address.ip());
                     let (category_name, category_info) = match config
                         .peer_categories
