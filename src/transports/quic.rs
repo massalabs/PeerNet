@@ -85,12 +85,12 @@ impl QuicEndpoint {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QuicOutConnectionConfig {
     pub local_addr: SocketAddr,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QuicConnectionConfig {
     out_connection_config: QuicOutConnectionConfig,
 }

@@ -17,7 +17,6 @@ use crate::{
 };
 
 use self::quic::QuicConnectionConfig;
-use self::tcp::TcpTransportConfig;
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
 
 pub mod endpoint;
@@ -26,7 +25,7 @@ mod tcp;
 
 pub use quic::QuicOutConnectionConfig;
 use serde::{Deserialize, Serialize};
-pub use tcp::TcpOutConnectionConfig;
+pub use tcp::{TcpOutConnectionConfig, TcpTransportConfig};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TransportErrorType {
@@ -62,7 +61,7 @@ pub(crate) enum InternalTransportType<Id: PeerId> {
 }
 
 /// All configurations for out connection depending on the transport type
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ConnectionConfig {
     Tcp(Box<TcpTransportConfig>),
     Quic(Box<QuicConnectionConfig>),
@@ -134,9 +133,9 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
         message_handler: M,
         init_connection_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
-        match self {
-            InternalTransportType::Tcp(transport) => match config {
-                ConnectionConfig::Tcp(config) => transport.try_connect(
+        match (self, config) {
+            (InternalTransportType::Tcp(transport), ConnectionConfig::Tcp(config)) => transport
+                .try_connect(
                     context,
                     address,
                     timeout,
@@ -144,10 +143,8 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
                     message_handler,
                     init_connection_handler,
                 ),
-                _ => Err(PeerNetError::WrongConfigType.error("try_connect match tcp", None)),
-            },
-            InternalTransportType::Quic(transport) => match config {
-                ConnectionConfig::Quic(config) => transport.try_connect(
+            (InternalTransportType::Quic(transport), ConnectionConfig::Quic(config)) => transport
+                .try_connect(
                     context,
                     address,
                     timeout,
@@ -155,8 +152,7 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
                     message_handler,
                     init_connection_handler,
                 ),
-                _ => Err(PeerNetError::WrongConfigType.error("try_connect match quic", None)),
-            },
+            _ => Err(PeerNetError::WrongConfigType.error("try_connect match quic", None)),
         }
     }
 
@@ -175,23 +171,14 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
     }
 
     fn receive(endpoint: &mut Self::Endpoint, config: &ConnectionConfig) -> PeerNetResult<Vec<u8>> {
-        match endpoint {
-            Endpoint::Tcp(endpoint) => {
-                let tcp_config = match config {
-                    ConnectionConfig::Tcp(conf) => conf,
-                    _ => return Err(PeerNetError::WrongConfigType.error("receive match tcp", None)),
-                };
-                TcpTransport::<Id>::receive(endpoint, tcp_config)
+        match (endpoint, config) {
+            (Endpoint::Tcp(endpoint), ConnectionConfig::Tcp(config)) => {
+                TcpTransport::<Id>::receive(endpoint, config)
             }
-            Endpoint::Quic(endpoint) => {
-                let quic_config = match config {
-                    ConnectionConfig::Quic(conf) => conf,
-                    _ => {
-                        return Err(PeerNetError::WrongConfigType.error("receive match quic", None))
-                    }
-                };
-                QuicTransport::<Id>::receive(endpoint, quic_config)
+            (Endpoint::Quic(endpoint), ConnectionConfig::Quic(config)) => {
+                QuicTransport::<Id>::receive(endpoint, config)
             }
+            _ => Err(PeerNetError::WrongConfigType.error("mod receive match", None)),
         }
     }
 }
@@ -226,7 +213,7 @@ impl<Id: PeerId> InternalTransportType<Id> {
 /// so that the network manager can be used with different
 /// transport layers
 pub trait Transport<Id: PeerId> {
-    type TransportConfig: Clone;
+    type TransportConfig: Clone + std::fmt::Debug;
     type Endpoint;
     /// Start a listener in a separate thread.
     /// A listener must accept connections when arriving create a new peer
