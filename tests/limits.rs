@@ -464,6 +464,8 @@ fn max_message_size() {
         (manager, result)
     });
 
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
     for (_peer_id, conn) in manager2.active_connections.write().connections.iter_mut() {
         // send msg with 20 bytes length
         conn.endpoint.send::<DefaultPeerId>(&[0; 20]).unwrap();
