@@ -433,10 +433,11 @@ fn max_message_size() {
     assert!(manager.nb_in_connections().eq(&1));
 
     let handle = std::thread::spawn(move || {
-        let mut result = Err(PeerNetError::PeerConnectionError.error("test", None));
+        let mut result: Result<(), peernet::error::PeerNetErrorData> =
+            Err(PeerNetError::PeerConnectionError.error("test", None));
 
         for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
-            result = conn.endpoint.receive::<DefaultPeerId>(
+            if let Err(e) = conn.endpoint.receive::<DefaultPeerId>(
                 peernet::transports::TcpTransportConfig {
                     max_in_connections: 10,
                     max_message_size_read: 10,
@@ -448,8 +449,8 @@ fn max_message_size() {
                     ..Default::default()
                 }
                 .into(),
-            );
-            if result.is_err() {
+            ) {
+                result = Err(e);
                 break;
             }
         }
@@ -462,7 +463,7 @@ fn max_message_size() {
         break;
     }
 
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    std::thread::sleep(std::time::Duration::from_secs(3));
     let mut tuple = handle.join().unwrap();
     let error = tuple.1.unwrap_err();
     dbg!(&error);
