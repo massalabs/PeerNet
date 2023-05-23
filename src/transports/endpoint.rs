@@ -37,23 +37,14 @@ impl Endpoint {
         }
     }
     pub fn receive<Id: PeerId>(&mut self, config: ConnectionConfig) -> PeerNetResult<Vec<u8>> {
-        match self {
-            Endpoint::Tcp(endpoint) => {
-                let tcp_config = match config {
-                    ConnectionConfig::Tcp(conf) => conf,
-                    _ => return Err(PeerNetError::WrongConfigType.error("receive match tcp", None)),
-                };
-                TcpTransport::<Id>::receive(endpoint, &tcp_config)
+        match (self, config) {
+            (Endpoint::Tcp(endpoint), ConnectionConfig::Tcp(config)) => {
+                TcpTransport::<Id>::receive(endpoint, &config)
             }
-            Endpoint::Quic(endpoint) => {
-                let quic_config = match config {
-                    ConnectionConfig::Quic(conf) => conf,
-                    _ => {
-                        return Err(PeerNetError::WrongConfigType.error("receive match quic", None))
-                    }
-                };
-                QuicTransport::<Id>::receive(endpoint, &quic_config)
+            (Endpoint::Quic(endpoint), ConnectionConfig::Quic(config)) => {
+                QuicTransport::<Id>::receive(endpoint, &config)
             }
+            _ => Err(PeerNetError::WrongConfigType.error("receive match", None)),
         }
     }
 

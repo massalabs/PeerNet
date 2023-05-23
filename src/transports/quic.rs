@@ -86,12 +86,12 @@ impl QuicEndpoint {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QuicOutConnectionConfig {
     pub local_addr: SocketAddr,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QuicConnectionConfig {
     out_connection_config: QuicOutConnectionConfig,
     pub data_channel_size: usize,
@@ -289,7 +289,11 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     (connection, send_rx, recv_tx, false),
                                                 );
                                             }
-
+                                            let config = QuicConnectionConfig {
+                                                out_connection_config: QuicOutConnectionConfig {
+                                                    local_addr: from_addr,
+                                                },
+                                            };
                                             new_peer(
                                                 context.clone(),
                                                 Endpoint::Quic(QuicEndpoint {
@@ -308,7 +312,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     max_in_connections_post_handshake: 0,
                                                     max_in_connections_pre_handshake: 0,
                                                 },
-                                                transport_config.clone().into(),
+                                                config.into(),
                                             );
                                         }
                                         {
