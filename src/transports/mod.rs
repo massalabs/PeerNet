@@ -184,14 +184,17 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
 }
 
 impl<Id: PeerId> InternalTransportType<Id> {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
         active_connections: SharedActiveConnections<Id>,
         max_in_connections: usize,
         max_message_size_read: usize,
+        data_channel_size: usize,
         features: PeerNetFeatures,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,
+        local_addr: SocketAddr,
     ) -> Self {
         match transport_type {
             TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
@@ -199,12 +202,16 @@ impl<Id: PeerId> InternalTransportType<Id> {
                 max_in_connections,
                 max_message_size_read,
                 peer_categories,
+                data_channel_size,
                 default_category_info,
                 features,
             )),
-            TransportType::Quic => {
-                InternalTransportType::Quic(QuicTransport::new(active_connections, features))
-            }
+            TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(
+                active_connections,
+                features,
+                data_channel_size,
+                local_addr,
+            )),
         }
     }
 }

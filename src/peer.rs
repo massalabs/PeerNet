@@ -9,8 +9,9 @@ use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::peer_id::PeerId;
 use crate::transports::ConnectionConfig;
+use crossbeam::channel::bounded;
 use crossbeam::{
-    channel::{unbounded, Receiver, Sender, TryRecvError},
+    channel::{Receiver, Sender, TryRecvError},
     select,
 };
 
@@ -152,10 +153,13 @@ pub(crate) fn new_peer<
             }
         };
 
-        //TODO: Bounded
+        let channel_size = match config.clone() {
+            ConnectionConfig::Tcp(conf) => conf.data_channel_size,
+            ConnectionConfig::Quic(conf) => conf.data_channel_size,
+        };
 
-        let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
-        let (high_write_tx, high_write_rx) = unbounded::<Vec<u8>>();
+        let (low_write_tx, low_write_rx) = bounded::<Vec<u8>>(channel_size);
+        let (high_write_tx, high_write_rx) = bounded::<Vec<u8>>(channel_size);
 
         let endpoint_connection = match endpoint.try_clone() {
             Ok(write_endpoint) => write_endpoint,

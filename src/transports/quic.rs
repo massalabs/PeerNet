@@ -63,6 +63,7 @@ pub(crate) struct QuicTransport<Id: PeerId> {
     _features: PeerNetFeatures,
     stop_peer_tx: Sender<()>,
     stop_peer_rx: Receiver<()>,
+    config: QuicConnectionConfig,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -93,12 +94,15 @@ pub struct QuicOutConnectionConfig {
 #[derive(Clone, Debug)]
 pub struct QuicConnectionConfig {
     out_connection_config: QuicOutConnectionConfig,
+    pub data_channel_size: usize,
 }
 
 impl<Id: PeerId> QuicTransport<Id> {
     pub fn new(
         active_connections: SharedActiveConnections<Id>,
         features: PeerNetFeatures,
+        data_channel_size: usize,
+        local_addr: SocketAddr,
     ) -> QuicTransport<Id> {
         let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
@@ -109,6 +113,10 @@ impl<Id: PeerId> QuicTransport<Id> {
             _features: features,
             stop_peer_tx,
             stop_peer_rx,
+            config: QuicConnectionConfig {
+                out_connection_config: QuicOutConnectionConfig { local_addr },
+                data_channel_size,
+            },
         }
     }
 }
@@ -143,7 +151,6 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 .wrap()
                 .new("server set nonblocking", err, None)
         })?;
-
         let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).map_err(|err| {
             QuicError::QuicheConfig.wrap().new(
                 "new from protocol",
@@ -183,6 +190,9 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 let server = server.try_clone().unwrap();
                 let stop_peer_rx = self.stop_peer_rx.clone();
                 let stop_peer_tx = self.stop_peer_tx.clone();
+
+                let quic_config = self.config.clone();
+
                 move || {
                     let mut socket = MioUdpSocket::from_std(server);
                     // Start listening for incoming connections.
@@ -279,11 +289,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     (connection, send_rx, recv_tx, false),
                                                 );
                                             }
-                                            let config = QuicConnectionConfig {
-                                                out_connection_config: QuicOutConnectionConfig {
-                                                    local_addr: from_addr,
-                                                },
-                                            };
+
                                             new_peer(
                                                 context.clone(),
                                                 Endpoint::Quic(QuicEndpoint {
@@ -302,7 +308,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     max_in_connections_post_handshake: 0,
                                                     max_in_connections_pre_handshake: 0,
                                                 },
-                                                config.into(),
+                                                quic_config.clone().into(),
                                             );
                                         }
                                         {

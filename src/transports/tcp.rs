@@ -38,7 +38,7 @@ impl TcpError {
 pub struct TcpTransportConfig {
     pub max_in_connections: usize,
     pub max_message_size_read: usize,
-
+    pub data_channel_size: usize,
     pub out_connection_config: TcpOutConnectionConfig,
     pub peer_categories: PeerNetCategories,
     pub default_category_info: PeerNetCategoryInfo,
@@ -115,6 +115,7 @@ impl<Id: PeerId> TcpTransport<Id> {
         max_in_connections: usize,
         max_message_size_read: usize,
         peer_categories: PeerNetCategories,
+        data_channel_size: usize,
         default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
     ) -> TcpTransport<Id> {
@@ -132,6 +133,7 @@ impl<Id: PeerId> TcpTransport<Id> {
                 peer_categories,
                 default_category_info,
                 max_message_size_read,
+                data_channel_size,
             },
         }
     }
@@ -283,7 +285,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         PeerConnectionType::IN,
                                         category_name,
                                         category_info,
-                                        config.clone().into()
+                                        config.clone().into(),
                                     );
                                 }
                                 STOP_LISTENER => {
@@ -437,8 +439,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .error("recv len", Some(format!("{:?}", err)))
         })?);
 
-        if res_size as usize > config.max_message_size_read {
-            dbg!("return error");
+        if res_size > config.max_message_size_read as u32 {
             return Err(
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
