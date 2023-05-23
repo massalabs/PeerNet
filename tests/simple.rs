@@ -334,6 +334,7 @@ fn two_peers_tcp() {
         DefaultInitConnection,
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
+    std::thread::sleep(std::time::Duration::from_secs(1));
 
     manager2
         .try_connect(
@@ -342,7 +343,7 @@ fn two_peers_tcp() {
             &get_default_tcp_config(),
         )
         .unwrap();
-    std::thread::sleep(std::time::Duration::from_secs(3));
+    std::thread::sleep(std::time::Duration::from_secs(1));
     assert!(manager.nb_in_connections().eq(&1));
     manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
