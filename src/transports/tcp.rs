@@ -455,6 +455,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         //TODO: Use config one
         endpoint
             .stream
+            .stream
             .set_write_timeout(Some(timeout))
             .map_err(|e| {
                 PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
@@ -477,9 +478,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .new("send data write", err, None)
         })?;
 
-        endpoint.stream.set_write_timeout(None).map_err(|e| {
-            PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
-        })?;
+        endpoint
+            .stream
+            .stream
+            .set_write_timeout(None)
+            .map_err(|e| {
+                PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
+            })?;
 
         Ok(())
     }
