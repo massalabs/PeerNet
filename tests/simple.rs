@@ -4,7 +4,6 @@ use std::{thread::sleep, time::Duration};
 
 use peernet::config::PeerNetCategoryInfo;
 use peernet::peer_id::PeerId;
-use peernet::transports::ConnectionConfig;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,

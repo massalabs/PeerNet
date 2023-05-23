@@ -433,18 +433,18 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             .stream
             .read_exact(&mut len_bytes)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
-        let res_size = usize::from_be_bytes(len_bytes.try_into().map_err(|err| {
+        let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
             TcpError::ConnectionError
                 .wrap()
                 .error("recv len", Some(format!("{:?}", err)))
         })?);
 
-        if res_size as usize > config.max_message_size_read {
+        if res_size > config.max_message_size_read as u32 {
             return Err(
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
         }
-        let mut data = vec![0u8; res_size];
+        let mut data = vec![0u8; res_size as usize];
         endpoint
             .stream
             .read_exact(&mut data)

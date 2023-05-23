@@ -443,7 +443,7 @@ fn max_message_size() {
     let result = endpoint.receive::<DefaultPeerId>(
         peernet::transports::TcpTransportConfig {
             max_in_connections: 10,
-            max_message_size_read: 1,
+            max_message_size_read: 10,
             default_category_info: PeerNetCategoryInfo {
                 max_in_connections_pre_handshake: 10,
                 max_in_connections_post_handshake: 10,

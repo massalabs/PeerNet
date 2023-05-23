@@ -183,8 +183,6 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             })?;
         config.enable_dgram(true, 10, 10);
 
-        let transport_config = self.config.clone();
-
         let listener_handle: JoinHandle<PeerNetResult<()>> = std::thread::Builder::new()
             .name(format!("quic_listener_handle_{:?}", address))
             .spawn({
