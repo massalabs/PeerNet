@@ -78,11 +78,7 @@ impl TcpOutConnectionConfig {
 
 impl From<TcpOutConnectionConfig> for LimiterOptions {
     fn from(val: TcpOutConnectionConfig) -> Self {
-        LimiterOptions::new(
-            val.rate_limit,
-            val.rate_time_window,
-            val.rate_bucket_size,
-        )
+        LimiterOptions::new(val.rate_limit, val.rate_time_window, val.rate_bucket_size)
     }
 }
 
@@ -91,7 +87,7 @@ impl Default for TcpOutConnectionConfig {
         TcpOutConnectionConfig {
             rate_limit: 10 * 1024,
             rate_time_window: Duration::from_secs(1),
-            rate_bucket_size: 10*1024,
+            rate_bucket_size: 10 * 1024,
         }
     }
 }
