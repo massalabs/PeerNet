@@ -45,7 +45,7 @@ fn simple() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
-        data_channel_size: 1000,
+        send_data_channel_size: 1000,
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
             max_in_connections_post_handshake: 10,
@@ -92,7 +92,7 @@ fn simple_no_place() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
-        data_channel_size: 1000,
+        send_data_channel_size: 1000,
         max_message_size_read: 1048576000,
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 0,
@@ -136,7 +136,7 @@ fn simple_no_place_after_handshake() {
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
         max_message_size_read: 1048576000,
-        data_channel_size: 1000,
+        send_data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -181,7 +181,7 @@ fn simple_with_different_limit_pre_post_handshake() {
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
         max_message_size_read: 1048576000,
-        data_channel_size: 1000,
+        send_data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -238,7 +238,7 @@ fn simple_with_category() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         max_message_size_read: 1048576000,
-        data_channel_size: 1000,
+        send_data_channel_size: 1000,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories,
@@ -286,7 +286,7 @@ fn two_peers_tcp() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         max_message_size_read: 1048576000,
-        data_channel_size: 1000,
+        send_data_channel_size: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
@@ -317,7 +317,7 @@ fn two_peers_tcp() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         max_message_size_read: 1048576000,
-        data_channel_size: 1000,
+        send_data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
