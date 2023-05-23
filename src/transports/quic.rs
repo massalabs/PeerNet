@@ -613,6 +613,21 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             })
     }
 
+    fn send_timeout(
+        endpoint: &mut Self::Endpoint,
+        data: &[u8],
+        timeout: Duration,
+    ) -> PeerNetResult<()> {
+        endpoint
+            .data_sender
+            .send_timeout(QuicInternalMessage::Data(data.to_vec()), timeout)
+            .map_err(|err| {
+                QuicError::ConnectionError
+                    .wrap()
+                    .new("data_sender send", err, None)
+            })
+    }
+
     fn receive(
         endpoint: &mut Self::Endpoint,
         _config: &Self::TransportConfig,

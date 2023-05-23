@@ -181,6 +181,17 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
             _ => Err(PeerNetError::WrongConfigType.error("mod receive match", None)),
         }
     }
+
+    fn send_timeout(
+        endpoint: &mut Self::Endpoint,
+        data: &[u8],
+        timeout: Duration,
+    ) -> PeerNetResult<()> {
+        match endpoint {
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send_timeout(endpoint, data, timeout),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::send_timeout(endpoint, data, timeout),
+        }
+    }
 }
 
 impl<Id: PeerId> InternalTransportType<Id> {
@@ -248,6 +259,11 @@ pub trait Transport<Id: PeerId> {
     /// Stop a listener of a given address
     fn stop_listener(&mut self, address: SocketAddr) -> PeerNetResult<()>;
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()>;
+    fn send_timeout(
+        endpoint: &mut Self::Endpoint,
+        data: &[u8],
+        timeout: Duration,
+    ) -> PeerNetResult<()>;
     fn receive(
         endpoint: &mut Self::Endpoint,
         config: &Self::TransportConfig,
