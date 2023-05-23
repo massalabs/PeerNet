@@ -13,6 +13,7 @@ use std::{
     str::FromStr,
     time::Duration,
 };
+use stream_limiter::Limiter;
 
 // use peernet::types::KeyPair;
 
@@ -43,7 +44,7 @@ fn check_multiple_connection_refused() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -151,7 +152,7 @@ fn check_too_much_in_refuse() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 1,
         max_message_size_read: 1048576000,
         send_data_channel_size: 1000,
@@ -271,7 +272,7 @@ fn check_multiple_connection_refused_in_category() {
         ),
     );
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         max_message_size_read: 1048576000,
@@ -424,7 +425,7 @@ fn max_message_size() {
         }
         .into(),
         address: "127.0.0.1:18084".parse().unwrap(),
-        stream,
+        stream: Limiter::new(stream, None, None),
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));

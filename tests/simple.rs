@@ -39,7 +39,7 @@ fn simple() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -86,7 +86,7 @@ fn simple_no_place() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -131,7 +131,7 @@ fn simple_no_place_after_handshake() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -176,7 +176,7 @@ fn simple_with_different_limit_pre_post_handshake() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
@@ -234,7 +234,7 @@ fn simple_with_category() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         max_message_size_read: 1048576000,
@@ -280,7 +280,7 @@ fn two_peers_tcp() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
