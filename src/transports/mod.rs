@@ -25,7 +25,7 @@ mod tcp;
 
 pub use quic::QuicOutConnectionConfig;
 use serde::{Deserialize, Serialize};
-pub use tcp::{TcpOutConnectionConfig, TcpTransportConfig};
+pub use tcp::{TcpEndpoint, TcpOutConnectionConfig, TcpTransportConfig};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TransportErrorType {

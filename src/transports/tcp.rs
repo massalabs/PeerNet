@@ -84,7 +84,7 @@ impl Default for TcpOutConnectionConfig {
 
 //TODO: IN/OUT different types because TCP ports are not reliable
 pub struct TcpEndpoint {
-    config: TcpTransportConfig,
+    pub config: TcpTransportConfig,
     pub address: SocketAddr,
     pub stream: TcpStream,
 }
@@ -438,6 +438,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         })?);
 
         if res_size as usize > config.max_message_size_read {
+            dbg!("return error");
             return Err(
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
@@ -447,6 +448,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             .stream
             .read_exact(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
+        dbg!("return ok");
         Ok(data)
     }
 }

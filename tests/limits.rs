@@ -2,13 +2,17 @@
 mod util;
 use peernet::{
     config::{PeerNetCategoryInfo, PeerNetConfiguration, PeerNetFeatures},
-    error::{PeerNetError, PeerNetResult},
     network_manager::PeerNetManager,
-    peer::{InitConnectionHandler, PeerConnection},
+    peer::InitConnectionHandler,
     peer_id::PeerId,
-    transports::{ConnectionConfig, TransportType},
+    transports::{endpoint::Endpoint, ConnectionConfig, TcpEndpoint, TransportType},
 };
-use std::{collections::HashMap, net::IpAddr, str::FromStr, time::Duration};
+use std::{
+    collections::HashMap,
+    net::{IpAddr, SocketAddr},
+    str::FromStr,
+    time::Duration,
+};
 
 // use peernet::types::KeyPair;
 
@@ -372,7 +376,7 @@ fn max_message_size() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size_read: 1000,
+        max_message_size_read: 10,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
@@ -393,93 +397,61 @@ fn max_message_size() {
         .start_listener(TransportType::Tcp, "127.0.0.1:18084".parse().unwrap())
         .unwrap();
 
-    let context2 = DefaultContext {
-        our_id: DefaultPeerId::generate(),
-    };
-
-    let config = PeerNetConfiguration {
-        context: context2,
-        max_in_connections: 10,
-        init_connection_handler: DefaultInitConnection {},
-        optional_features: PeerNetFeatures::default(),
-        max_message_size_read: 1048576000,
-        message_handler: DefaultMessagesHandler {},
-        peers_categories: HashMap::default(),
-        default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
-            max_in_connections_per_ip: 2,
-        },
-        _phantom: std::marker::PhantomData,
-    };
-
-    let mut manager2: PeerNetManager<
-        DefaultPeerId,
-        DefaultContext,
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-    > = PeerNetManager::new(config);
-
     std::thread::sleep(std::time::Duration::from_millis(500));
+    let addr: SocketAddr = "127.0.0.1:18084".parse().unwrap();
+    let stream = std::net::TcpStream::connect(addr).unwrap();
 
-    manager2
-        .try_connect(
-            "127.0.0.1:18084".parse().unwrap(),
-            Duration::from_secs(3),
-            &get_default_tcp_config(),
-        )
-        .unwrap();
-    std::thread::sleep(std::time::Duration::from_secs(3));
-    assert!(manager.nb_in_connections().eq(&1));
-
-    let handle = std::thread::spawn(move || {
-        let mut result: Result<(), peernet::error::PeerNetErrorData> =
-            Err(PeerNetError::PeerConnectionError.error("test", None));
-
-        let receive = |conn: &mut PeerConnection| -> PeerNetResult<Vec<u8>> {
-            conn.endpoint.receive::<DefaultPeerId>(
-                peernet::transports::TcpTransportConfig {
-                    max_in_connections: 10,
-                    max_message_size_read: 10,
-                    default_category_info: PeerNetCategoryInfo {
-                        max_in_connections_pre_handshake: 10,
-                        max_in_connections_post_handshake: 10,
-                        max_in_connections_per_ip: 2,
-                    },
-                    ..Default::default()
-                }
-                .into(),
-            )
-        };
-
-        for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
-            loop {
-                if let Err(e) = receive(conn) {
-                    result = Err(e);
-                    break;
-                }
-            }
-            break;
+    let mut endpoint = Endpoint::Tcp(TcpEndpoint {
+        config: peernet::transports::TcpTransportConfig {
+            max_in_connections: 10,
+            max_message_size_read: 10000,
+            default_category_info: PeerNetCategoryInfo {
+                max_in_connections_pre_handshake: 10,
+                max_in_connections_post_handshake: 10,
+                max_in_connections_per_ip: 2,
+            },
+            ..Default::default()
         }
-        (manager, result)
+        .into(),
+        address: "127.0.0.1:18084".parse().unwrap(),
+        stream,
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
+    assert!(manager.nb_in_connections().eq(&1));
 
-    for (_peer_id, conn) in manager2.active_connections.write().connections.iter_mut() {
-        // send msg with 20 bytes length
-        conn.endpoint.send::<DefaultPeerId>(&[0; 20]).unwrap();
-        break;
-    }
+    let handle = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
+            // send msg with 20 bytes length
+            conn.endpoint.send::<DefaultPeerId>(&[0; 20]).unwrap();
+            break;
+        }
+        manager
+    });
 
-    std::thread::sleep(std::time::Duration::from_secs(3));
-    let mut tuple = handle.join().unwrap();
-    let error = tuple.1.unwrap_err();
-    dbg!(&error);
-    assert!(error.to_string().contains("len too long"));
+    let result = endpoint.receive::<DefaultPeerId>(
+        peernet::transports::TcpTransportConfig {
+            max_in_connections: 10,
+            max_message_size_read: 1,
+            default_category_info: PeerNetCategoryInfo {
+                max_in_connections_pre_handshake: 10,
+                max_in_connections_post_handshake: 10,
+                max_in_connections_per_ip: 2,
+            },
+            ..Default::default()
+        }
+        .into(),
+    );
 
-    tuple
-        .0
+    let err = result.unwrap_err();
+    assert!(err.to_string().contains("len too long"));
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    let mut manager = handle.join().unwrap();
+
+    manager
         .stop_listener(TransportType::Tcp, "127.0.0.1:18084".parse().unwrap())
         .unwrap();
 }
