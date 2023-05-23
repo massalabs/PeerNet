@@ -420,6 +420,8 @@ fn max_message_size() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
     manager2
         .try_connect(
             "127.0.0.1:18084".parse().unwrap(),
