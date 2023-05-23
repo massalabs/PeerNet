@@ -2,9 +2,9 @@
 mod util;
 use peernet::{
     config::{PeerNetCategoryInfo, PeerNetConfiguration, PeerNetFeatures},
-    error::PeerNetError,
+    error::{PeerNetError, PeerNetResult},
     network_manager::PeerNetManager,
-    peer::InitConnectionHandler,
+    peer::{InitConnectionHandler, PeerConnection},
     peer_id::PeerId,
     transports::{ConnectionConfig, TransportType},
 };
@@ -436,8 +436,8 @@ fn max_message_size() {
         let mut result: Result<(), peernet::error::PeerNetErrorData> =
             Err(PeerNetError::PeerConnectionError.error("test", None));
 
-        for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
-            if let Err(e) = conn.endpoint.receive::<DefaultPeerId>(
+        let receive = |conn: &mut PeerConnection| -> PeerNetResult<Vec<u8>> {
+            conn.endpoint.receive::<DefaultPeerId>(
                 peernet::transports::TcpTransportConfig {
                     max_in_connections: 10,
                     max_message_size_read: 10,
@@ -449,10 +449,17 @@ fn max_message_size() {
                     ..Default::default()
                 }
                 .into(),
-            ) {
-                result = Err(e);
-                break;
+            )
+        };
+
+        for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
+            loop {
+                if let Err(e) = receive(conn) {
+                    result = Err(e);
+                    break;
+                }
             }
+            break;
         }
         (manager, result)
     });
