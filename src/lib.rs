@@ -78,7 +78,7 @@
 //!     context: context,
 //!     max_in_connections: 10,
 //!     max_message_size_read: 1048576000,
-//!     data_channel_size: 1000,
+//!     send_data_channel_size: 1000,
 //!     init_connection_handler: DefaultInitConnection,
 //!     optional_features: PeerNetFeatures::default(),
 //!     message_handler: DefaultMessagesHandler {},
@@ -111,7 +111,7 @@
 //! let config = PeerNetConfiguration {
 //!     context: context2,
 //!     max_in_connections: 10,
-//!     data_channel_size: 1000,
+//!     send_data_channel_size: 1000,
 //!     max_message_size_read: 1048576000,
 //!     message_handler: DefaultMessagesHandler {},
 //!     init_connection_handler: DefaultInitConnection,
