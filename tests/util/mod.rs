@@ -4,7 +4,14 @@ use std::{
     time::Duration,
 };
 
-use peernet::{context::Context, error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
+use peernet::{
+    config::PeerNetCategoryInfo,
+    context::Context,
+    error::PeerNetResult,
+    messages::MessagesHandler,
+    peer_id::PeerId,
+    transports::{ConnectionConfig, TcpTransportConfig},
+};
 use rand::Rng;
 
 #[derive(Clone)]
@@ -64,4 +71,18 @@ pub fn create_clients(nb_clients: usize, to_ip: &str) -> Vec<JoinHandle<()>> {
         clients.push(client);
     }
     clients
+}
+
+pub fn get_default_tcp_config() -> ConnectionConfig {
+    TcpTransportConfig {
+        max_in_connections: 10,
+        max_message_size_read: 1048576000,
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
+            max_in_connections_per_ip: 2,
+        },
+        ..Default::default()
+    }
+    .into()
 }

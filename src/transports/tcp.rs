@@ -33,12 +33,15 @@ impl TcpError {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
+#[allow(dead_code)]
 pub struct TcpTransportConfig {
-    max_in_connections: usize,
-    out_connection_config: TcpOutConnectionConfig,
-    peer_categories: PeerNetCategories,
-    default_category_info: PeerNetCategoryInfo,
+    pub max_in_connections: usize,
+    pub max_message_size_read: usize,
+
+    pub out_connection_config: TcpOutConnectionConfig,
+    pub peer_categories: PeerNetCategories,
+    pub default_category_info: PeerNetCategoryInfo,
 }
 
 pub(crate) struct TcpTransport<Id: PeerId> {
@@ -55,10 +58,10 @@ pub(crate) struct TcpTransport<Id: PeerId> {
 const NEW_CONNECTION: Token = Token(0);
 const STOP_LISTENER: Token = Token(10);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TcpOutConnectionConfig {
-    _rate_limit: u128,
-    _rate_time_window: Duration,
+    pub _rate_limit: u128,
+    pub _rate_time_window: Duration,
 }
 
 impl TcpOutConnectionConfig {
@@ -81,7 +84,7 @@ impl Default for TcpOutConnectionConfig {
 
 //TODO: IN/OUT different types because TCP ports are not reliable
 pub struct TcpEndpoint {
-    config: TcpOutConnectionConfig,
+    pub config: TcpTransportConfig,
     pub address: SocketAddr,
     pub stream: TcpStream,
 }
@@ -110,6 +113,7 @@ impl<Id: PeerId> TcpTransport<Id> {
     pub fn new(
         active_connections: SharedActiveConnections<Id>,
         max_in_connections: usize,
+        max_message_size_read: usize,
         peer_categories: PeerNetCategories,
         default_category_info: PeerNetCategoryInfo,
         features: PeerNetFeatures,
@@ -127,6 +131,7 @@ impl<Id: PeerId> TcpTransport<Id> {
                 out_connection_config: Default::default(),
                 peer_categories,
                 default_category_info,
+                max_message_size_read,
             },
         }
     }
@@ -142,7 +147,7 @@ impl<Id: PeerId> Drop for TcpTransport<Id> {
 }
 
 impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
-    type OutConnectionConfig = TcpOutConnectionConfig;
+    type TransportConfig = TcpTransportConfig;
 
     type Endpoint = TcpEndpoint;
 
@@ -168,7 +173,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let active_connections = self.active_connections.clone();
                 let peer_stop_rx = self.peer_stop_rx.clone();
                 let peer_stop_tx = self.peer_stop_tx.clone();
-                let out_conn_config = self.config.out_connection_config.clone();
                 let config = self.config.clone();
                 move || {
                     let server = TcpListener::bind(address).unwrap_or_else(|_| {
@@ -235,7 +239,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                     };
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
-                                        config: out_conn_config.clone(),
+                                        config: config.clone(),
                                         address,
                                         stream, // stream: Limiter::new(
                                                 //     stream,
@@ -279,6 +283,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         PeerConnectionType::IN,
                                         category_name,
                                         category_info,
+                                        config.clone().into()
                                     );
                                 }
                                 STOP_LISTENER => {
@@ -311,17 +316,18 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         context: Ctx,
         address: SocketAddr,
         timeout: Duration,
-        _config: &Self::OutConnectionConfig,
+        config: &Self::TransportConfig,
         message_handler: M,
         handshake_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let peer_stop_rx = self.peer_stop_rx.clone();
+        let conf = config.clone();
         Ok(std::thread::Builder::new()
             .name(format!("tcp_try_connect_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
                 let wg = self.out_connection_attempts.clone();
-                let config = self.config.clone();
+                let config = conf.clone();
                 move || {
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         TcpError::ConnectionError.wrap().new(
@@ -349,7 +355,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         Endpoint::Tcp(TcpEndpoint {
                             address,
                             stream,
-                            config: config.out_connection_config.clone(),
+                            config: config.clone(),
                         }),
                         handshake_handler.clone(),
                         message_handler.clone(),
@@ -358,6 +364,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         PeerConnectionType::OUT,
                         category_name,
                         category_info,
+                        conf.into(),
                     );
                     drop(wg);
                     Ok(())
@@ -414,7 +421,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         Ok(())
     }
 
-    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
+    fn receive(
+        endpoint: &mut Self::Endpoint,
+        config: &Self::TransportConfig,
+    ) -> PeerNetResult<Vec<u8>> {
         //TODO: Config one
         let mut len_bytes = vec![0u8; 4];
         endpoint
@@ -426,7 +436,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .wrap()
                 .error("recv len", Some(format!("{:?}", err)))
         })?);
-        if res_size > 1048576000 {
+
+        if res_size as usize > config.max_message_size_read {
+            dbg!("return error");
             return Err(
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
@@ -436,6 +448,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             .stream
             .read_exact(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
+        dbg!("return ok");
         Ok(data)
     }
 }
