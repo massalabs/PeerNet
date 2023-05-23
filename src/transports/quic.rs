@@ -193,6 +193,8 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 let stop_peer_rx = self.stop_peer_rx.clone();
                 let stop_peer_tx = self.stop_peer_tx.clone();
 
+                let quic_config = self.config.clone();
+
                 move || {
                     let mut socket = MioUdpSocket::from_std(server);
                     // Start listening for incoming connections.
@@ -289,11 +291,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     (connection, send_rx, recv_tx, false),
                                                 );
                                             }
-                                            let config = QuicConnectionConfig {
-                                                out_connection_config: QuicOutConnectionConfig {
-                                                    local_addr: from_addr,
-                                                },
-                                            };
+
                                             new_peer(
                                                 context.clone(),
                                                 Endpoint::Quic(QuicEndpoint {
@@ -312,7 +310,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     max_in_connections_post_handshake: 0,
                                                     max_in_connections_pre_handshake: 0,
                                                 },
-                                                config.into(),
+                                                quic_config.clone().into(),
                                             );
                                         }
                                         {
