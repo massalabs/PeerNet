@@ -393,6 +393,7 @@ fn max_message_size() {
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
+        data_channel_size: 1000,
     };
 
     let mut manager: PeerNetManager<
@@ -430,7 +431,7 @@ fn max_message_size() {
     assert!(manager.nb_in_connections().eq(&1));
 
     let handle = std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(300));
+        std::thread::sleep(std::time::Duration::from_millis(200));
         for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
             // send msg with 20 bytes length
             conn.endpoint.send::<DefaultPeerId>(&[0; 20]).unwrap();
