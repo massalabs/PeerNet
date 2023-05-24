@@ -1,11 +1,10 @@
 use std::time::Duration;
 
 use crate::context::Context;
-use crate::error::{PeerNetError, PeerNetResult};
+use crate::error::PeerNetResult;
 use crate::peer_id::PeerId;
 
 use super::tcp::TcpEndpoint;
-use super::ConnectionConfig;
 use super::{
     quic::{QuicEndpoint, QuicTransport},
     tcp::TcpTransport,
@@ -23,6 +22,14 @@ impl Endpoint {
         match self {
             Endpoint::Tcp(TcpEndpoint { address, .. }) => address,
             Endpoint::Quic(QuicEndpoint { address, .. }) => address,
+        }
+    }
+
+    pub(crate) fn get_data_channel_size(&self) -> usize {
+        match self {
+            Endpoint::Tcp(TcpEndpoint { config, .. }) => config.data_channel_size,
+            //TODO: Real value
+            Endpoint::Quic(QuicEndpoint { .. }) => 0,
         }
     }
 
@@ -51,15 +58,10 @@ impl Endpoint {
         }
     }
 
-    pub fn receive<Id: PeerId>(&mut self, config: ConnectionConfig) -> PeerNetResult<Vec<u8>> {
-        match (self, config) {
-            (Endpoint::Tcp(endpoint), ConnectionConfig::Tcp(config)) => {
-                TcpTransport::<Id>::receive(endpoint, &config)
-            }
-            (Endpoint::Quic(endpoint), ConnectionConfig::Quic(config)) => {
-                QuicTransport::<Id>::receive(endpoint, &config)
-            }
-            _ => Err(PeerNetError::WrongConfigType.error("receive match", None)),
+    pub fn receive<Id: PeerId>(&mut self) -> PeerNetResult<Vec<u8>> {
+        match self {
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
         }
     }
 

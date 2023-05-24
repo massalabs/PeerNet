@@ -63,7 +63,7 @@ pub(crate) struct QuicTransport<Id: PeerId> {
     _features: PeerNetFeatures,
     stop_peer_tx: Sender<()>,
     stop_peer_rx: Receiver<()>,
-    config: QuicConnectionConfig,
+    config: QuicTransportConfig,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -87,14 +87,14 @@ impl QuicEndpoint {
 }
 
 #[derive(Clone, Debug)]
-pub struct QuicOutConnectionConfig {
+pub struct QuicConnectionConfig {
     pub local_addr: SocketAddr,
+    pub data_channel_size: usize,
 }
 
 #[derive(Clone, Debug)]
-pub struct QuicConnectionConfig {
-    out_connection_config: QuicOutConnectionConfig,
-    pub data_channel_size: usize,
+pub struct QuicTransportConfig {
+    pub connection_config: QuicConnectionConfig,
 }
 
 impl<Id: PeerId> QuicTransport<Id> {
@@ -113,16 +113,18 @@ impl<Id: PeerId> QuicTransport<Id> {
             _features: features,
             stop_peer_tx,
             stop_peer_rx,
-            config: QuicConnectionConfig {
-                out_connection_config: QuicOutConnectionConfig { local_addr },
-                data_channel_size,
+            config: QuicTransportConfig {
+                connection_config: QuicConnectionConfig {
+                    local_addr,
+                    data_channel_size,
+                },
             },
         }
     }
 }
 
 impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
-    type TransportConfig = QuicConnectionConfig;
+    type TransportConfig = QuicTransportConfig;
 
     type Endpoint = QuicEndpoint;
 
@@ -190,8 +192,6 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 let server = server.try_clone().unwrap();
                 let stop_peer_rx = self.stop_peer_rx.clone();
                 let stop_peer_tx = self.stop_peer_tx.clone();
-
-                let quic_config = self.config.clone();
 
                 move || {
                     let mut socket = MioUdpSocket::from_std(server);
@@ -308,7 +308,6 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     max_in_connections_post_handshake: 0,
                                                     max_in_connections_pre_handshake: 0,
                                                 },
-                                                quic_config.clone().into(),
                                             );
                                         }
                                         {
@@ -448,31 +447,30 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
         self_keypair: Ctx,
         address: SocketAddr,
         _timeout: Duration,
-        config: &Self::TransportConfig,
         message_handler: M,
         init_connection_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let stop_peer_rx = self.stop_peer_rx.clone();
         //TODO: Use timeout
-        let config = config.clone();
+        let config = self.config.clone();
         let (_, socket, _) = if self
             .listeners
-            .contains_key(&config.out_connection_config.local_addr)
+            .contains_key(&config.connection_config.local_addr)
         {
             self.listeners
-                .get(&config.out_connection_config.local_addr)
+                .get(&config.connection_config.local_addr)
                 .expect("Listener not found")
         } else {
             self.start_listener(
                 self_keypair.clone(),
-                config.out_connection_config.local_addr,
+                config.connection_config.local_addr,
                 message_handler.clone(),
                 init_connection_handler.clone(),
             )?;
             //TODO: Make things more elegant with waker etc
             std::thread::sleep(Duration::from_millis(100));
             self.listeners
-                .get(&config.out_connection_config.local_addr)
+                .get(&config.connection_config.local_addr)
                 .expect("Listener not found")
         };
         let socket = socket.try_clone().unwrap();
@@ -502,7 +500,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                     let mut conn = quiche::connect(
                         None,
                         &scid,
-                        config.out_connection_config.local_addr,
+                        config.connection_config.local_addr,
                         address,
                         &mut quiche_config,
                     )
@@ -512,7 +510,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                             err,
                             Some(format!(
                                 "local_addr: {:?}, addr: {:?}",
-                                config.out_connection_config.local_addr, address
+                                config.connection_config.local_addr, address
                             )),
                         )
                     })?;
@@ -571,7 +569,6 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                             max_in_connections_post_handshake: 0,
                             max_in_connections_pre_handshake: 0,
                         },
-                        config.into(),
                     );
                     drop(wg);
                     Ok(())
@@ -628,10 +625,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             })
     }
 
-    fn receive(
-        endpoint: &mut Self::Endpoint,
-        _config: &Self::TransportConfig,
-    ) -> PeerNetResult<Vec<u8>> {
+    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         let data = endpoint.data_receiver.recv().map_err(|err| {
             QuicError::ConnectionError
                 .wrap()

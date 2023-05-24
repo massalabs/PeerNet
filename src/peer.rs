@@ -8,7 +8,6 @@ use crate::context::Context;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
 use crate::peer_id::PeerId;
-use crate::transports::ConnectionConfig;
 use crossbeam::channel::bounded;
 use crossbeam::{
     channel::{Receiver, Sender, TryRecvError},
@@ -122,7 +121,6 @@ pub(crate) fn new_peer<
     connection_type: PeerConnectionType,
     category_name: Option<String>,
     category_info: PeerNetCategoryInfo,
-    config: ConnectionConfig,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::Builder::new()
@@ -152,10 +150,7 @@ pub(crate) fn new_peer<
             }
         };
 
-        let channel_size = match config.clone() {
-            ConnectionConfig::Tcp(conf) => conf.data_channel_size,
-            ConnectionConfig::Quic(conf) => conf.data_channel_size,
-        };
+        let channel_size = endpoint.get_data_channel_size();
 
         let (low_write_tx, low_write_rx) = bounded::<Vec<u8>>(channel_size);
         let (high_write_tx, high_write_rx) = bounded::<Vec<u8>>(channel_size);
@@ -273,7 +268,7 @@ pub(crate) fn new_peer<
         // READER LOOP
         loop {
 
-            match endpoint.receive::<Id>(config.clone()) {
+            match endpoint.receive::<Id>() {
                 Ok(data) => {
                     if data.is_empty() {
                         // We arrive here in two cases:

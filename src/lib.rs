@@ -7,7 +7,7 @@
 //!     config::{PeerNetConfiguration, PeerNetFeatures, PeerNetCategoryInfo},
 //!     network_manager::PeerNetManager,
 //!     peer::InitConnectionHandler,
-//!     transports::{TransportType, ConnectionConfig},
+//!     transports::TransportType,
 //! };
 //!
 //! use rand::Rng;
@@ -69,7 +69,10 @@
 //! let config = PeerNetConfiguration {
 //!     context: context,
 //!     max_in_connections: 10,
-//!     max_message_size_read: 1048576000,
+//!     max_message_size: 1048576000,
+//!     rate_bucket_size: 10000,
+//!     rate_limit: 10000,
+//!     rate_time_window: Duration::from_secs(1),
 //!     send_data_channel_size: 1000,
 //!     init_connection_handler: DefaultInitConnection,
 //!     optional_features: PeerNetFeatures::default(),
@@ -104,7 +107,10 @@
 //!     context: context2,
 //!     max_in_connections: 10,
 //!     send_data_channel_size: 1000,
-//!     max_message_size_read: 1048576000,
+//!     max_message_size: 1048576000,
+//!     rate_bucket_size: 10000,
+//!     rate_limit: 10000,
+//!     rate_time_window: Duration::from_secs(1),
 //!     message_handler: DefaultMessagesHandler {},
 //!     init_connection_handler: DefaultInitConnection,
 //!     optional_features: PeerNetFeatures::default(),
@@ -126,9 +132,9 @@
 //! // Try to connect to the first peer listener on TCP port 8081.
 //! manager2
 //!     .try_connect(
+//!         TransportType::Tcp,
 //!         "127.0.0.1:8081".parse().unwrap(),
 //!         Duration::from_secs(3),
-//!         &mut ConnectionConfig::Tcp(Box::default()),
 //!     )
 //!     .unwrap();
 //! std::thread::sleep(std::time::Duration::from_secs(3));

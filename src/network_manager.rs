@@ -11,7 +11,10 @@ use crate::context::Context;
 use crate::messages::MessagesHandler;
 use crate::peer::PeerConnectionType;
 use crate::peer_id::PeerId;
-use crate::transports::ConnectionConfig;
+use crate::transports::{
+    QuicConnectionConfig, QuicTransportConfig, TcpConnectionConfig, TcpTransportConfig,
+    TransportConfig,
+};
 use parking_lot::RwLock;
 
 use crate::{
@@ -215,12 +218,28 @@ impl<
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.config.max_in_connections,
-                self.config.max_message_size_read,
-                self.config.send_data_channel_size,
+                //TODO: Find a better way to avoid match there
+                match transport_type {
+                    TransportType::Tcp => TransportConfig::Tcp(Box::new(TcpTransportConfig {
+                        max_in_connections: self.config.max_in_connections,
+                        peer_categories: self.config.peers_categories.clone(),
+                        default_category_info: self.config.default_category_info,
+                        connection_config: TcpConnectionConfig {
+                            rate_limit: self.config.rate_limit,
+                            rate_time_window: self.config.rate_time_window,
+                            rate_bucket_size: self.config.rate_bucket_size,
+                            data_channel_size: self.config.send_data_channel_size,
+                            max_message_size: self.config.max_message_size,
+                        },
+                    })),
+                    TransportType::Quic => TransportConfig::Quic(Box::new(QuicTransportConfig {
+                        connection_config: QuicConnectionConfig {
+                            local_addr: "127.0.0.1:8080".parse().unwrap(),
+                            data_channel_size: self.config.send_data_channel_size,
+                        },
+                    })),
+                },
                 self.config.optional_features.clone(),
-                self.config.peers_categories.clone(),
-                self.config.default_category_info,
                 addr,
             )
         });
@@ -244,12 +263,28 @@ impl<
             InternalTransportType::from_transport_type(
                 transport_type,
                 self.active_connections.clone(),
-                self.config.max_in_connections,
-                self.config.max_message_size_read,
-                self.config.send_data_channel_size,
+                //TODO: Find a better way to avoid match there
+                match transport_type {
+                    TransportType::Tcp => TransportConfig::Tcp(Box::new(TcpTransportConfig {
+                        max_in_connections: self.config.max_in_connections,
+                        peer_categories: self.config.peers_categories.clone(),
+                        default_category_info: self.config.default_category_info,
+                        connection_config: TcpConnectionConfig {
+                            rate_limit: self.config.rate_limit,
+                            rate_time_window: self.config.rate_time_window,
+                            rate_bucket_size: self.config.rate_bucket_size,
+                            data_channel_size: self.config.send_data_channel_size,
+                            max_message_size: self.config.max_message_size,
+                        },
+                    })),
+                    TransportType::Quic => TransportConfig::Quic(Box::new(QuicTransportConfig {
+                        connection_config: QuicConnectionConfig {
+                            local_addr: "127.0.0.1:8080".parse().unwrap(),
+                            data_channel_size: self.config.send_data_channel_size,
+                        },
+                    })),
+                },
                 self.config.optional_features.clone(),
-                self.config.peers_categories.clone(),
-                self.config.default_category_info,
                 addr,
             )
         });
@@ -262,31 +297,43 @@ impl<
     /// If the connection can be established, a new peer is created and his thread is started.
     pub fn try_connect(
         &mut self,
+        transport_type: TransportType,
         addr: SocketAddr,
         timeout: std::time::Duration,
-        connection_config: &ConnectionConfig,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
-        let transport = self
-            .transports
-            .entry(TransportType::from_out_connection_config(connection_config))
-            .or_insert_with(|| {
-                InternalTransportType::from_transport_type(
-                    TransportType::from_out_connection_config(connection_config),
-                    self.active_connections.clone(),
-                    self.config.max_in_connections,
-                    self.config.max_message_size_read,
-                    self.config.send_data_channel_size,
-                    self.config.optional_features.clone(),
-                    self.config.peers_categories.clone(),
-                    self.config.default_category_info,
-                    addr,
-                )
-            });
+        let transport = self.transports.entry(transport_type).or_insert_with(|| {
+            InternalTransportType::from_transport_type(
+                transport_type,
+                self.active_connections.clone(),
+                //TODO: Find a better way to avoid match there
+                match transport_type {
+                    TransportType::Tcp => TransportConfig::Tcp(Box::new(TcpTransportConfig {
+                        max_in_connections: self.config.max_in_connections,
+                        peer_categories: self.config.peers_categories.clone(),
+                        default_category_info: self.config.default_category_info,
+                        connection_config: TcpConnectionConfig {
+                            rate_limit: self.config.rate_limit,
+                            rate_time_window: self.config.rate_time_window,
+                            rate_bucket_size: self.config.rate_bucket_size,
+                            data_channel_size: self.config.send_data_channel_size,
+                            max_message_size: self.config.max_message_size,
+                        },
+                    })),
+                    TransportType::Quic => TransportConfig::Quic(Box::new(QuicTransportConfig {
+                        connection_config: QuicConnectionConfig {
+                            local_addr: "127.0.0.1:8080".parse().unwrap(),
+                            data_channel_size: self.config.send_data_channel_size,
+                        },
+                    })),
+                },
+                self.config.optional_features.clone(),
+                addr,
+            )
+        });
         transport.try_connect(
             self.context.clone(),
             addr,
             timeout,
-            connection_config,
             self.message_handler.clone(),
             self.init_connection_handler.clone(),
         )
