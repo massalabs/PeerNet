@@ -456,24 +456,34 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         }
         //TODO: Use config one
 
-        let stream = &mut endpoint.stream.stream;
-        stream.set_write_timeout(Some(timeout)).map_err(|e| {
-            PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
-        })?;
+        endpoint
+            .stream
+            .stream
+            .set_write_timeout(Some(timeout))
+            .map_err(|e| {
+                PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
+            })?;
 
-        stream.write_all(&msg_size.to_be_bytes()).map_err(|err| {
-            TcpError::ConnectionError.wrap().new(
-                "send len write",
-                err,
-                Some(format!("{:?}", data.len().to_le_bytes())),
-            )
-        })?;
+        endpoint
+            .stream
+            .write_all(&msg_size.to_be_bytes())
+            .map_err(|err| {
+                TcpError::ConnectionError.wrap().new(
+                    "send len write",
+                    err,
+                    Some(format!("{:?}", data.len().to_le_bytes())),
+                )
+            })?;
 
         let mut total_bytes_written = 0;
+        let chunk_size = 1024;
 
         while total_bytes_written < data.len() {
-            let remaining_data = &data[total_bytes_written..];
-            match stream.write(remaining_data) {
+            if start_time.elapsed() >= timeout {
+                return Err(PeerNetError::SendError.error("write timeout", None));
+            }
+            let end = (total_bytes_written + chunk_size).min(data.len());
+            match endpoint.stream.write(&data[total_bytes_written..end]) {
                 Ok(bytes_written) => {
                     total_bytes_written += bytes_written;
                 }
