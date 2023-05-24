@@ -5,7 +5,7 @@ use peernet::{
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
     peer_id::PeerId,
-    transports::{endpoint::Endpoint, ConnectionConfig, TcpEndpoint, TransportType},
+    transports::{endpoint::Endpoint, TcpConnectionConfig, TcpEndpoint, TransportType},
 };
 use std::{
     collections::HashMap,
@@ -18,8 +18,6 @@ use stream_limiter::Limiter;
 // use peernet::types::KeyPair;
 
 use util::{DefaultContext, DefaultMessagesHandler, DefaultPeerId};
-
-use crate::util::get_default_tcp_config;
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
@@ -49,7 +47,10 @@ fn check_multiple_connection_refused() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -81,7 +82,10 @@ fn check_multiple_connection_refused() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
@@ -99,9 +103,9 @@ fn check_multiple_connection_refused() {
     > = PeerNetManager::new(config);
     manager2
         .try_connect(
+            TransportType::Tcp,
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &mut ConnectionConfig::Tcp(Box::default()),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -114,7 +118,10 @@ fn check_multiple_connection_refused() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
@@ -133,9 +140,9 @@ fn check_multiple_connection_refused() {
     > = PeerNetManager::new(config);
     manager3
         .try_connect(
+            TransportType::Tcp,
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -154,7 +161,10 @@ fn check_too_much_in_refuse() {
     let config = PeerNetConfiguration {
         context,
         max_in_connections: 1,
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -187,7 +197,10 @@ fn check_too_much_in_refuse() {
         send_data_channel_size: 1000,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -206,9 +219,9 @@ fn check_too_much_in_refuse() {
     > = PeerNetManager::new(config);
     manager2
         .try_connect(
+            TransportType::Tcp,
             "127.0.0.1:8080".parse().unwrap(),
             Duration::from_secs(3),
-            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -224,7 +237,10 @@ fn check_too_much_in_refuse() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
             max_in_connections_post_handshake: 10,
@@ -241,9 +257,9 @@ fn check_too_much_in_refuse() {
     > = PeerNetManager::new(config);
     manager3
         .try_connect(
+            TransportType::Tcp,
             "127.0.0.1:8080".parse().unwrap(),
             Duration::from_secs(3),
-            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -275,7 +291,10 @@ fn check_multiple_connection_refused_in_category() {
         context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -305,7 +324,10 @@ fn check_multiple_connection_refused_in_category() {
         context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -326,9 +348,9 @@ fn check_multiple_connection_refused_in_category() {
     > = PeerNetManager::new(config);
     manager2
         .try_connect(
+            TransportType::Tcp,
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
-            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -339,7 +361,10 @@ fn check_multiple_connection_refused_in_category() {
     let config = PeerNetConfiguration {
         context: context3,
         max_in_connections: 10,
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -361,9 +386,9 @@ fn check_multiple_connection_refused_in_category() {
     > = PeerNetManager::new(config);
     manager3
         .try_connect(
+            TransportType::Tcp,
             "127.0.0.1:8082".parse().unwrap(),
             Duration::from_secs(3),
-            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(3));
@@ -386,7 +411,10 @@ fn max_message_size() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size_read: 10,
+        max_message_size: 10,
+        rate_time_window: Duration::from_secs(1),
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
@@ -413,15 +441,12 @@ fn max_message_size() {
     let stream = std::net::TcpStream::connect(addr).unwrap();
 
     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
-        config: peernet::transports::TcpTransportConfig {
-            max_in_connections: 10,
-            max_message_size_read: 10000,
-            default_category_info: PeerNetCategoryInfo {
-                max_in_connections_pre_handshake: 10,
-                max_in_connections_post_handshake: 10,
-                max_in_connections_per_ip: 2,
-            },
-            ..Default::default()
+        config: TcpConnectionConfig {
+            rate_time_window: Duration::from_secs(1),
+            rate_bucket_size: 10000,
+            rate_limit: 10000,
+            data_channel_size: 1000,
+            max_message_size: 10,
         }
         .into(),
         address: "127.0.0.1:18084".parse().unwrap(),
@@ -441,19 +466,7 @@ fn max_message_size() {
         manager
     });
 
-    let result = endpoint.receive::<DefaultPeerId>(
-        peernet::transports::TcpTransportConfig {
-            max_in_connections: 10,
-            max_message_size_read: 10,
-            default_category_info: PeerNetCategoryInfo {
-                max_in_connections_pre_handshake: 10,
-                max_in_connections_post_handshake: 10,
-                max_in_connections_per_ip: 2,
-            },
-            ..Default::default()
-        }
-        .into(),
-    );
+    let result = endpoint.receive::<DefaultPeerId>();
 
     let err = result.unwrap_err();
     assert!(err.to_string().contains("len too long"));
@@ -479,7 +492,10 @@ fn send_timeout() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size_read: 200000,
+        max_message_size: 9000000,
+        rate_time_window: Duration::from_secs(1),
+        rate_bucket_size: 10000,
+        rate_limit: 100,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
@@ -507,15 +523,12 @@ fn send_timeout() {
     let addr: SocketAddr = "127.0.0.1:18085".parse().unwrap();
     let stream = std::net::TcpStream::connect(addr).unwrap();
     let _endpoint = Endpoint::Tcp(TcpEndpoint {
-        config: peernet::transports::TcpTransportConfig {
-            max_in_connections: 10,
-            max_message_size_read: 200000,
-            default_category_info: PeerNetCategoryInfo {
-                max_in_connections_pre_handshake: 10,
-                max_in_connections_post_handshake: 10,
-                max_in_connections_per_ip: 2,
-            },
-            ..Default::default()
+        config: TcpConnectionConfig {
+            rate_time_window: Duration::from_secs(1),
+            rate_bucket_size: 10000,
+            rate_limit: 100,
+            data_channel_size: 1000,
+            max_message_size: 9000000,
         }
         .into(),
         address: "127.0.0.1:18085".parse().unwrap(),

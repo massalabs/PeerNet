@@ -14,7 +14,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use util::{create_clients, DefaultMessagesHandler};
 
-use crate::util::{get_default_tcp_config, DefaultContext, DefaultPeerId};
+use crate::util::{DefaultContext, DefaultPeerId};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
@@ -46,12 +46,15 @@ fn simple() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         send_data_channel_size: 1000,
+        max_message_size: 10000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 10,
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 10,
         },
-        max_message_size_read: 1048576000,
         _phantom: std::marker::PhantomData,
     };
 
@@ -93,7 +96,10 @@ fn simple_no_place() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         send_data_channel_size: 1000,
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections_pre_handshake: 0,
             max_in_connections_post_handshake: 0,
@@ -135,7 +141,10 @@ fn simple_no_place_after_handshake() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
@@ -180,7 +189,10 @@ fn simple_with_different_limit_pre_post_handshake() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
         optional_features: PeerNetFeatures::default(),
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
@@ -237,7 +249,10 @@ fn simple_with_category() {
         context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
@@ -285,7 +300,10 @@ fn two_peers_tcp() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -316,7 +334,10 @@ fn two_peers_tcp() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
-        max_message_size_read: 1048576000,
+        max_message_size: 1048576000,
+        rate_bucket_size: 10000,
+        rate_limit: 10000,
+        rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
@@ -338,9 +359,9 @@ fn two_peers_tcp() {
 
     manager2
         .try_connect(
+            TransportType::Tcp,
             "127.0.0.1:8081".parse().unwrap(),
             Duration::from_secs(3),
-            &get_default_tcp_config(),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -382,7 +403,7 @@ fn two_peers_tcp() {
 //             "127.0.0.1:8082".parse().unwrap(),
 //             Duration::from_secs(5),
 //             //TODO: Use the one in manager instead of asking. Need a wrapper structure ?
-//             &mut OutConnectionConfig::Quic(Box::new(QuicOutConnectionConfig {
+//             &mut OutConnectionConfig::Quic(Box::new(QuicConnectionConfig {
 //                 identity: PeerId::from_public_key(keypair1.get_public_key()),
 //                 local_addr: "127.0.0.1:8083".parse().unwrap(),
 //             })),

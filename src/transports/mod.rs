@@ -5,27 +5,23 @@
 use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
-use crate::config::{PeerNetCategories, PeerNetCategoryInfo};
 use crate::context::Context;
 use crate::messages::MessagesHandler;
 use crate::peer_id::PeerId;
 use crate::{
-    config::PeerNetFeatures,
-    error::{PeerNetError, PeerNetResult},
-    network_manager::SharedActiveConnections,
+    config::PeerNetFeatures, error::PeerNetResult, network_manager::SharedActiveConnections,
     peer::InitConnectionHandler,
 };
 
-use self::quic::QuicConnectionConfig;
 use self::{endpoint::Endpoint, quic::QuicTransport, tcp::TcpTransport};
 
 pub mod endpoint;
 mod quic;
 mod tcp;
 
-pub use quic::QuicOutConnectionConfig;
+pub use quic::{QuicConnectionConfig, QuicTransportConfig};
 use serde::{Deserialize, Serialize};
-pub use tcp::{TcpEndpoint, TcpOutConnectionConfig, TcpTransportConfig};
+pub use tcp::{TcpConnectionConfig, TcpEndpoint, TcpTransportConfig};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TransportErrorType {
@@ -43,11 +39,11 @@ pub enum TransportType {
 }
 
 impl TransportType {
-    /// Extract the transport type from `OutConnectionConfig`
-    pub fn from_out_connection_config(config: &ConnectionConfig) -> Self {
+    /// Extract the transport type from `TransportConfig`
+    pub fn from_transport_config(config: &TransportConfig) -> Self {
         match config {
-            ConnectionConfig::Tcp(_) => TransportType::Tcp,
-            ConnectionConfig::Quic(_) => TransportType::Quic,
+            TransportConfig::Tcp(_) => TransportType::Tcp,
+            TransportConfig::Quic(_) => TransportType::Quic,
         }
     }
 }
@@ -62,25 +58,25 @@ pub(crate) enum InternalTransportType<Id: PeerId> {
 
 /// All configurations for out connection depending on the transport type
 #[derive(Clone, Debug)]
-pub enum ConnectionConfig {
+pub enum TransportConfig {
     Tcp(Box<TcpTransportConfig>),
-    Quic(Box<QuicConnectionConfig>),
+    Quic(Box<QuicTransportConfig>),
 }
 
-impl From<TcpTransportConfig> for ConnectionConfig {
+impl From<TcpTransportConfig> for TransportConfig {
     fn from(inner: TcpTransportConfig) -> Self {
-        ConnectionConfig::Tcp(Box::new(inner))
+        TransportConfig::Tcp(Box::new(inner))
     }
 }
 
-impl From<QuicConnectionConfig> for ConnectionConfig {
-    fn from(inner: QuicConnectionConfig) -> Self {
-        ConnectionConfig::Quic(Box::new(inner))
+impl From<QuicTransportConfig> for TransportConfig {
+    fn from(inner: QuicTransportConfig) -> Self {
+        TransportConfig::Quic(Box::new(inner))
     }
 }
 
 // impl From<<TcpTransport as Transport>::OutConnectionConfig> for OutConnectionConfig {
-//     fn from(inner: TcpOutConnectionConfig) -> Self {
+//     fn from(inner: TcpConnectionConfig) -> Self {
 //         OutConnectionConfig::Tcp(Box::new(inner))
 //     }
 // }
@@ -88,7 +84,7 @@ impl From<QuicConnectionConfig> for ConnectionConfig {
 // impl<T: PeerNetIdTrait> From<<QuicTransport<T> as Transport>::OutConnectionConfig>
 //     for OutConnectionConfig
 // {
-//     fn from(inner: QuicOutConnectionConfig) -> Self {
+//     fn from(inner: QuicConnectionConfig) -> Self {
 //         OutConnectionConfig::Quic(Box::new(inner))
 //     }
 // }
@@ -96,7 +92,7 @@ impl From<QuicConnectionConfig> for ConnectionConfig {
 // TODO: Macroize this I don't use enum_dispatch or enum_delegate as it generates a lot of code
 // to have everything generic and we don't need this.
 impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
-    type TransportConfig = ConnectionConfig;
+    type TransportConfig = TransportConfig;
     type Endpoint = Endpoint;
 
     fn start_listener<
@@ -129,30 +125,24 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
         context: Ctx,
         address: SocketAddr,
         timeout: Duration,
-        config: &Self::TransportConfig,
         message_handler: M,
         init_connection_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
-        match (self, config) {
-            (InternalTransportType::Tcp(transport), ConnectionConfig::Tcp(config)) => transport
-                .try_connect(
-                    context,
-                    address,
-                    timeout,
-                    config,
-                    message_handler,
-                    init_connection_handler,
-                ),
-            (InternalTransportType::Quic(transport), ConnectionConfig::Quic(config)) => transport
-                .try_connect(
-                    context,
-                    address,
-                    timeout,
-                    config,
-                    message_handler,
-                    init_connection_handler,
-                ),
-            _ => Err(PeerNetError::WrongConfigType.error("try_connect match Transport", None)),
+        match self {
+            InternalTransportType::Tcp(transport) => transport.try_connect(
+                context,
+                address,
+                timeout,
+                message_handler,
+                init_connection_handler,
+            ),
+            InternalTransportType::Quic(transport) => transport.try_connect(
+                context,
+                address,
+                timeout,
+                message_handler,
+                init_connection_handler,
+            ),
         }
     }
 
@@ -170,15 +160,10 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
         }
     }
 
-    fn receive(endpoint: &mut Self::Endpoint, config: &ConnectionConfig) -> PeerNetResult<Vec<u8>> {
-        match (endpoint, config) {
-            (Endpoint::Tcp(endpoint), ConnectionConfig::Tcp(config)) => {
-                TcpTransport::<Id>::receive(endpoint, config)
-            }
-            (Endpoint::Quic(endpoint), ConnectionConfig::Quic(config)) => {
-                QuicTransport::<Id>::receive(endpoint, config)
-            }
-            _ => Err(PeerNetError::WrongConfigType.error("mod receive match", None)),
+    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
+        match endpoint {
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
         }
     }
 
@@ -199,30 +184,19 @@ impl<Id: PeerId> InternalTransportType<Id> {
     pub(crate) fn from_transport_type(
         transport_type: TransportType,
         active_connections: SharedActiveConnections<Id>,
-        max_in_connections: usize,
-        max_message_size_read: usize,
-        data_channel_size: usize,
+        config: TransportConfig,
         features: PeerNetFeatures,
-        peer_categories: PeerNetCategories,
-        default_category_info: PeerNetCategoryInfo,
         local_addr: SocketAddr,
     ) -> Self {
-        match transport_type {
-            TransportType::Tcp => InternalTransportType::Tcp(TcpTransport::new(
-                active_connections,
-                max_in_connections,
-                max_message_size_read,
-                peer_categories,
-                data_channel_size,
-                default_category_info,
-                features,
-            )),
-            TransportType::Quic => InternalTransportType::Quic(QuicTransport::new(
-                active_connections,
-                features,
-                data_channel_size,
-                local_addr,
-            )),
+        match (transport_type, config) {
+            (TransportType::Tcp, TransportConfig::Tcp(config)) => {
+                InternalTransportType::Tcp(TcpTransport::new(active_connections, *config, features))
+            }
+            //TODO: Use config
+            (TransportType::Quic, TransportConfig::Quic(_config)) => InternalTransportType::Quic(
+                QuicTransport::new(active_connections, features, 0, local_addr),
+            ),
+            _ => panic!("Wrong transport type"),
         }
     }
 }
@@ -252,7 +226,6 @@ pub trait Transport<Id: PeerId> {
         context: Ctx,
         address: SocketAddr,
         timeout: Duration,
-        config: &Self::TransportConfig,
         message_handler: M,
         init_connection_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>>;
@@ -264,8 +237,5 @@ pub trait Transport<Id: PeerId> {
         data: &[u8],
         timeout: Duration,
     ) -> PeerNetResult<()>;
-    fn receive(
-        endpoint: &mut Self::Endpoint,
-        config: &Self::TransportConfig,
-    ) -> PeerNetResult<Vec<u8>>;
+    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>>;
 }
