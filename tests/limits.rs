@@ -467,4 +467,77 @@ fn max_message_size() {
         .unwrap();
 }
 
+#[test]
+fn send_timeout() {
+    let context = DefaultContext {
+        our_id: DefaultPeerId::generate(),
+    };
+
+    let config = PeerNetConfiguration {
+        context: context,
+        max_in_connections: 10,
+        init_connection_handler: DefaultInitConnection {},
+        optional_features: PeerNetFeatures::default(),
+        message_handler: DefaultMessagesHandler {},
+        max_message_size_read: 200000,
+        peers_categories: HashMap::default(),
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
+            max_in_connections_per_ip: 2,
+        },
+        _phantom: std::marker::PhantomData,
+        send_data_channel_size: 1000,
+    };
+
+    let mut manager: PeerNetManager<
+        DefaultPeerId,
+        DefaultContext,
+        DefaultInitConnection,
+        DefaultMessagesHandler,
+    > = PeerNetManager::new(config);
+
+    manager
+        .start_listener(TransportType::Tcp, "127.0.0.1:18085".parse().unwrap())
+        .unwrap();
+
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    // add connection to the manager
+    let addr: SocketAddr = "127.0.0.1:18085".parse().unwrap();
+    let stream = std::net::TcpStream::connect(addr).unwrap();
+    let _endpoint = Endpoint::Tcp(TcpEndpoint {
+        config: peernet::transports::TcpTransportConfig {
+            max_in_connections: 10,
+            max_message_size_read: 200000,
+            default_category_info: PeerNetCategoryInfo {
+                max_in_connections_pre_handshake: 10,
+                max_in_connections_post_handshake: 10,
+                max_in_connections_per_ip: 2,
+            },
+            ..Default::default()
+        }
+        .into(),
+        address: "127.0.0.1:18085".parse().unwrap(),
+        stream: Limiter::new(stream, None, None),
+    });
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    assert!(manager.nb_in_connections().eq(&1));
+
+    for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
+        // send msg with large data that trigger the timeout
+        let result = conn
+            .endpoint
+            .send_timeout::<DefaultPeerId>(&[0; 800000], Duration::from_millis(500));
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("timeout"));
+        break;
+    }
+
+    manager
+        .stop_listener(TransportType::Tcp, "127.0.0.1:18085".parse().unwrap())
+        .unwrap();
+}
+
 // TODO Perform limit tests for QUIC also
