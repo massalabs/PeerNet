@@ -529,7 +529,7 @@ fn send_timeout() {
         // send msg with large data that trigger the timeout
         let result = conn
             .endpoint
-            .send_timeout::<DefaultPeerId>(&[0; 900000], Duration::from_millis(200));
+            .send_timeout::<DefaultPeerId>(&[0; 9000000], Duration::from_millis(200));
         let err = result.unwrap_err();
         assert!(err.to_string().contains("timeout"));
         break;
