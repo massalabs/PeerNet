@@ -52,7 +52,6 @@ impl SendChannels {
         high_priority: bool,
     ) -> PeerNetResult<()> {
         let mut data = Vec::new();
-        message_serializer.serialize_id(&message, &mut data)?;
         message_serializer.serialize(&message, &mut data)?;
         if high_priority {
             self.high_priority
@@ -271,25 +270,11 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                         let _ = write_thread_handle.join();
                         return;
                     }
-                    match message_handler.deserialize_id(&data, &peer_id) {
-                        Ok((rest, id)) => {
-                            if let Err(err) = message_handler.handle(id, rest, &peer_id) {
-                                println!("Error handling message: {:?}", err);
-                                {
-                                    let mut write_active_connections = active_connections.write();
-                                    write_active_connections.remove_connection(&peer_id);
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            if PeerNetError::InvalidMessage == err.error_type {
-                                println!("Invalid message received.");
-                                continue;
-                            }
-                            {
-                                let mut write_active_connections = active_connections.write();
-                                write_active_connections.remove_connection(&peer_id);
-                            }
+                    if let Err(err) = message_handler.handle(&data, &peer_id) {
+                        println!("Error handling message: {:?}", err);
+                        {
+                            let mut write_active_connections = active_connections.write();
+                            write_active_connections.remove_connection(&peer_id);
                         }
                     }
                 }

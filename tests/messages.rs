@@ -29,37 +29,17 @@ struct TestMessagesHandler {
 }
 
 impl MessagesHandler for TestMessagesHandler {
-    fn handle(&self, id: u64, _data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
-        match id {
-            0 => {
-                self.test_sender
-                    .send((peer_id.clone(), TestMessages::Ping))
-                    .map_err(|err| {
-                        PeerNetError::HandlerError.error("test", Some(err.to_string()))
-                    })?;
-                Ok(())
-            }
-            _ => Err(PeerNetError::ReceiveError.error("test", None)),
-        }
-    }
-
-    fn deserialize_id<'a>(
-        &self,
-        data: &'a [u8],
-        _peer_id: &PeerId,
-    ) -> PeerNetResult<(&'a [u8], u64)> {
-        Ok((&data[1..], data[0] as u64))
+    fn handle(&self, _data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
+        self.test_sender
+            .send((peer_id.clone(), TestMessages::Ping))
+            .map_err(|err| PeerNetError::HandlerError.error("test", Some(err.to_string())))?;
+        Ok(())
     }
 }
 
 struct MessageSerializer;
 
 impl MessagesSerializer<Vec<u8>> for MessageSerializer {
-    fn serialize_id(&self, _message: &Vec<u8>, buffer: &mut Vec<u8>) -> PeerNetResult<()> {
-        buffer.push(0);
-        Ok(())
-    }
-
     fn serialize(&self, message: &Vec<u8>, buffer: &mut Vec<u8>) -> PeerNetResult<()> {
         buffer.extend_from_slice(message);
         Ok(())
