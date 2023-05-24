@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -442,6 +442,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         data: &[u8],
         timeout: Duration,
     ) -> Result<(), crate::error::PeerNetErrorData> {
+        let start_time = std::time::Instant::now();
+
         let msg_size: u32 = data.len().try_into().map_err(|_| {
             TcpError::ConnectionError
                 .wrap()
@@ -453,38 +455,41 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .error("send len too long", Some(format!("{:?}", data.len()))))?;
         }
         //TODO: Use config one
-        endpoint
-            .stream
-            .stream
-            .set_write_timeout(Some(timeout))
-            .map_err(|e| {
-                PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
-            })?;
 
-        endpoint
-            .stream
-            .write_all(&msg_size.to_be_bytes())
-            .map_err(|err| {
-                TcpError::ConnectionError.wrap().new(
-                    "send len write",
-                    err,
-                    Some(format!("{:?}", data.len().to_le_bytes())),
-                )
-            })?;
-
-        endpoint.stream.write_all(data).map_err(|err| {
-            TcpError::ConnectionError
-                .wrap()
-                .new("send data write", err, None)
+        let stream = &mut endpoint.stream.stream;
+        stream.set_write_timeout(Some(timeout)).map_err(|e| {
+            PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
         })?;
 
-        endpoint
-            .stream
-            .stream
-            .set_write_timeout(None)
-            .map_err(|e| {
-                PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
-            })?;
+        stream.write_all(&msg_size.to_be_bytes()).map_err(|err| {
+            TcpError::ConnectionError.wrap().new(
+                "send len write",
+                err,
+                Some(format!("{:?}", data.len().to_le_bytes())),
+            )
+        })?;
+
+        let mut total_bytes_written = 0;
+
+        while total_bytes_written < data.len() {
+            let remaining_data = &data[total_bytes_written..];
+            match stream.write(remaining_data) {
+                Ok(bytes_written) => {
+                    total_bytes_written += bytes_written;
+                }
+                Err(ref err) if err.kind() == io::ErrorKind::WouldBlock => {
+                    // Timeout exceeded
+                    if start_time.elapsed() >= timeout {
+                        return Err(PeerNetError::SendError.error("write timeout", None));
+                    }
+                }
+                Err(err) => {
+                    return Err(
+                        PeerNetError::SendError.error("write timeout", Some(err.to_string()))
+                    );
+                }
+            }
+        }
 
         Ok(())
     }
