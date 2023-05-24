@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::context::Context;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::peer_id::PeerId;
@@ -37,6 +39,18 @@ impl Endpoint {
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send(endpoint, data),
         }
     }
+
+    pub fn send_timeout<Id: PeerId>(
+        &mut self,
+        data: &[u8],
+        timeout: Duration,
+    ) -> PeerNetResult<()> {
+        match self {
+            Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send_timeout(endpoint, data, timeout),
+            Endpoint::Quic(endpoint) => QuicTransport::<Id>::send_timeout(endpoint, data, timeout),
+        }
+    }
+
     pub fn receive<Id: PeerId>(&mut self, config: ConnectionConfig) -> PeerNetResult<Vec<u8>> {
         match (self, config) {
             (Endpoint::Tcp(endpoint), ConnectionConfig::Tcp(config)) => {
