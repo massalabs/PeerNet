@@ -7,8 +7,8 @@ use std::{
 };
 
 use crate::{
-    config::PeerNetCategoryInfo, messages::MessagesHandler, peer::PeerConnectionType,
-    types::KeyPair,
+    config::PeerNetCategoryInfo, context::Context, messages::MessagesHandler,
+    peer::PeerConnectionType, peer_id::PeerId,
 };
 use crossbeam::{channel, sync::WaitGroup};
 use mio::{net::UdpSocket as MioUdpSocket, Events, Interest, Poll, Token, Waker};
@@ -19,7 +19,6 @@ use crate::{
     error::{PeerNetError, PeerNetResult},
     network_manager::SharedActiveConnections,
     peer::{new_peer, InitConnectionHandler},
-    peer_id::PeerId,
     transports::{Endpoint, TransportErrorType},
 };
 
@@ -54,8 +53,8 @@ type QuicConnection = (
 );
 type QuicConnectionsMap = Arc<RwLock<HashMap<SocketAddr, QuicConnection>>>;
 
-pub(crate) struct QuicTransport {
-    pub active_connections: SharedActiveConnections,
+pub(crate) struct QuicTransport<Id: PeerId> {
+    pub active_connections: SharedActiveConnections<Id>,
     //pub fallback_function: Option<&'static FallbackFunction>,
     pub out_connection_attempts: WaitGroup,
     pub listeners: HashMap<SocketAddr, (Waker, UdpSocket, JoinHandle<PeerNetResult<()>>)>,
@@ -64,6 +63,7 @@ pub(crate) struct QuicTransport {
     _features: PeerNetFeatures,
     stop_peer_tx: Sender<()>,
     stop_peer_rx: Receiver<()>,
+    config: QuicConnectionConfig,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -86,18 +86,24 @@ impl QuicEndpoint {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QuicOutConnectionConfig {
-    // the peer we want to connect to
-    pub identity: PeerId,
     pub local_addr: SocketAddr,
 }
 
-impl QuicTransport {
+#[derive(Clone, Debug)]
+pub struct QuicConnectionConfig {
+    out_connection_config: QuicOutConnectionConfig,
+    pub data_channel_size: usize,
+}
+
+impl<Id: PeerId> QuicTransport<Id> {
     pub fn new(
-        active_connections: SharedActiveConnections,
+        active_connections: SharedActiveConnections<Id>,
         features: PeerNetFeatures,
-    ) -> QuicTransport {
+        data_channel_size: usize,
+        local_addr: SocketAddr,
+    ) -> QuicTransport<Id> {
         let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
             out_connection_attempts: WaitGroup::new(),
@@ -107,21 +113,29 @@ impl QuicTransport {
             _features: features,
             stop_peer_tx,
             stop_peer_rx,
+            config: QuicConnectionConfig {
+                out_connection_config: QuicOutConnectionConfig { local_addr },
+                data_channel_size,
+            },
         }
     }
 }
 
-impl Transport for QuicTransport {
-    type OutConnectionConfig = QuicOutConnectionConfig;
+impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
+    type TransportConfig = QuicConnectionConfig;
 
     type Endpoint = QuicEndpoint;
 
-    fn start_listener<T: InitConnectionHandler, M: MessagesHandler>(
+    fn start_listener<
+        Ctx: Context<Id>,
+        M: MessagesHandler<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
+    >(
         &mut self,
-        self_keypair: KeyPair,
+        context: Ctx,
         address: SocketAddr,
         message_handler: M,
-        init_connection_handler: T,
+        init_connection_handler: I,
     ) -> PeerNetResult<()> {
         let mut poll = Poll::new()
             .map_err(|err| QuicError::InitListener.wrap().new("init poll", err, None))?;
@@ -137,7 +151,6 @@ impl Transport for QuicTransport {
                 .wrap()
                 .new("server set nonblocking", err, None)
         })?;
-
         let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).map_err(|err| {
             QuicError::QuicheConfig.wrap().new(
                 "new from protocol",
@@ -177,6 +190,9 @@ impl Transport for QuicTransport {
                 let server = server.try_clone().unwrap();
                 let stop_peer_rx = self.stop_peer_rx.clone();
                 let stop_peer_tx = self.stop_peer_tx.clone();
+
+                let quic_config = self.config.clone();
+
                 move || {
                     let mut socket = MioUdpSocket::from_std(server);
                     // Start listening for incoming connections.
@@ -273,8 +289,9 @@ impl Transport for QuicTransport {
                                                     (connection, send_rx, recv_tx, false),
                                                 );
                                             }
+
                                             new_peer(
-                                                self_keypair.clone(),
+                                                context.clone(),
                                                 Endpoint::Quic(QuicEndpoint {
                                                     data_receiver: recv_rx,
                                                     data_sender: send_tx,
@@ -291,6 +308,7 @@ impl Transport for QuicTransport {
                                                     max_in_connections_post_handshake: 0,
                                                     max_in_connections_pre_handshake: 0,
                                                 },
+                                                quic_config.clone().into(),
                                             );
                                         }
                                         {
@@ -421,33 +439,40 @@ impl Transport for QuicTransport {
         Ok(())
     }
 
-    fn try_connect<T: InitConnectionHandler, M: MessagesHandler>(
+    fn try_connect<
+        Ctx: Context<Id>,
+        M: MessagesHandler<Id>,
+        I: InitConnectionHandler<Id, Ctx, M>,
+    >(
         &mut self,
-        self_keypair: KeyPair,
+        self_keypair: Ctx,
         address: SocketAddr,
         _timeout: Duration,
-        config: &Self::OutConnectionConfig,
+        config: &Self::TransportConfig,
         message_handler: M,
-        init_connection_handler: T,
+        init_connection_handler: I,
     ) -> PeerNetResult<JoinHandle<PeerNetResult<()>>> {
         let stop_peer_rx = self.stop_peer_rx.clone();
         //TODO: Use timeout
         let config = config.clone();
-        let (_, socket, _) = if self.listeners.contains_key(&config.local_addr) {
+        let (_, socket, _) = if self
+            .listeners
+            .contains_key(&config.out_connection_config.local_addr)
+        {
             self.listeners
-                .get(&config.local_addr)
+                .get(&config.out_connection_config.local_addr)
                 .expect("Listener not found")
         } else {
             self.start_listener(
                 self_keypair.clone(),
-                config.local_addr,
+                config.out_connection_config.local_addr,
                 message_handler.clone(),
                 init_connection_handler.clone(),
             )?;
             //TODO: Make things more elegant with waker etc
             std::thread::sleep(Duration::from_millis(100));
             self.listeners
-                .get(&config.local_addr)
+                .get(&config.out_connection_config.local_addr)
                 .expect("Listener not found")
         };
         let socket = socket.try_clone().unwrap();
@@ -477,7 +502,7 @@ impl Transport for QuicTransport {
                     let mut conn = quiche::connect(
                         None,
                         &scid,
-                        config.local_addr,
+                        config.out_connection_config.local_addr,
                         address,
                         &mut quiche_config,
                     )
@@ -487,7 +512,7 @@ impl Transport for QuicTransport {
                             err,
                             Some(format!(
                                 "local_addr: {:?}, addr: {:?}",
-                                config.local_addr, address
+                                config.out_connection_config.local_addr, address
                             )),
                         )
                     })?;
@@ -546,6 +571,7 @@ impl Transport for QuicTransport {
                             max_in_connections_post_handshake: 0,
                             max_in_connections_pre_handshake: 0,
                         },
+                        config.into(),
                     );
                     drop(wg);
                     Ok(())
@@ -587,7 +613,25 @@ impl Transport for QuicTransport {
             })
     }
 
-    fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
+    fn send_timeout(
+        endpoint: &mut Self::Endpoint,
+        data: &[u8],
+        timeout: Duration,
+    ) -> PeerNetResult<()> {
+        endpoint
+            .data_sender
+            .send_timeout(QuicInternalMessage::Data(data.to_vec()), timeout)
+            .map_err(|err| {
+                QuicError::ConnectionError
+                    .wrap()
+                    .new("data_sender send", err, None)
+            })
+    }
+
+    fn receive(
+        endpoint: &mut Self::Endpoint,
+        _config: &Self::TransportConfig,
+    ) -> PeerNetResult<Vec<u8>> {
         let data = endpoint.data_receiver.recv().map_err(|err| {
             QuicError::ConnectionError
                 .wrap()

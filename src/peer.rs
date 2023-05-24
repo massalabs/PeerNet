@@ -4,37 +4,42 @@ use std::collections::HashMap;
 use std::{fmt::Debug, net::SocketAddr};
 
 use crate::config::PeerNetCategoryInfo;
+use crate::context::Context;
 use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::{MessagesHandler, MessagesSerializer};
-use crate::types::KeyPair;
+use crate::peer_id::PeerId;
+use crate::transports::ConnectionConfig;
+use crossbeam::channel::bounded;
 use crossbeam::{
-    channel::{unbounded, Receiver, Sender, TryRecvError},
+    channel::{Receiver, Sender, TryRecvError},
     select,
 };
 
 use crate::{
     network_manager::SharedActiveConnections,
-    peer_id::PeerId,
     transports::{endpoint::Endpoint, TransportType},
 };
 
-pub trait InitConnectionHandler: Send + Clone + 'static {
-    fn perform_handshake<M: MessagesHandler>(
+pub trait InitConnectionHandler<Id: PeerId, Ctx: Context<Id>, M: MessagesHandler<Id>>:
+    Send + Clone + 'static
+{
+    fn perform_handshake(
         &mut self,
-        keypair: &KeyPair,
+        context: &Ctx,
         endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
         _messages_handler: M,
-    ) -> PeerNetResult<PeerId> {
-        endpoint.handshake(keypair)
+    ) -> PeerNetResult<Id> {
+        endpoint.handshake(context.clone())
     }
 
     fn fallback_function(
         &mut self,
-        _keypair: &KeyPair,
+        _context: &Ctx,
         _endpoint: &mut Endpoint,
         _listeners: &HashMap<SocketAddr, TransportType>,
     ) -> PeerNetResult<()> {
+        // TODO ?
         Ok(())
     }
 }
@@ -102,16 +107,22 @@ impl Debug for PeerConnection {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
-    self_keypair: KeyPair,
+pub(crate) fn new_peer<
+    Id: PeerId,
+    Ctx: Context<Id>,
+    T: InitConnectionHandler<Id, Ctx, M>,
+    M: MessagesHandler<Id>,
+>(
+    context: Ctx,
     mut endpoint: Endpoint,
     mut handshake_handler: T,
     message_handler: M,
-    active_connections: SharedActiveConnections,
+    active_connections: SharedActiveConnections<Id>,
     peer_stop: Receiver<()>,
     connection_type: PeerConnectionType,
     category_name: Option<String>,
     category_info: PeerNetCategoryInfo,
+    config: ConnectionConfig,
 ) {
     //TODO: All the unwrap should pass the error to a function that remove the peer from our records
     std::thread::Builder::new()
@@ -123,7 +134,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
         };
         //HANDSHAKE
         let peer_id = match handshake_handler.perform_handshake(
-            &self_keypair,
+            &context,
             &mut endpoint,
             &listeners,
             message_handler.clone(),
@@ -141,10 +152,13 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             }
         };
 
-        //TODO: Bounded
+        let channel_size = match config.clone() {
+            ConnectionConfig::Tcp(conf) => conf.data_channel_size,
+            ConnectionConfig::Quic(conf) => conf.data_channel_size,
+        };
 
-        let (low_write_tx, low_write_rx) = unbounded::<Vec<u8>>();
-        let (high_write_tx, high_write_rx) = unbounded::<Vec<u8>>();
+        let (low_write_tx, low_write_rx) = bounded::<Vec<u8>>(channel_size);
+        let (high_write_tx, high_write_rx) = bounded::<Vec<u8>>(channel_size);
 
         let endpoint_connection = match endpoint.try_clone() {
             Ok(write_endpoint) => write_endpoint,
@@ -160,11 +174,15 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                 return;
             }
         };
-        {
+
+         {
+            let id: Id = context.get_peer_id();
+
             let mut write_active_connections = active_connections.write();
             write_active_connections.connection_queue
             .retain(|(addr, _)| addr != endpoint.get_target_addr());
-            if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !write_active_connections.confirm_connection(
+            // if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
+            if peer_id == id || !write_active_connections.confirm_connection(
                 peer_id.clone(),
                 endpoint_connection,
                 SendChannels {
@@ -177,7 +195,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             ) {
                 return;
             }
-        }
+         }
 
         // SPAWN WRITING THREAD
         // https://github.com/crossbeam-rs/crossbeam/issues/288
@@ -198,7 +216,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
             move || loop {
                 match high_write_rx.try_recv() {
                     Ok(data) => {
-                        if write_endpoint.send(&data).is_err() {
+                        if write_endpoint.send::<Id>(&data).is_err() {
                             {
                                 let mut write_active_connections = write_active_connections.write();
                                 write_active_connections.remove_connection(&write_peer_id);
@@ -219,7 +237,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     recv(low_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if write_endpoint.send(&data).is_err() {
+                                if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections = write_active_connections.write();
                                         write_active_connections.remove_connection(&write_peer_id);
@@ -235,7 +253,7 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
                     recv(high_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if write_endpoint.send(&data).is_err() {
+                                if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();
@@ -254,7 +272,8 @@ pub(crate) fn new_peer<T: InitConnectionHandler, M: MessagesHandler>(
         });
         // READER LOOP
         loop {
-            match endpoint.receive() {
+
+            match endpoint.receive::<Id>(config.clone()) {
                 Ok(data) => {
                     if data.is_empty() {
                         // We arrive here in two cases:

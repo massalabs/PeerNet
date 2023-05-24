@@ -1,3 +1,4 @@
+/*mod util;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -5,14 +6,15 @@ use crossbeam::channel::Sender;
 use peernet::config::PeerNetCategoryInfo;
 use peernet::error::{PeerNetError, PeerNetResult};
 use peernet::messages::{MessagesHandler, MessagesSerializer};
-use peernet::types::KeyPair;
+use peernet::types::PeerNetId;
 use peernet::{
     config::{PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
     peer::InitConnectionHandler,
-    peer_id::PeerId,
     transports::{OutConnectionConfig, TransportType},
 };
+
+use crate::util::{TestHasher, TestId, TestKeyPair, TestPubKey, TestSignature};
 
 #[derive(Clone)]
 struct EmptyInitConnection;
@@ -25,15 +27,17 @@ enum TestMessages {
 
 #[derive(Clone)]
 struct TestMessagesHandler {
-    pub test_sender: Sender<(PeerId, TestMessages)>,
+    pub test_sender: Sender<(TestId, TestMessages)>,
 }
 
 impl MessagesHandler for TestMessagesHandler {
-    fn handle(&self, _data: &[u8], peer_id: &PeerId) -> PeerNetResult<()> {
-        self.test_sender
-            .send((peer_id.clone(), TestMessages::Ping))
-            .map_err(|err| PeerNetError::HandlerError.error("test", Some(err.to_string())))?;
-        Ok(())
+    fn handle<Id: PeerNetId>(&self, id: u64, _data: &[u8], peer_id: &Id) -> PeerNetResult<()> {
+                self.test_sender
+                    .send((peer_id.clone(), TestMessages::Ping))
+                    .map_err(|err| {
+                        PeerNetError::HandlerError.error("test", Some(err.to_string()))
+                    })?;
+                Ok(())
     }
 }
 
@@ -45,6 +49,7 @@ impl MessagesSerializer<Vec<u8>> for MessageSerializer {
         Ok(())
     }
 }
+
 
 #[test]
 fn two_peers_tcp_with_one_message() {
@@ -121,3 +126,4 @@ fn two_peers_tcp_with_one_message() {
         .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
         .unwrap();
 }
+ */

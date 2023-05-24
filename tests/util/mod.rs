@@ -4,13 +4,45 @@ use std::{
     time::Duration,
 };
 
-use peernet::{error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
+use peernet::{
+    config::PeerNetCategoryInfo,
+    context::Context,
+    error::PeerNetResult,
+    messages::MessagesHandler,
+    peer_id::PeerId,
+    transports::{ConnectionConfig, TcpTransportConfig},
+};
+use rand::Rng;
+
+#[derive(Clone)]
+pub struct DefaultContext {
+    pub our_id: DefaultPeerId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DefaultPeerId {
+    pub id: u64,
+}
+
+impl PeerId for DefaultPeerId {
+    fn generate() -> Self {
+        let mut rng = rand::thread_rng();
+        let random_number: u64 = rng.gen();
+        DefaultPeerId { id: random_number }
+    }
+}
+
+impl Context<DefaultPeerId> for DefaultContext {
+    fn get_peer_id(&self) -> DefaultPeerId {
+        self.our_id.clone()
+    }
+}
 
 #[derive(Clone)]
 pub struct DefaultMessagesHandler {}
 
-impl MessagesHandler for DefaultMessagesHandler {
-    fn handle(&self, _data: &[u8], _peer_id: &PeerId) -> PeerNetResult<()> {
+impl MessagesHandler<DefaultPeerId> for DefaultMessagesHandler {
+    fn handle(&self, _data: &[u8], _peer_id: &DefaultPeerId) -> PeerNetResult<()> {
         Ok(())
     }
 }
@@ -31,4 +63,18 @@ pub fn create_clients(nb_clients: usize, to_ip: &str) -> Vec<JoinHandle<()>> {
         clients.push(client);
     }
     clients
+}
+
+pub fn get_default_tcp_config() -> ConnectionConfig {
+    TcpTransportConfig {
+        max_in_connections: 10,
+        max_message_size_read: 1048576000,
+        default_category_info: PeerNetCategoryInfo {
+            max_in_connections_pre_handshake: 10,
+            max_in_connections_post_handshake: 10,
+            max_in_connections_per_ip: 2,
+        },
+        ..Default::default()
+    }
+    .into()
 }
