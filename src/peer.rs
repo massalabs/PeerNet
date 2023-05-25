@@ -58,13 +58,33 @@ impl SendChannels {
         let mut data = Vec::new();
         message_serializer.serialize(&message, &mut data)?;
         if high_priority {
-            self.high_priority
-                .send(data)
-                .map_err(|err| PeerNetError::SendError.new("sendchannels highprio", err, None))?;
+            self.high_priority.send(data).map_err(|err| {
+                PeerNetError::SendError.new("send sendchannels highprio", err, None)
+            })?;
         } else {
-            self.low_priority
-                .send(data)
-                .map_err(|err| PeerNetError::SendError.new("sendchannels lowprio", err, None))?;
+            self.low_priority.send(data).map_err(|err| {
+                PeerNetError::SendError.new("send sendchannels lowprio", err, None)
+            })?;
+        }
+        Ok(())
+    }
+
+    pub fn try_send<T, MS: MessagesSerializer<T>>(
+        &self,
+        message_serializer: &MS,
+        message: T,
+        high_priority: bool,
+    ) -> PeerNetResult<()> {
+        let mut data = Vec::new();
+        message_serializer.serialize(&message, &mut data)?;
+        if high_priority {
+            self.high_priority.try_send(data).map_err(|err| {
+                PeerNetError::SendError.new("try_send sendchannels highprio", err, None)
+            })?;
+        } else {
+            self.low_priority.try_send(data).map_err(|err| {
+                PeerNetError::SendError.new("try_send sendchannels lowprio", err, None)
+            })?;
         }
         Ok(())
     }
