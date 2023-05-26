@@ -519,7 +519,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             .stream
             .read_exact(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
-        dbg!("return ok");
         Ok(data)
     }
 }
