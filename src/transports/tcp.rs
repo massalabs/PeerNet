@@ -88,22 +88,18 @@ impl Default for TcpConnectionConfig {
 pub struct TcpEndpoint {
     pub config: TcpConnectionConfig,
     pub address: SocketAddr,
-    pub stream: Limiter<TcpStream>,
+    pub stream: TcpStream,
 }
 
 impl TcpEndpoint {
     pub fn try_clone(&self) -> PeerNetResult<Self> {
         Ok(TcpEndpoint {
             address: self.address,
-            stream: Limiter::new(
-                self.stream.stream.try_clone().map_err(|err| {
-                    TcpError::ConnectionError
-                        .wrap()
-                        .new("cannot clone stream", err, None)
-                })?,
-                Some(self.config.clone().into()),
-                Some(self.config.clone().into()),
-            ),
+            stream: self.stream.try_clone().map_err(|err| {
+                TcpError::ConnectionError
+                    .wrap()
+                    .new("cannot clone stream", err, None)
+            })?,
             config: self.config.clone(),
         })
     }
@@ -111,7 +107,7 @@ impl TcpEndpoint {
 
 impl TcpEndpoint {
     pub fn shutdown(&mut self) {
-        let _ = self.stream.stream.shutdown(std::net::Shutdown::Both);
+        let _ = self.stream.shutdown(std::net::Shutdown::Both);
     }
 }
 
@@ -237,11 +233,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                         address,
-                                        stream: Limiter::new(
-                                            stream,
-                                            Some(config.connection_config.clone().into()),
-                                            Some(config.connection_config.clone().into()),
-                                        ),
+                                        stream,
                                         config: config.connection_config.clone(),
                                     });
                                     let listeners = {
@@ -330,11 +322,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
-                    let stream = Limiter::new(
-                        stream,
-                        Some(config.connection_config.clone().into()),
-                        Some(config.connection_config.clone().into()),
-                    );
                     let ip_canonical = to_canonical(address.ip());
                     let (category_name, category_info) = match config
                         .peer_categories
@@ -436,7 +423,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         let mut try_write = || -> Result<(), PeerNetErrorData> {
             endpoint
                 .stream
-                .stream
                 .set_write_timeout(Some(timeout))
                 .map_err(|e| {
                     PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
@@ -485,13 +471,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         let result = try_write();
 
         // after try_write we need to reset the timeout on the stream
-        endpoint
-            .stream
-            .stream
-            .set_write_timeout(None)
-            .map_err(|e| {
-                PeerNetError::SendError.error("error reset write timeout", Some(e.to_string()))
-            })?;
+        endpoint.stream.set_write_timeout(None).map_err(|e| {
+            PeerNetError::SendError.error("error reset write timeout", Some(e.to_string()))
+        })?;
 
         result
     }
