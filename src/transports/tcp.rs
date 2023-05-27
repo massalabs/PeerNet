@@ -19,7 +19,7 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
-use stream_limiter::{Limiter, LimiterOptions};
+use stream_limiter::LimiterOptions;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TcpError {
