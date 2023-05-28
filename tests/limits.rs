@@ -13,7 +13,6 @@ use std::{
     str::FromStr,
     time::Duration,
 };
-use stream_limiter::Limiter;
 
 // use peernet::types::KeyPair;
 
@@ -450,7 +449,7 @@ fn max_message_size() {
         }
         .into(),
         address: "127.0.0.1:18084".parse().unwrap(),
-        stream: Limiter::new(stream, None, None),
+        stream
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -532,7 +531,7 @@ fn send_timeout() {
         }
         .into(),
         address: "127.0.0.1:18085".parse().unwrap(),
-        stream: Limiter::new(stream, None, None),
+        stream
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
