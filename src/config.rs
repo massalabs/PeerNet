@@ -14,6 +14,8 @@ use crate::messages::MessagesHandler;
 use crate::peer::InitConnectionHandler;
 use crate::peer_id::PeerId;
 
+pub const RATE_LIMIT: u64 = u64::MAX; //1024 * 1024 * 120; // 120 Mo / sec
+
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
     pub max_in_connections: usize,
@@ -45,11 +47,11 @@ pub struct PeerNetConfiguration<
     /// Size of send data channel
     pub send_data_channel_size: usize,
     /// Number of bytes we can read/write in `rate_time_window`
-    pub rate_limit: u128,
+    pub rate_limit: u64,
     /// Window of time we wait between each read/write
     pub rate_time_window: Duration,
     /// Maximum tokens store in the Limiter. Refer to the stream_limiter crate documentation.
-    pub rate_bucket_size: usize,
+    pub rate_bucket_size: u64,
     /// List of categories of peers
     pub peers_categories: PeerNetCategories,
     /// Default category info for all peers not in a specific category (category info, number of connections accepted only for handshake //TODO: Remove when refactored on massa side)
@@ -83,8 +85,8 @@ impl<
                 max_in_connections_per_ip: 0,
             },
             rate_time_window: Duration::from_secs(1),
-            rate_bucket_size: 10000,
-            rate_limit: 100000,
+            rate_bucket_size: RATE_LIMIT.saturating_mul(3),
+            rate_limit: RATE_LIMIT,
             _phantom: std::marker::PhantomData,
             write_timeout: Duration::from_secs(7),
             read_timeout: Duration::from_secs(7),

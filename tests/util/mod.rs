@@ -7,6 +7,8 @@ use std::time::Duration;
 use peernet::{context::Context, error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
 use rand::Rng;
 
+pub mod paramtests;
+
 #[derive(Clone)]
 pub struct DefaultContext {
     pub our_id: DefaultPeerId,

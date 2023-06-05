@@ -21,7 +21,7 @@ use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
-use stream_limiter::LimiterOptions;
+use stream_limiter::{Limiter, LimiterOptions};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TcpError {
@@ -65,9 +65,9 @@ const STOP_LISTENER: Token = Token(10);
 
 #[derive(Clone, Debug)]
 pub struct TcpConnectionConfig {
-    pub rate_limit: u128,
+    pub rate_limit: u64,
     pub rate_time_window: Duration,
-    pub rate_bucket_size: usize,
+    pub rate_bucket_size: u64,
     pub data_channel_size: usize,
     pub max_message_size: usize,
     pub write_timeout: Duration,
@@ -98,7 +98,7 @@ impl Default for TcpConnectionConfig {
 pub struct TcpEndpoint {
     pub config: TcpConnectionConfig,
     pub address: SocketAddr,
-    pub stream: TcpStream,
+    pub stream_limiter: Limiter<TcpStream>,
     // shared between all endpoints
     pub total_bytes_received: Arc<RwLock<u64>>,
     // shared between all endpoints
@@ -113,11 +113,15 @@ impl TcpEndpoint {
     pub fn try_clone(&self) -> PeerNetResult<Self> {
         Ok(TcpEndpoint {
             address: self.address,
-            stream: self.stream.try_clone().map_err(|err| {
-                TcpError::ConnectionError
-                    .wrap()
-                    .new("cannot clone stream", err, None)
-            })?,
+            stream_limiter: Limiter::new(
+                self.stream_limiter.stream.try_clone().map_err(|err| {
+                    TcpError::ConnectionError
+                        .wrap()
+                        .new("cannot clone stream", err, None)
+                })?,
+                Some(self.config.clone().into()),
+                Some(self.config.clone().into()),
+            ),
             config: self.config.clone(),
             total_bytes_received: self.total_bytes_received.clone(),
             total_bytes_sent: self.total_bytes_sent.clone(),
@@ -127,7 +131,18 @@ impl TcpEndpoint {
     }
 
     pub fn shutdown(&mut self) {
-        let _ = self.stream.shutdown(std::net::Shutdown::Both);
+        let _ = self
+            .stream_limiter
+            .stream
+            .shutdown(std::net::Shutdown::Both);
+    }
+
+    pub fn get_bytes_received(&self) -> u64 {
+        *self.endpoint_bytes_received.read()
+    }
+
+    pub fn get_bytes_sent(&self) -> u64 {
+        *self.endpoint_bytes_sent.read()
     }
 
     pub fn get_bytes_received(&self) -> u64 {
@@ -268,7 +283,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                         address,
-                                        stream,
+                                        stream_limiter: Limiter::new(
+                                            stream,
+                                            Some(config.connection_config.clone().into()),
+                                            Some(config.connection_config.clone().into()),
+                                        ),
                                         config: config.connection_config.clone(),
                                         total_bytes_received: total_bytes_received.clone(),
                                         total_bytes_sent: total_bytes_sent.clone(),
@@ -364,7 +383,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         )
                     })?;
                     set_tcp_stream_config(&stream, &config);
-
+                    let stream_limiter = Limiter::new(
+                        stream,
+                        Some(config.connection_config.clone().into()),
+                        Some(config.connection_config.clone().into()),
+                    );
                     let ip_canonical = to_canonical(address.ip());
                     let (category_name, category_info) = match config
                         .peer_categories
@@ -378,7 +401,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         context.clone(),
                         Endpoint::Tcp(TcpEndpoint {
                             address,
-                            stream,
+                            stream_limiter,
                             config: config.connection_config.clone(),
                             total_bytes_received: total_bytes_received.clone(),
                             total_bytes_sent: total_bytes_sent.clone(),

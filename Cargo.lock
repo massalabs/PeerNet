@@ -428,9 +428,8 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "stream_limiter"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92b85d49eee44700a8dc9a3e2d316e8e1f7d661d3eccd606ad9d02e9969e04bc"
+version = "3.0.1"
+source = "git+https://github.com/massalabs/stream_limiter?branch=improve_limiter#4b8fb62499ace60c368f02bf125a845d85024b39"
 
 [[package]]
 name = "syn"
