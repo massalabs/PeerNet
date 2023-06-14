@@ -229,8 +229,11 @@ pub(crate) fn new_peer<
                 }
             };
             move || loop {
+                println!("AURELIEN: len high priority write {}", high_write_rx.len());
+                println!("AURELIEN: len high low write {}", low_write_rx.len());
                 match high_write_rx.try_recv() {
                     Ok(data) => {
+                        println!("AURELIEN: send data of {} len that come from high priority", data.len());
                         if write_endpoint.send::<Id>(&data).is_err() {
                             {
                                 let mut write_active_connections = write_active_connections.write();
@@ -252,6 +255,7 @@ pub(crate) fn new_peer<
                     recv(low_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
+                                println!("AURELIEN: send data of {} len that come from low priority", data.len());
                                 if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections = write_active_connections.write();
@@ -268,6 +272,7 @@ pub(crate) fn new_peer<
                     recv(high_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
+                                println!("AURELIEN: send data of {} len that come from high priority", data.len());
                                 if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections =
