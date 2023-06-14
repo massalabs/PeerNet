@@ -11,6 +11,7 @@ use std::{
     collections::HashMap,
     net::{IpAddr, SocketAddr},
     str::FromStr,
+    sync::{Arc, RwLock},
     time::Duration,
 };
 
@@ -450,6 +451,7 @@ fn max_message_size() {
         .into(),
         address: "127.0.0.1:18084".parse().unwrap(),
         stream,
+        total_bytes_received: Arc::new(RwLock::new(0)),
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -532,6 +534,7 @@ fn send_timeout() {
         .into(),
         address: "127.0.0.1:18085".parse().unwrap(),
         stream,
+        total_bytes_received: Arc::new(RwLock::new(0)),
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));

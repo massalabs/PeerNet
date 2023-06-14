@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     net::{SocketAddr, UdpSocket},
-    sync::Arc,
+    sync::{Arc, RwLock as StdRwLock},
     thread::JoinHandle,
     time::Duration,
 };
@@ -64,6 +64,7 @@ pub(crate) struct QuicTransport<Id: PeerId> {
     stop_peer_tx: Sender<()>,
     stop_peer_rx: Receiver<()>,
     config: QuicTransportConfig,
+    total_bytes_received: Arc<StdRwLock<u128>>,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -76,6 +77,7 @@ pub struct QuicEndpoint {
     pub(crate) data_sender: channel::Sender<QuicInternalMessage>,
     pub(crate) data_receiver: channel::Receiver<QuicInternalMessage>,
     pub address: SocketAddr,
+    pub total_bytes_received: Arc<StdRwLock<u128>>,
 }
 
 impl QuicEndpoint {
@@ -103,6 +105,7 @@ impl<Id: PeerId> QuicTransport<Id> {
         features: PeerNetFeatures,
         data_channel_size: usize,
         local_addr: SocketAddr,
+        total_bytes_received: Arc<StdRwLock<u128>>,
     ) -> QuicTransport<Id> {
         let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
@@ -119,6 +122,7 @@ impl<Id: PeerId> QuicTransport<Id> {
                     data_channel_size,
                 },
             },
+            total_bytes_received,
         }
     }
 }
@@ -189,6 +193,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             .name(format!("quic_listener_handle_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
+                let total_bytes_received = self.total_bytes_received.clone();
                 let server = server.try_clone().unwrap();
                 let stop_peer_rx = self.stop_peer_rx.clone();
                 let stop_peer_tx = self.stop_peer_tx.clone();
@@ -296,6 +301,8 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     data_receiver: recv_rx,
                                                     data_sender: send_tx,
                                                     address,
+                                                    total_bytes_received: total_bytes_received
+                                                        .clone(),
                                                 }),
                                                 init_connection_handler.clone(),
                                                 message_handler.clone(),
@@ -478,6 +485,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             .name(format!("quic_try_connect_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
+                let total_bytes_received = self.total_bytes_received.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
                     let mut out = [0; 65507];
@@ -556,6 +564,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                             data_receiver: recv_rx,
                             data_sender: send_tx,
                             address,
+                            total_bytes_received: total_bytes_received.clone(),
                         }),
                         init_connection_handler.clone(),
                         message_handler.clone(),
@@ -632,7 +641,14 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 .new("data_receiver recv", err, None)
         })?;
         match data {
-            QuicInternalMessage::Data(data) => Ok(data),
+            QuicInternalMessage::Data(data) => {
+                let mut write = endpoint.total_bytes_received.write().map_err(|_e| {
+                    PeerNetError::PeerConnectionError.error("get_total_bytes_received", None)
+                })?;
+                *write += data.len() as u128;
+
+                Ok(data)
+            }
             QuicInternalMessage::Shutdown => Err(QuicError::InternalFail
                 .wrap()
                 .error("recv shutdown", Some("Connection closed".to_string()))),

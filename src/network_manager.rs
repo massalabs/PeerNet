@@ -4,7 +4,11 @@
 
 use std::net::IpAddr;
 use std::thread::JoinHandle;
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, RwLock as StdRwLock},
+};
 
 use crate::config::PeerNetCategoryInfo;
 use crate::context::Context;
@@ -178,6 +182,7 @@ pub struct PeerNetManager<
     init_connection_handler: I,
     context: Ctx,
     transports: HashMap<TransportType, InternalTransportType<Id>>,
+    total_bytes_received: Arc<StdRwLock<u128>>,
 }
 
 impl<
@@ -204,6 +209,7 @@ impl<
             context,
             transports: Default::default(),
             active_connections,
+            total_bytes_received: Arc::new(StdRwLock::new(0)),
         }
     }
 
@@ -241,6 +247,7 @@ impl<
                 },
                 self.config.optional_features.clone(),
                 addr,
+                self.total_bytes_received.clone(),
             )
         });
         transport.start_listener(
@@ -286,6 +293,7 @@ impl<
                 },
                 self.config.optional_features.clone(),
                 addr,
+                self.total_bytes_received.clone(),
             )
         });
         transport.stop_listener(addr)?;
@@ -328,6 +336,7 @@ impl<
                 },
                 self.config.optional_features.clone(),
                 addr,
+                self.total_bytes_received.clone(),
             )
         });
         transport.try_connect(
@@ -342,6 +351,13 @@ impl<
     /// Get the nb_in_connections of manager
     pub fn nb_in_connections(&self) -> usize {
         self.active_connections.read().nb_in_connections
+    }
+
+    pub fn get_total_bytes_received(&self) -> PeerNetResult<u128> {
+        let read = self.total_bytes_received.read().map_err(|_e| {
+            crate::error::PeerNetError::PeerConnectionError.error("get_total_bytes_received", None)
+        })?;
+        Ok(*read)
     }
 }
 

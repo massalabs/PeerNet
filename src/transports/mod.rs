@@ -2,6 +2,7 @@
 //!
 //! This module use enum dispatch to avoid using trait objects and to save runtime costs.
 
+use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
@@ -187,15 +188,22 @@ impl<Id: PeerId> InternalTransportType<Id> {
         config: TransportConfig,
         features: PeerNetFeatures,
         local_addr: SocketAddr,
+        total_bytes_received: Arc<RwLock<u128>>,
     ) -> Self {
         match (transport_type, config) {
-            (TransportType::Tcp, TransportConfig::Tcp(config)) => {
-                InternalTransportType::Tcp(TcpTransport::new(active_connections, *config, features))
-            }
-            //TODO: Use config
-            (TransportType::Quic, TransportConfig::Quic(_config)) => InternalTransportType::Quic(
-                QuicTransport::new(active_connections, features, 0, local_addr),
+            (TransportType::Tcp, TransportConfig::Tcp(config)) => InternalTransportType::Tcp(
+                TcpTransport::new(active_connections, *config, features, total_bytes_received),
             ),
+            //TODO: Use config
+            (TransportType::Quic, TransportConfig::Quic(_config)) => {
+                InternalTransportType::Quic(QuicTransport::new(
+                    active_connections,
+                    features,
+                    0,
+                    local_addr,
+                    total_bytes_received,
+                ))
+            }
             _ => panic!("Wrong transport type"),
         }
     }
