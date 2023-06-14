@@ -80,10 +80,12 @@ impl SendChannels {
         let mut data = Vec::new();
         message_serializer.serialize(&message, &mut data)?;
         if high_priority {
+            println!("AURELIEN: try_send high priority the channel is a len of {}", self.high_priority.len());
             self.high_priority.try_send(data).map_err(|err| {
                 PeerNetError::SendError.new("try_send sendchannels highprio", err, None)
             })?;
         } else {
+            println!("AURELIEN: try_send low priority the channel is a len of {}", self.low_priority.len());
             self.low_priority.try_send(data).map_err(|err| {
                 PeerNetError::SendError.new("try_send sendchannels lowprio", err, None)
             })?;
