@@ -182,7 +182,8 @@ pub struct PeerNetManager<
     init_connection_handler: I,
     context: Ctx,
     transports: HashMap<TransportType, InternalTransportType<Id>>,
-    total_bytes_received: Arc<StdRwLock<u128>>,
+    total_bytes_received: Arc<StdRwLock<u64>>,
+    total_bytes_sent: Arc<StdRwLock<u64>>,
 }
 
 impl<
@@ -210,6 +211,7 @@ impl<
             transports: Default::default(),
             active_connections,
             total_bytes_received: Arc::new(StdRwLock::new(0)),
+            total_bytes_sent: Arc::new(StdRwLock::new(0)),
         }
     }
 
@@ -248,6 +250,7 @@ impl<
                 self.config.optional_features.clone(),
                 addr,
                 self.total_bytes_received.clone(),
+                self.total_bytes_sent.clone(),
             )
         });
         transport.start_listener(
@@ -294,6 +297,7 @@ impl<
                 self.config.optional_features.clone(),
                 addr,
                 self.total_bytes_received.clone(),
+                self.total_bytes_sent.clone(),
             )
         });
         transport.stop_listener(addr)?;
@@ -337,6 +341,7 @@ impl<
                 self.config.optional_features.clone(),
                 addr,
                 self.total_bytes_received.clone(),
+                self.total_bytes_sent.clone(),
             )
         });
         transport.try_connect(
@@ -353,9 +358,16 @@ impl<
         self.active_connections.read().nb_in_connections
     }
 
-    pub fn get_total_bytes_received(&self) -> PeerNetResult<u128> {
+    pub fn get_total_bytes_received(&self) -> PeerNetResult<u64> {
         let read = self.total_bytes_received.read().map_err(|_e| {
             crate::error::PeerNetError::PeerConnectionError.error("get_total_bytes_received", None)
+        })?;
+        Ok(*read)
+    }
+
+    pub fn get_total_bytes_sent(&self) -> PeerNetResult<u64> {
+        let read = self.total_bytes_sent.read().map_err(|_e| {
+            crate::error::PeerNetError::PeerConnectionError.error("get_total_bytes_sent", None)
         })?;
         Ok(*read)
     }

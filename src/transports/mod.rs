@@ -188,12 +188,19 @@ impl<Id: PeerId> InternalTransportType<Id> {
         config: TransportConfig,
         features: PeerNetFeatures,
         local_addr: SocketAddr,
-        total_bytes_received: Arc<RwLock<u128>>,
+        total_bytes_received: Arc<RwLock<u64>>,
+        total_bytes_sent: Arc<RwLock<u64>>,
     ) -> Self {
         match (transport_type, config) {
-            (TransportType::Tcp, TransportConfig::Tcp(config)) => InternalTransportType::Tcp(
-                TcpTransport::new(active_connections, *config, features, total_bytes_received),
-            ),
+            (TransportType::Tcp, TransportConfig::Tcp(config)) => {
+                InternalTransportType::Tcp(TcpTransport::new(
+                    active_connections,
+                    *config,
+                    features,
+                    total_bytes_received,
+                    total_bytes_sent,
+                ))
+            }
             //TODO: Use config
             (TransportType::Quic, TransportConfig::Quic(_config)) => {
                 InternalTransportType::Quic(QuicTransport::new(
@@ -202,6 +209,7 @@ impl<Id: PeerId> InternalTransportType<Id> {
                     0,
                     local_addr,
                     total_bytes_received,
+                    total_bytes_sent,
                 ))
             }
             _ => panic!("Wrong transport type"),

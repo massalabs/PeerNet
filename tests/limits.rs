@@ -452,6 +452,7 @@ fn max_message_size() {
         address: "127.0.0.1:18084".parse().unwrap(),
         stream,
         total_bytes_received: Arc::new(RwLock::new(0)),
+        total_bytes_sent: Arc::new(RwLock::new(0)),
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -535,6 +536,7 @@ fn send_timeout() {
         address: "127.0.0.1:18085".parse().unwrap(),
         stream,
         total_bytes_received: Arc::new(RwLock::new(0)),
+        total_bytes_sent: Arc::new(RwLock::new(0)),
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
