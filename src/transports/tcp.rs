@@ -93,13 +93,13 @@ pub struct TcpEndpoint {
     pub address: SocketAddr,
     pub stream: TcpStream,
     // shared between all endpoints
-    total_bytes_received: Arc<RwLock<u64>>,
+    pub total_bytes_received: Arc<RwLock<u64>>,
     // shared between all endpoints
-    total_bytes_sent: Arc<RwLock<u64>>,
+    pub total_bytes_sent: Arc<RwLock<u64>>,
     // received by this endpoint
-    endpoint_bytes_received: Arc<RwLock<u64>>,
+    pub endpoint_bytes_received: Arc<RwLock<u64>>,
     // sent by this endpoint
-    endpoint_bytes_sent: Arc<RwLock<u64>>,
+    pub endpoint_bytes_sent: Arc<RwLock<u64>>,
 }
 
 impl TcpEndpoint {
