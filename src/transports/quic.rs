@@ -80,6 +80,8 @@ pub struct QuicEndpoint {
     pub address: SocketAddr,
     total_bytes_received: Arc<StdRwLock<u64>>,
     total_bytes_sent: Arc<StdRwLock<u64>>,
+    endpoint_bytes_received: Arc<StdRwLock<u64>>,
+    endpoint_bytes_sent: Arc<StdRwLock<u64>>,
 }
 
 impl QuicEndpoint {
@@ -87,6 +89,22 @@ impl QuicEndpoint {
         self.data_sender
             .send(QuicInternalMessage::Shutdown)
             .unwrap();
+    }
+
+    pub fn get_bytes_received(&self) -> PeerNetResult<u64> {
+        let receive = *self
+            .endpoint_bytes_received
+            .read()
+            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_received", None))?;
+        Ok(receive)
+    }
+
+    pub fn get_bytes_sent(&self) -> PeerNetResult<u64> {
+        let sent = *self
+            .endpoint_bytes_sent
+            .read()
+            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_sent", None))?;
+        Ok(sent)
     }
 }
 
@@ -309,6 +327,12 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     total_bytes_received: total_bytes_received
                                                         .clone(),
                                                     total_bytes_sent: total_bytes_sent.clone(),
+                                                    endpoint_bytes_received: Arc::new(
+                                                        StdRwLock::new(0),
+                                                    ),
+                                                    endpoint_bytes_sent: Arc::new(StdRwLock::new(
+                                                        0,
+                                                    )),
                                                 }),
                                                 init_connection_handler.clone(),
                                                 message_handler.clone(),
@@ -573,6 +597,8 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                             address,
                             total_bytes_received: total_bytes_received.clone(),
                             total_bytes_sent: total_bytes_sent.clone(),
+                            endpoint_bytes_received: Arc::new(StdRwLock::new(0)),
+                            endpoint_bytes_sent: Arc::new(StdRwLock::new(0)),
                         }),
                         init_connection_handler.clone(),
                         message_handler.clone(),

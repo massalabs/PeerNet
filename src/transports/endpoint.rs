@@ -78,6 +78,22 @@ impl Endpoint {
             Endpoint::Quic(endpoint) => endpoint.shutdown(),
         }
     }
+
+    /// return total bytes sent and received for the endpoint (sent, received)
+    pub fn get_bandwidth(&self) -> PeerNetResult<(u64, u64)> {
+        match self {
+            Endpoint::Tcp(endpoint) => {
+                let receive = endpoint.get_bytes_received()?;
+                let sent = endpoint.get_bytes_sent()?;
+                Ok((sent, receive))
+            }
+            Endpoint::Quic(endpoint) => {
+                let receive = endpoint.get_bytes_received()?;
+                let sent = endpoint.get_bytes_sent()?;
+                Ok((sent, receive))
+            }
+        }
+    }
 }
 
 //TODO: Create trait for endpoint and match naming convention

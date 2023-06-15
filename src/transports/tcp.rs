@@ -92,8 +92,14 @@ pub struct TcpEndpoint {
     pub config: TcpConnectionConfig,
     pub address: SocketAddr,
     pub stream: TcpStream,
-    pub total_bytes_received: Arc<RwLock<u64>>,
-    pub total_bytes_sent: Arc<RwLock<u64>>,
+    // shared between all endpoints
+    total_bytes_received: Arc<RwLock<u64>>,
+    // shared between all endpoints
+    total_bytes_sent: Arc<RwLock<u64>>,
+    // received by this endpoint
+    endpoint_bytes_received: Arc<RwLock<u64>>,
+    // sent by this endpoint
+    endpoint_bytes_sent: Arc<RwLock<u64>>,
 }
 
 impl TcpEndpoint {
@@ -108,13 +114,29 @@ impl TcpEndpoint {
             config: self.config.clone(),
             total_bytes_received: self.total_bytes_received.clone(),
             total_bytes_sent: self.total_bytes_sent.clone(),
+            endpoint_bytes_received: self.endpoint_bytes_received.clone(),
+            endpoint_bytes_sent: self.endpoint_bytes_sent.clone(),
         })
     }
-}
 
-impl TcpEndpoint {
     pub fn shutdown(&mut self) {
         let _ = self.stream.shutdown(std::net::Shutdown::Both);
+    }
+
+    pub fn get_bytes_received(&self) -> PeerNetResult<u64> {
+        let receive = *self
+            .endpoint_bytes_received
+            .read()
+            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_received", None))?;
+        Ok(receive)
+    }
+
+    pub fn get_bytes_sent(&self) -> PeerNetResult<u64> {
+        let sent = *self
+            .endpoint_bytes_sent
+            .read()
+            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_sent", None))?;
+        Ok(sent)
     }
 }
 
@@ -250,6 +272,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         config: config.connection_config.clone(),
                                         total_bytes_received: total_bytes_received.clone(),
                                         total_bytes_sent: total_bytes_sent.clone(),
+                                        endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                                        endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                                     });
                                     let listeners = {
                                         let mut active_connections = active_connections.write();
@@ -356,6 +380,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             config: config.connection_config.clone(),
                             total_bytes_received: total_bytes_received.clone(),
                             total_bytes_sent: total_bytes_sent.clone(),
+                            endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                            endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                         }),
                         handshake_handler.clone(),
                         message_handler.clone(),
