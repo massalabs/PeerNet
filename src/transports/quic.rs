@@ -331,9 +331,9 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                 PeerConnectionType::IN,
                                                 Some(String::from("quic")),
                                                 PeerNetCategoryInfo {
+                                                    allow_local_peers: false,
                                                     max_in_connections_per_ip: 0,
-                                                    max_in_connections_post_handshake: 0,
-                                                    max_in_connections_pre_handshake: 0,
+                                                    max_in_connections: 0,
                                                 },
                                             );
                                         }
@@ -598,9 +598,9 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                         //TODO: Change
                         Some(String::from("quic")),
                         PeerNetCategoryInfo {
+                            allow_local_peers: false,
                             max_in_connections_per_ip: 0,
-                            max_in_connections_post_handshake: 0,
-                            max_in_connections_pre_handshake: 0,
+                            max_in_connections: 0,
                         },
                     );
                     drop(wg);

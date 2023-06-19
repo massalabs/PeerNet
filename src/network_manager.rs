@@ -73,7 +73,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
             }
         }
         nb_connection_for_this_ip < category_info.max_in_connections_per_ip
-            && nb_connection_for_this_category < category_info.max_in_connections_post_handshake
+            && nb_connection_for_this_category < category_info.max_in_connections
     }
 
     pub fn check_addr_accepted_post_handshake(
@@ -103,7 +103,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
             }
         }
         nb_connection_for_this_ip < category_info.max_in_connections_per_ip
-            && nb_connection_for_this_category < category_info.max_in_connections_post_handshake
+            && nb_connection_for_this_category < category_info.max_in_connections
     }
 
     pub fn confirm_connection(
