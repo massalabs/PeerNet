@@ -2,7 +2,7 @@
 //!
 //! This module use enum dispatch to avoid using trait objects and to save runtime costs.
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
@@ -20,6 +20,7 @@ pub mod endpoint;
 mod quic;
 mod tcp;
 
+use parking_lot::RwLock;
 pub use quic::{QuicConnectionConfig, QuicTransportConfig};
 use serde::{Deserialize, Serialize};
 pub use tcp::{TcpConnectionConfig, TcpEndpoint, TcpTransportConfig};

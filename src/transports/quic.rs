@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     net::{SocketAddr, UdpSocket},
-    sync::{Arc, RwLock as StdRwLock},
+    sync::Arc,
     thread::JoinHandle,
     time::Duration,
 };
@@ -64,8 +64,8 @@ pub(crate) struct QuicTransport<Id: PeerId> {
     stop_peer_tx: Sender<()>,
     stop_peer_rx: Receiver<()>,
     config: QuicTransportConfig,
-    total_bytes_received: Arc<StdRwLock<u64>>,
-    total_bytes_sent: Arc<StdRwLock<u64>>,
+    total_bytes_received: Arc<RwLock<u64>>,
+    total_bytes_sent: Arc<RwLock<u64>>,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -78,10 +78,10 @@ pub struct QuicEndpoint {
     pub(crate) data_sender: channel::Sender<QuicInternalMessage>,
     pub(crate) data_receiver: channel::Receiver<QuicInternalMessage>,
     pub address: SocketAddr,
-    total_bytes_received: Arc<StdRwLock<u64>>,
-    total_bytes_sent: Arc<StdRwLock<u64>>,
-    endpoint_bytes_received: Arc<StdRwLock<u64>>,
-    endpoint_bytes_sent: Arc<StdRwLock<u64>>,
+    total_bytes_received: Arc<RwLock<u64>>,
+    total_bytes_sent: Arc<RwLock<u64>>,
+    endpoint_bytes_received: Arc<RwLock<u64>>,
+    endpoint_bytes_sent: Arc<RwLock<u64>>,
 }
 
 impl QuicEndpoint {
@@ -91,20 +91,12 @@ impl QuicEndpoint {
             .unwrap();
     }
 
-    pub fn get_bytes_received(&self) -> PeerNetResult<u64> {
-        let receive = *self
-            .endpoint_bytes_received
-            .read()
-            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_received", None))?;
-        Ok(receive)
+    pub fn get_bytes_received(&self) -> u64 {
+        *self.endpoint_bytes_received.read()
     }
 
-    pub fn get_bytes_sent(&self) -> PeerNetResult<u64> {
-        let sent = *self
-            .endpoint_bytes_sent
-            .read()
-            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_sent", None))?;
-        Ok(sent)
+    pub fn get_bytes_sent(&self) -> u64 {
+        *self.endpoint_bytes_sent.read()
     }
 }
 
@@ -125,8 +117,8 @@ impl<Id: PeerId> QuicTransport<Id> {
         features: PeerNetFeatures,
         data_channel_size: usize,
         local_addr: SocketAddr,
-        total_bytes_received: Arc<StdRwLock<u64>>,
-        total_bytes_sent: Arc<StdRwLock<u64>>,
+        total_bytes_received: Arc<RwLock<u64>>,
+        total_bytes_sent: Arc<RwLock<u64>>,
     ) -> QuicTransport<Id> {
         let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
@@ -327,12 +319,10 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     total_bytes_received: total_bytes_received
                                                         .clone(),
                                                     total_bytes_sent: total_bytes_sent.clone(),
-                                                    endpoint_bytes_received: Arc::new(
-                                                        StdRwLock::new(0),
-                                                    ),
-                                                    endpoint_bytes_sent: Arc::new(StdRwLock::new(
+                                                    endpoint_bytes_received: Arc::new(RwLock::new(
                                                         0,
                                                     )),
+                                                    endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                                                 }),
                                                 init_connection_handler.clone(),
                                                 message_handler.clone(),
@@ -597,8 +587,8 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                             address,
                             total_bytes_received: total_bytes_received.clone(),
                             total_bytes_sent: total_bytes_sent.clone(),
-                            endpoint_bytes_received: Arc::new(StdRwLock::new(0)),
-                            endpoint_bytes_sent: Arc::new(StdRwLock::new(0)),
+                            endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                            endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                         }),
                         init_connection_handler.clone(),
                         message_handler.clone(),
@@ -652,10 +642,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                     .new("data_sender send", err, None)
             })?;
 
-        let mut write = endpoint
-            .total_bytes_sent
-            .write()
-            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_total_bytes_sent", None))?;
+        let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
 
         Ok(())
@@ -675,10 +662,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                     .new("data_sender send", err, None)
             })?;
 
-        let mut write = endpoint
-            .total_bytes_sent
-            .write()
-            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_total_bytes_sent", None))?;
+        let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
 
         Ok(())
@@ -692,9 +676,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
         })?;
         match data {
             QuicInternalMessage::Data(data) => {
-                let mut write = endpoint.total_bytes_received.write().map_err(|_e| {
-                    PeerNetError::PeerConnectionError.error("get_total_bytes_received", None)
-                })?;
+                let mut write = endpoint.total_bytes_received.write();
                 *write += data.len() as u64;
 
                 Ok(data)

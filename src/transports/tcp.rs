@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -20,6 +20,7 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
+use parking_lot::RwLock;
 use stream_limiter::LimiterOptions;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -123,20 +124,12 @@ impl TcpEndpoint {
         let _ = self.stream.shutdown(std::net::Shutdown::Both);
     }
 
-    pub fn get_bytes_received(&self) -> PeerNetResult<u64> {
-        let receive = *self
-            .endpoint_bytes_received
-            .read()
-            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_received", None))?;
-        Ok(receive)
+    pub fn get_bytes_received(&self) -> u64 {
+        *self.endpoint_bytes_received.read()
     }
 
-    pub fn get_bytes_sent(&self) -> PeerNetResult<u64> {
-        let sent = *self
-            .endpoint_bytes_sent
-            .read()
-            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_bytes_sent", None))?;
-        Ok(sent)
+    pub fn get_bytes_sent(&self) -> u64 {
+        *self.endpoint_bytes_sent.read()
     }
 }
 
@@ -444,10 +437,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .new("send data write", err, None)
         })?;
 
-        let mut write = endpoint
-            .total_bytes_sent
-            .write()
-            .map_err(|_e| PeerNetError::PeerConnectionError.error("get_total_bytes_sent", None))?;
+        let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
 
         Ok(())
@@ -517,9 +507,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 }
             }
 
-            let mut write = endpoint.total_bytes_sent.write().map_err(|_e| {
-                PeerNetError::PeerConnectionError.error("get_total_bytes_sent", None)
-            })?;
+            let mut write = endpoint.total_bytes_sent.write();
             *write += data.len() as u64;
 
             Ok(())
@@ -561,9 +549,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
 
         {
-            let mut write = endpoint.total_bytes_received.write().map_err(|_e| {
-                PeerNetError::PeerConnectionError.error("get_total_bytes_received", None)
-            })?;
+            let mut write = endpoint.total_bytes_received.write();
             *write += res_size as u64;
         }
 

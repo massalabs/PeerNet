@@ -1,5 +1,6 @@
 // All the tests related to the limitations on the system.
 mod util;
+use parking_lot::RwLock;
 use peernet::{
     config::{PeerNetCategoryInfo, PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
@@ -11,7 +12,7 @@ use std::{
     collections::HashMap,
     net::{IpAddr, SocketAddr},
     str::FromStr,
-    sync::{Arc, RwLock},
+    sync::Arc,
     time::Duration,
 };
 
