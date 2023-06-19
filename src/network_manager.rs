@@ -178,6 +178,8 @@ pub struct PeerNetManager<
     init_connection_handler: I,
     context: Ctx,
     transports: HashMap<TransportType, InternalTransportType<Id>>,
+    total_bytes_received: Arc<RwLock<u64>>,
+    total_bytes_sent: Arc<RwLock<u64>>,
 }
 
 impl<
@@ -204,6 +206,8 @@ impl<
             context,
             transports: Default::default(),
             active_connections,
+            total_bytes_received: Arc::new(RwLock::new(0)),
+            total_bytes_sent: Arc::new(RwLock::new(0)),
         }
     }
 
@@ -241,6 +245,8 @@ impl<
                 },
                 self.config.optional_features.clone(),
                 addr,
+                self.total_bytes_received.clone(),
+                self.total_bytes_sent.clone(),
             )
         });
         transport.start_listener(
@@ -286,6 +292,8 @@ impl<
                 },
                 self.config.optional_features.clone(),
                 addr,
+                self.total_bytes_received.clone(),
+                self.total_bytes_sent.clone(),
             )
         });
         transport.stop_listener(addr)?;
@@ -328,6 +336,8 @@ impl<
                 },
                 self.config.optional_features.clone(),
                 addr,
+                self.total_bytes_received.clone(),
+                self.total_bytes_sent.clone(),
             )
         });
         transport.try_connect(
@@ -342,6 +352,14 @@ impl<
     /// Get the nb_in_connections of manager
     pub fn nb_in_connections(&self) -> usize {
         self.active_connections.read().nb_in_connections
+    }
+
+    pub fn get_total_bytes_received(&self) -> u64 {
+        *self.total_bytes_received.read()
+    }
+
+    pub fn get_total_bytes_sent(&self) -> u64 {
+        *self.total_bytes_sent.read()
     }
 }
 

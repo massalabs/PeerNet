@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -19,6 +20,7 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
+use parking_lot::RwLock;
 use stream_limiter::LimiterOptions;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -52,6 +54,8 @@ pub(crate) struct TcpTransport<Id: PeerId> {
     peer_stop_tx: Sender<()>,
     peer_stop_rx: Receiver<()>,
     pub config: TcpTransportConfig,
+    pub total_bytes_received: Arc<RwLock<u64>>,
+    pub total_bytes_sent: Arc<RwLock<u64>>,
 }
 
 const NEW_CONNECTION: Token = Token(0);
@@ -89,6 +93,14 @@ pub struct TcpEndpoint {
     pub config: TcpConnectionConfig,
     pub address: SocketAddr,
     pub stream: TcpStream,
+    // shared between all endpoints
+    pub total_bytes_received: Arc<RwLock<u64>>,
+    // shared between all endpoints
+    pub total_bytes_sent: Arc<RwLock<u64>>,
+    // received by this endpoint
+    pub endpoint_bytes_received: Arc<RwLock<u64>>,
+    // sent by this endpoint
+    pub endpoint_bytes_sent: Arc<RwLock<u64>>,
 }
 
 impl TcpEndpoint {
@@ -101,13 +113,23 @@ impl TcpEndpoint {
                     .new("cannot clone stream", err, None)
             })?,
             config: self.config.clone(),
+            total_bytes_received: self.total_bytes_received.clone(),
+            total_bytes_sent: self.total_bytes_sent.clone(),
+            endpoint_bytes_received: self.endpoint_bytes_received.clone(),
+            endpoint_bytes_sent: self.endpoint_bytes_sent.clone(),
         })
     }
-}
 
-impl TcpEndpoint {
     pub fn shutdown(&mut self) {
         let _ = self.stream.shutdown(std::net::Shutdown::Both);
+    }
+
+    pub fn get_bytes_received(&self) -> u64 {
+        *self.endpoint_bytes_received.read()
+    }
+
+    pub fn get_bytes_sent(&self) -> u64 {
+        *self.endpoint_bytes_sent.read()
     }
 }
 
@@ -116,6 +138,8 @@ impl<Id: PeerId> TcpTransport<Id> {
         active_connections: SharedActiveConnections<Id>,
         config: TcpTransportConfig,
         features: PeerNetFeatures,
+        total_bytes_received: Arc<RwLock<u64>>,
+        total_bytes_sent: Arc<RwLock<u64>>,
     ) -> TcpTransport<Id> {
         let (peer_stop_tx, peer_stop_rx) = unbounded();
         TcpTransport {
@@ -126,6 +150,8 @@ impl<Id: PeerId> TcpTransport<Id> {
             peer_stop_rx,
             peer_stop_tx,
             config,
+            total_bytes_received,
+            total_bytes_sent,
         }
     }
 }
@@ -164,6 +190,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             .name(format!("tcp_listener_handle_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
+                let total_bytes_received = self.total_bytes_received.clone();
+                let total_bytes_sent = self.total_bytes_sent.clone();
                 let peer_stop_rx = self.peer_stop_rx.clone();
                 let peer_stop_tx = self.peer_stop_tx.clone();
                 let config = self.config.clone();
@@ -235,6 +263,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         address,
                                         stream,
                                         config: config.connection_config.clone(),
+                                        total_bytes_received: total_bytes_received.clone(),
+                                        total_bytes_sent: total_bytes_sent.clone(),
+                                        endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                                        endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                                     });
                                     let listeners = {
                                         let mut active_connections = active_connections.write();
@@ -313,6 +345,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             .name(format!("tcp_try_connect_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
+                let total_bytes_received = self.total_bytes_received.clone();
+                let total_bytes_sent = self.total_bytes_sent.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
@@ -337,6 +371,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             address,
                             stream,
                             config: config.connection_config.clone(),
+                            total_bytes_received: total_bytes_received.clone(),
+                            total_bytes_sent: total_bytes_sent.clone(),
+                            endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                            endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                         }),
                         handshake_handler.clone(),
                         message_handler.clone(),
@@ -398,6 +436,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .wrap()
                 .new("send data write", err, None)
         })?;
+
+        let mut write = endpoint.total_bytes_sent.write();
+        *write += data.len() as u64;
+
+        let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+        *endpoint_write += data.len() as u64;
+
         Ok(())
     }
 
@@ -465,6 +510,12 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 }
             }
 
+            let mut write = endpoint.total_bytes_sent.write();
+            *write += data.len() as u64;
+
+            let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+            *endpoint_write += data.len() as u64;
+
             Ok(())
         };
 
@@ -496,11 +547,21 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
         }
+
         let mut data = vec![0u8; res_size as usize];
         endpoint
             .stream
             .read_exact(&mut data)
             .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
+
+        {
+            let mut write = endpoint.total_bytes_received.write();
+            *write += res_size as u64;
+
+            let mut endpoint_write = endpoint.endpoint_bytes_received.write();
+            *endpoint_write += res_size as u64;
+        }
+
         Ok(data)
     }
 }

@@ -2,6 +2,7 @@
 //!
 //! This module use enum dispatch to avoid using trait objects and to save runtime costs.
 
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::{net::SocketAddr, time::Duration};
 
@@ -19,6 +20,7 @@ pub mod endpoint;
 mod quic;
 mod tcp;
 
+use parking_lot::RwLock;
 pub use quic::{QuicConnectionConfig, QuicTransportConfig};
 use serde::{Deserialize, Serialize};
 pub use tcp::{TcpConnectionConfig, TcpEndpoint, TcpTransportConfig};
@@ -187,15 +189,30 @@ impl<Id: PeerId> InternalTransportType<Id> {
         config: TransportConfig,
         features: PeerNetFeatures,
         local_addr: SocketAddr,
+        total_bytes_received: Arc<RwLock<u64>>,
+        total_bytes_sent: Arc<RwLock<u64>>,
     ) -> Self {
         match (transport_type, config) {
             (TransportType::Tcp, TransportConfig::Tcp(config)) => {
-                InternalTransportType::Tcp(TcpTransport::new(active_connections, *config, features))
+                InternalTransportType::Tcp(TcpTransport::new(
+                    active_connections,
+                    *config,
+                    features,
+                    total_bytes_received,
+                    total_bytes_sent,
+                ))
             }
             //TODO: Use config
-            (TransportType::Quic, TransportConfig::Quic(_config)) => InternalTransportType::Quic(
-                QuicTransport::new(active_connections, features, 0, local_addr),
-            ),
+            (TransportType::Quic, TransportConfig::Quic(_config)) => {
+                InternalTransportType::Quic(QuicTransport::new(
+                    active_connections,
+                    features,
+                    0,
+                    local_addr,
+                    total_bytes_received,
+                    total_bytes_sent,
+                ))
+            }
             _ => panic!("Wrong transport type"),
         }
     }

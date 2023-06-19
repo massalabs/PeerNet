@@ -64,6 +64,8 @@ pub(crate) struct QuicTransport<Id: PeerId> {
     stop_peer_tx: Sender<()>,
     stop_peer_rx: Receiver<()>,
     config: QuicTransportConfig,
+    total_bytes_received: Arc<RwLock<u64>>,
+    total_bytes_sent: Arc<RwLock<u64>>,
 }
 
 pub(crate) enum QuicInternalMessage {
@@ -76,6 +78,10 @@ pub struct QuicEndpoint {
     pub(crate) data_sender: channel::Sender<QuicInternalMessage>,
     pub(crate) data_receiver: channel::Receiver<QuicInternalMessage>,
     pub address: SocketAddr,
+    total_bytes_received: Arc<RwLock<u64>>,
+    total_bytes_sent: Arc<RwLock<u64>>,
+    endpoint_bytes_received: Arc<RwLock<u64>>,
+    endpoint_bytes_sent: Arc<RwLock<u64>>,
 }
 
 impl QuicEndpoint {
@@ -83,6 +89,14 @@ impl QuicEndpoint {
         self.data_sender
             .send(QuicInternalMessage::Shutdown)
             .unwrap();
+    }
+
+    pub fn get_bytes_received(&self) -> u64 {
+        *self.endpoint_bytes_received.read()
+    }
+
+    pub fn get_bytes_sent(&self) -> u64 {
+        *self.endpoint_bytes_sent.read()
     }
 }
 
@@ -103,6 +117,8 @@ impl<Id: PeerId> QuicTransport<Id> {
         features: PeerNetFeatures,
         data_channel_size: usize,
         local_addr: SocketAddr,
+        total_bytes_received: Arc<RwLock<u64>>,
+        total_bytes_sent: Arc<RwLock<u64>>,
     ) -> QuicTransport<Id> {
         let (stop_peer_tx, stop_peer_rx) = unbounded();
         QuicTransport {
@@ -119,6 +135,8 @@ impl<Id: PeerId> QuicTransport<Id> {
                     data_channel_size,
                 },
             },
+            total_bytes_received,
+            total_bytes_sent,
         }
     }
 }
@@ -189,6 +207,8 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             .name(format!("quic_listener_handle_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
+                let total_bytes_received = self.total_bytes_received.clone();
+                let total_bytes_sent = self.total_bytes_sent.clone();
                 let server = server.try_clone().unwrap();
                 let stop_peer_rx = self.stop_peer_rx.clone();
                 let stop_peer_tx = self.stop_peer_tx.clone();
@@ -296,6 +316,13 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                     data_receiver: recv_rx,
                                                     data_sender: send_tx,
                                                     address,
+                                                    total_bytes_received: total_bytes_received
+                                                        .clone(),
+                                                    total_bytes_sent: total_bytes_sent.clone(),
+                                                    endpoint_bytes_received: Arc::new(RwLock::new(
+                                                        0,
+                                                    )),
+                                                    endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                                                 }),
                                                 init_connection_handler.clone(),
                                                 message_handler.clone(),
@@ -478,6 +505,8 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             .name(format!("quic_try_connect_{:?}", address))
             .spawn({
                 let active_connections = self.active_connections.clone();
+                let total_bytes_received = self.total_bytes_received.clone();
+                let total_bytes_sent = self.total_bytes_sent.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
                     let mut out = [0; 65507];
@@ -556,6 +585,10 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                             data_receiver: recv_rx,
                             data_sender: send_tx,
                             address,
+                            total_bytes_received: total_bytes_received.clone(),
+                            total_bytes_sent: total_bytes_sent.clone(),
+                            endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                            endpoint_bytes_sent: Arc::new(RwLock::new(0)),
                         }),
                         init_connection_handler.clone(),
                         message_handler.clone(),
@@ -607,7 +640,15 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 QuicError::ConnectionError
                     .wrap()
                     .new("data_sender send", err, None)
-            })
+            })?;
+
+        let mut write = endpoint.total_bytes_sent.write();
+        *write += data.len() as u64;
+
+        let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+        *endpoint_write += data.len() as u64;
+
+        Ok(())
     }
 
     fn send_timeout(
@@ -622,7 +663,15 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 QuicError::ConnectionError
                     .wrap()
                     .new("data_sender send", err, None)
-            })
+            })?;
+
+        let mut write = endpoint.total_bytes_sent.write();
+        *write += data.len() as u64;
+
+        let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+        *endpoint_write += data.len() as u64;
+
+        Ok(())
     }
 
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
@@ -632,7 +681,15 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                 .new("data_receiver recv", err, None)
         })?;
         match data {
-            QuicInternalMessage::Data(data) => Ok(data),
+            QuicInternalMessage::Data(data) => {
+                let mut write = endpoint.total_bytes_received.write();
+                *write += data.len() as u64;
+
+                let mut endpoint_write = endpoint.endpoint_bytes_received.write();
+                *endpoint_write += data.len() as u64;
+
+                Ok(data)
+            }
             QuicInternalMessage::Shutdown => Err(QuicError::InternalFail
                 .wrap()
                 .error("recv shutdown", Some("Connection closed".to_string()))),

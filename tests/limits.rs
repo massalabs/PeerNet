@@ -1,5 +1,6 @@
 // All the tests related to the limitations on the system.
 mod util;
+use parking_lot::RwLock;
 use peernet::{
     config::{PeerNetCategoryInfo, PeerNetConfiguration, PeerNetFeatures},
     network_manager::PeerNetManager,
@@ -11,6 +12,7 @@ use std::{
     collections::HashMap,
     net::{IpAddr, SocketAddr},
     str::FromStr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -450,6 +452,10 @@ fn max_message_size() {
         .into(),
         address: "127.0.0.1:18084".parse().unwrap(),
         stream,
+        total_bytes_received: Arc::new(RwLock::new(0)),
+        total_bytes_sent: Arc::new(RwLock::new(0)),
+        endpoint_bytes_received: Arc::new(RwLock::new(0)),
+        endpoint_bytes_sent: Arc::new(RwLock::new(0)),
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -532,6 +538,10 @@ fn send_timeout() {
         .into(),
         address: "127.0.0.1:18085".parse().unwrap(),
         stream,
+        total_bytes_received: Arc::new(RwLock::new(0)),
+        total_bytes_sent: Arc::new(RwLock::new(0)),
+        endpoint_bytes_received: Arc::new(RwLock::new(0)),
+        endpoint_bytes_sent: Arc::new(RwLock::new(0)),
     });
 
     std::thread::sleep(std::time::Duration::from_secs(1));
