@@ -645,6 +645,9 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
 
+        let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+        *endpoint_write += data.len() as u64;
+
         Ok(())
     }
 
@@ -665,6 +668,9 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
 
+        let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+        *endpoint_write += data.len() as u64;
+
         Ok(())
     }
 
@@ -678,6 +684,9 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
             QuicInternalMessage::Data(data) => {
                 let mut write = endpoint.total_bytes_received.write();
                 *write += data.len() as u64;
+
+                let mut endpoint_write = endpoint.endpoint_bytes_received.write();
+                *endpoint_write += data.len() as u64;
 
                 Ok(data)
             }

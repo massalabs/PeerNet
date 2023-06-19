@@ -440,6 +440,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
 
+        let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+        *endpoint_write += data.len() as u64;
+
         Ok(())
     }
 
@@ -510,6 +513,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             let mut write = endpoint.total_bytes_sent.write();
             *write += data.len() as u64;
 
+            let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+            *endpoint_write += data.len() as u64;
+
             Ok(())
         };
 
@@ -551,6 +557,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         {
             let mut write = endpoint.total_bytes_received.write();
             *write += res_size as u64;
+
+            let mut endpoint_write = endpoint.endpoint_bytes_received.write();
+            *endpoint_write += res_size as u64;
         }
 
         Ok(data)
