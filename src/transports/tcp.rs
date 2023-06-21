@@ -531,11 +531,30 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
 
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         //TODO: Config one
-        let mut len_bytes = vec![0u8; 4];
+
+        // set short timeout for reading the length
         endpoint
             .stream
-            .read_exact(&mut len_bytes)
-            .map_err(|err| TcpError::ConnectionError.wrap().new("recv len", err, None))?;
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .map_err(|err| {
+                TcpError::ConnectionError
+                    .wrap()
+                    .error("set read timeout", Some(format!("{:?}", err)))
+            })?;
+
+        let mut len_bytes = vec![0u8; 4];
+        let read = endpoint.stream.read(&mut len_bytes).map_err(|err| {
+            let str = format!("{:?}", err);
+            TcpError::ConnectionError
+                .wrap()
+                .new("recv len", err, Some(str))
+        })?;
+
+        if read == 0 {
+            endpoint.shutdown();
+            return Err(PeerNetError::ReceiveError.error("read len = 0", None));
+        }
+
         let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
             TcpError::ConnectionError
                 .wrap()
@@ -548,11 +567,31 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             );
         }
 
-        let mut data = vec![0u8; res_size as usize];
+        // increment timeout for data
         endpoint
             .stream
-            .read_exact(&mut data)
-            .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
+            .set_read_timeout(Some(Duration::from_secs(7)))
+            .map_err(|err| {
+                TcpError::ConnectionError
+                    .wrap()
+                    .error("set read timeout", Some(format!("{:?}", err)))
+            })?;
+
+        let mut data = vec![0u8; res_size as usize];
+        let mut total_read: usize = 0;
+
+        while total_read < res_size as usize {
+            let read = endpoint
+                .stream
+                .read(&mut data[total_read..])
+                .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
+            total_read += read;
+        }
+
+        if total_read == 0 {
+            endpoint.shutdown();
+            return Err(PeerNetError::ReceiveError.error("read data = 0", None));
+        }
 
         {
             let mut write = endpoint.total_bytes_received.write();
