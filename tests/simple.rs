@@ -52,7 +52,6 @@ fn simple() {
         rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 10,
         },
         _phantom: std::marker::PhantomData,
@@ -102,7 +101,6 @@ fn simple_no_place() {
         rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 0,
-            allow_local_peers: false,
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
@@ -150,7 +148,6 @@ fn simple_no_place_after_handshake() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 0,
-            allow_local_peers: false,
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
@@ -188,7 +185,6 @@ fn simple_with_category() {
             vec![IpAddr::from_str("127.0.0.1").unwrap()],
             PeerNetCategoryInfo {
                 max_in_connections: 10,
-                allow_local_peers: false,
                 max_in_connections_per_ip: 10,
             },
         ),
@@ -211,7 +207,6 @@ fn simple_with_category() {
         peers_categories,
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 0,
         },
         _phantom: std::marker::PhantomData,
@@ -260,7 +255,6 @@ fn two_peers_tcp() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -295,7 +289,6 @@ fn two_peers_tcp() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,

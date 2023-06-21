@@ -56,7 +56,6 @@ fn check_multiple_connection_refused() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 1,
-            allow_local_peers: true,
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
@@ -90,7 +89,7 @@ fn check_multiple_connection_refused() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
+            allow_loc12l_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -128,7 +127,7 @@ fn check_multiple_connection_refused() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
+            allow_loc12l_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -173,7 +172,6 @@ fn check_too_much_in_refuse() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 10,
         },
         _phantom: std::marker::PhantomData,
@@ -206,7 +204,6 @@ fn check_too_much_in_refuse() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -244,7 +241,6 @@ fn check_too_much_in_refuse() {
         rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -282,7 +278,6 @@ fn check_multiple_connection_refused_in_category() {
         (
             vec![IpAddr::from_str("127.0.0.1").unwrap()],
             PeerNetCategoryInfo {
-                allow_local_peers: false,
                 max_in_connections: 1,
                 max_in_connections_per_ip: 1,
             },
@@ -301,7 +296,6 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories,
         default_category_info: PeerNetCategoryInfo {
-            allow_local_peers: false,
             max_in_connections: 0,
             max_in_connections_per_ip: 0,
         },
@@ -334,7 +328,6 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            allow_local_peers: false,
             max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
@@ -371,7 +364,6 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            allow_local_peers: false,
             max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
@@ -418,7 +410,6 @@ fn max_message_size() {
         rate_limit: 10000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            allow_local_peers: false,
             max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
@@ -504,7 +495,6 @@ fn send_timeout() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_local_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
