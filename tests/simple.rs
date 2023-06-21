@@ -56,6 +56,8 @@ fn simple() {
             max_in_connections_per_ip: 10,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
 
     let mut manager: PeerNetManager<
@@ -106,6 +108,8 @@ fn simple_no_place() {
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
     let mut manager: PeerNetManager<
         DefaultPeerId,
@@ -154,6 +158,8 @@ fn simple_no_place_after_handshake() {
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
     let mut manager: PeerNetManager<
         DefaultPeerId,
@@ -191,6 +197,8 @@ fn simple_with_different_limit_pre_post_handshake() {
         optional_features: PeerNetFeatures::default(),
         max_message_size: 1048576000,
         rate_bucket_size: 10000,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
@@ -246,6 +254,8 @@ fn simple_with_category() {
     };
 
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
@@ -312,6 +322,8 @@ fn two_peers_tcp() {
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
 
     let mut manager: PeerNetManager<
@@ -347,6 +359,8 @@ fn two_peers_tcp() {
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
 
     let mut manager2: PeerNetManager<

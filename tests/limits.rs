@@ -43,6 +43,8 @@ fn check_multiple_connection_refused() {
     };
 
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
@@ -77,6 +79,8 @@ fn check_multiple_connection_refused() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context2,
         max_in_connections: 10,
         send_data_channel_size: 1000,
@@ -115,6 +119,8 @@ fn check_multiple_connection_refused() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context3,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
@@ -160,6 +166,8 @@ fn check_too_much_in_refuse() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context,
         max_in_connections: 1,
         max_message_size: 1048576000,
@@ -193,6 +201,8 @@ fn check_too_much_in_refuse() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context2,
         max_in_connections: 10,
         send_data_channel_size: 1000,
@@ -231,6 +241,8 @@ fn check_too_much_in_refuse() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context3,
         max_in_connections: 10,
         send_data_channel_size: 1000,
@@ -289,6 +301,8 @@ fn check_multiple_connection_refused_in_category() {
         ),
     );
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
@@ -322,6 +336,8 @@ fn check_multiple_connection_refused_in_category() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context2,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
@@ -360,6 +376,8 @@ fn check_multiple_connection_refused_in_category() {
         our_id: DefaultPeerId::generate(),
     };
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context3,
         max_in_connections: 10,
         max_message_size: 1048576000,
@@ -407,6 +425,8 @@ fn max_message_size() {
     };
 
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
@@ -492,6 +512,8 @@ fn send_timeout() {
     };
 
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context: context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},

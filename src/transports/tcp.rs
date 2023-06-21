@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
+use std::iter::StepBy;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -43,6 +44,8 @@ pub struct TcpTransportConfig {
     pub connection_config: TcpConnectionConfig,
     pub peer_categories: PeerNetCategories,
     pub default_category_info: PeerNetCategoryInfo,
+    pub write_timeout: Duration,
+    pub read_timeout: Duration,
 }
 
 pub(crate) struct TcpTransport<Id: PeerId> {
@@ -247,6 +250,12 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             continue;
                                         }
                                     };
+                                    if let Err(e) = stream.set_nonblocking(true) {
+                                        println!("Error setting nonblocking: {:?}", e);
+                                    }
+                                    if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
+                                        println!("Error setting linger: {:?}", e);
+                                    }
                                     let ip_canonical = to_canonical(address.ip());
                                     let (category_name, category_info) = match config
                                         .peer_categories
@@ -356,6 +365,12 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
+                    if let Err(e) = stream.set_nonblocking(true) {
+                        println!("Error setting nonblocking: {:?}", e);
+                    }
+                    if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
+                        println!("Error setting linger: {:?}", e);
+                    }
                     let ip_canonical = to_canonical(address.ip());
                     let (category_name, category_info) = match config
                         .peer_categories
@@ -551,6 +566,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         })?;
 
         if read == 0 {
+            dbg!("read len = 0");
             endpoint.shutdown();
             return Err(PeerNetError::ReceiveError.error("read len = 0", None));
         }
@@ -589,6 +605,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         }
 
         if total_read == 0 {
+            dbg!("read data = 0");
             endpoint.shutdown();
             return Err(PeerNetError::ReceiveError.error("read data = 0", None));
         }

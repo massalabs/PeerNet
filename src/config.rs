@@ -56,6 +56,10 @@ pub struct PeerNetConfiguration<
     /// Default category info for all peers not in a specific category (category info, number of connections accepted only for handshake //TODO: Remove when refactored on massa side)
     pub default_category_info: PeerNetCategoryInfo,
     pub _phantom: std::marker::PhantomData<Id>,
+
+    pub write_timeout: Duration,
+
+    pub read_timeout: Duration,
 }
 
 impl<
@@ -84,6 +88,8 @@ impl<
             rate_bucket_size: 10000,
             rate_limit: 100000,
             _phantom: std::marker::PhantomData,
+            write_timeout: Duration::from_secs(7),
+            read_timeout: Duration::from_secs(7),
         }
     }
 }

@@ -143,6 +143,7 @@
 //!     .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
 //!    .unwrap();
 //! ```
+#![feature(tcp_linger)]
 
 pub mod config;
 pub mod context;
