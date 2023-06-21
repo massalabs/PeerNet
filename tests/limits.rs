@@ -89,7 +89,6 @@ fn check_multiple_connection_refused() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_loc12l_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -127,7 +126,6 @@ fn check_multiple_connection_refused() {
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
-            allow_loc12l_peers: false,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
