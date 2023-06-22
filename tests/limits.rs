@@ -432,7 +432,7 @@ fn max_message_size() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
-        max_message_size: 10,
+        max_message_size: 40,
         rate_time_window: Duration::from_secs(1),
         rate_bucket_size: 10000,
         rate_limit: 10000,
