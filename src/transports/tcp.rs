@@ -420,6 +420,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
+        let start_time = Instant::now();
+
         let msg_size: u32 = data.len().try_into().map_err(|_| {
             TcpError::ConnectionError
                 .wrap()
@@ -441,11 +443,34 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                     Some(format!("{:?}", data.len().to_le_bytes())),
                 )
             })?;
-        endpoint.stream.write_all(data).map_err(|err| {
-            TcpError::ConnectionError
-                .wrap()
-                .new("send data write", err, None)
-        })?;
+
+          // Check if the timeout has occurred
+        if start_time.elapsed() >= endpoint.config.write_timeout {
+            return Err(PeerNetError::ReceiveError.error("timeout write len", None));
+        } 
+
+        let mut write_count = 0;
+        while write_count < data.len()  {
+            if start_time.elapsed() >= endpoint.config.write_timeout {
+                return Err(PeerNetError::ReceiveError.error("timeout write data", None));
+            }
+            
+            match endpoint.stream.write(data[write_count..].as_ref()) {
+                Ok(0) => {
+                    endpoint.shutdown();
+                    return Err(PeerNetError::ReceiveError.error("write data = 0", None));
+                }
+                Ok(count) => {
+                    write_count += count;
+                }
+                Err(err) => {
+                    return Err(TcpError::ConnectionError
+                        .wrap()
+                        .new("send data write", err, None))?;
+                }
+            }
+                
+        }
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -583,17 +608,19 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 return Err(PeerNetError::ReceiveError.error("timeout read data", None));
             }
 
-            let read = endpoint
-                .stream
-                .read(&mut data[total_read..])
-                .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
-
-            if read == 0 {
-                endpoint.shutdown();
-                return Err(PeerNetError::ReceiveError.error("read data = 0", None));
+            match endpoint.stream.read(&mut data[total_read..]) {
+                Ok(0) => {
+                    endpoint.shutdown();
+                    return Err(PeerNetError::ReceiveError.error("read data = 0", None));
+                },
+                Ok(n) => {
+                    total_read += n;
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => return Err( TcpError::ConnectionError
+                    .wrap()
+                    .error("error read data stream", Some(format!("{:?}", e)))),
             }
-
-            total_read += read;
         }
 
         {
