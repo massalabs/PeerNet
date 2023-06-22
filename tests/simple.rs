@@ -14,7 +14,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use util::{create_clients, DefaultMessagesHandler};
 
-use crate::util::{DefaultContext, DefaultPeerId, get_tcp_port};
+use crate::util::{get_tcp_port, DefaultContext, DefaultPeerId};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
@@ -67,7 +67,10 @@ fn simple() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
@@ -79,7 +82,10 @@ fn simple() {
     assert_eq!(manager.nb_in_connections(), 10);
 
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -117,7 +123,10 @@ fn simple_no_place() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
     //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -128,7 +137,10 @@ fn simple_no_place() {
     assert_eq!(manager.nb_in_connections(), 0);
 
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -166,7 +178,10 @@ fn simple_no_place_after_handshake() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
     //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -177,7 +192,10 @@ fn simple_no_place_after_handshake() {
     assert_eq!(manager.nb_in_connections(), 0);
 
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -277,7 +295,10 @@ fn simple_with_category() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
     //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
@@ -288,7 +309,10 @@ fn simple_with_category() {
     assert_eq!(manager.nb_in_connections(), 10);
 
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -327,7 +351,10 @@ fn two_peers_tcp() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     let context2 = DefaultContext {
@@ -372,7 +399,10 @@ fn two_peers_tcp() {
     std::thread::sleep(std::time::Duration::from_secs(1));
     assert!(manager.nb_in_connections().eq(&1));
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 

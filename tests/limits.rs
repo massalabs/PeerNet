@@ -73,7 +73,10 @@ fn check_multiple_connection_refused() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     let context2 = DefaultContext {
@@ -153,7 +156,10 @@ fn check_multiple_connection_refused() {
 
     assert_eq!(manager.nb_in_connections(), 1);
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -190,7 +196,10 @@ fn check_too_much_in_refuse() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     let context2 = DefaultContext {
@@ -271,7 +280,10 @@ fn check_too_much_in_refuse() {
 
     assert_eq!(manager.nb_in_connections(), 1);
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -320,7 +332,10 @@ fn check_multiple_connection_refused_in_category() {
     > = PeerNetManager::new(config);
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     let context2 = DefaultContext {
@@ -401,7 +416,10 @@ fn check_multiple_connection_refused_in_category() {
 
     assert_eq!(manager.nb_in_connections(), 1);
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -440,7 +458,10 @@ fn max_message_size() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -487,7 +508,10 @@ fn max_message_size() {
     let mut manager = handle.join().unwrap();
 
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -526,7 +550,10 @@ fn send_timeout() {
 
     let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -565,7 +592,10 @@ fn send_timeout() {
     }
 
     manager
-        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 

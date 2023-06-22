@@ -1,8 +1,8 @@
 #![allow(dead_code)]
+use std::net::TcpListener;
+use std::ops::Range;
 use std::thread::{sleep, JoinHandle};
 use std::time::Duration;
-use std::ops::Range;
-use std::net::TcpListener;
 
 use peernet::{context::Context, error::PeerNetResult, messages::MessagesHandler, peer_id::PeerId};
 use rand::Rng;
@@ -58,7 +58,7 @@ pub fn create_clients(nb_clients: usize, to_ip: &str) -> Vec<JoinHandle<()>> {
     clients
 }
 
-pub fn get_tcp_port(range:  Range<u16>) -> u16 {
+pub fn get_tcp_port(range: Range<u16>) -> u16 {
     let mut rng = rand::thread_rng();
     loop {
         let port = rng.gen_range(range.clone());
