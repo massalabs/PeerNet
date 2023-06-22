@@ -520,14 +520,17 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 })?;
 
             let mut total_bytes_written = 0;
-            let chunk_size = 1024;
-
             while total_bytes_written < data.len() {
                 if start_time.elapsed() >= timeout {
                     return Err(PeerNetError::SendError.error("write timeout", None));
                 }
-                let end = (total_bytes_written + chunk_size).min(data.len());
-                match endpoint.stream.write(&data[total_bytes_written..end]) {
+                match endpoint.stream.write(&data[total_bytes_written..]) {
+                    Ok(0) => {
+                        endpoint.shutdown();
+                        return Err(
+                            PeerNetError::ReceiveError.error("write timeout data = 0", None)
+                        );
+                    }
                     Ok(bytes_written) => {
                         total_bytes_written += bytes_written;
                     }
@@ -556,10 +559,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
 
         let result = try_write();
 
-        // after try_write we need to reset the timeout on the stream
-        endpoint.stream.set_write_timeout(None).map_err(|e| {
-            PeerNetError::SendError.error("error reset write timeout", Some(e.to_string()))
-        })?;
+        // after write we need to reset the timeout on the stream
+        endpoint
+            .stream
+            .set_write_timeout(Some(endpoint.config.write_timeout))
+            .map_err(|e| {
+                PeerNetError::SendError.error("error reset write timeout", Some(e.to_string()))
+            })?;
 
         result
     }
