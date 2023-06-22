@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
-use std::iter::StepBy;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::config::{PeerNetCategories, PeerNetCategoryInfo, PeerNetFeatures};
 use crate::context::Context;
@@ -71,6 +70,8 @@ pub struct TcpConnectionConfig {
     pub rate_bucket_size: usize,
     pub data_channel_size: usize,
     pub max_message_size: usize,
+    pub write_timeout: Duration,
+    pub read_timeout: Duration,
 }
 
 impl From<TcpConnectionConfig> for LimiterOptions {
@@ -87,6 +88,8 @@ impl Default for TcpConnectionConfig {
             rate_bucket_size: 10 * 1024,
             max_message_size: 100000,
             data_channel_size: 10000,
+            write_timeout: Duration::from_secs(7),
+            read_timeout: Duration::from_secs(7),
         }
     }
 }
@@ -250,9 +253,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             continue;
                                         }
                                     };
-                                    if let Err(e) = stream.set_nonblocking(true) {
-                                        println!("Error setting nonblocking: {:?}", e);
-                                    }
+                                    // if let Err(e) = stream.set_nonblocking(true) {
+                                    //     println!("Error setting nonblocking: {:?}", e);
+                                    // }
                                     if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
                                         println!("Error setting linger: {:?}", e);
                                     }
@@ -365,9 +368,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
-                    if let Err(e) = stream.set_nonblocking(true) {
-                        println!("Error setting nonblocking: {:?}", e);
-                    }
+                    // if let Err(e) = stream.set_nonblocking(true) {
+                    //     println!("Error setting nonblocking: {:?}", e);
+                    // }
                     if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
                         println!("Error setting linger: {:?}", e);
                     }
@@ -547,17 +550,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         //TODO: Config one
 
-        // set short timeout for reading the length
-        endpoint
-            .stream
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .map_err(|err| {
-                TcpError::ConnectionError
-                    .wrap()
-                    .error("set read timeout", Some(format!("{:?}", err)))
-            })?;
-
+        let start_time = Instant::now();
         let mut len_bytes = vec![0u8; 4];
+
+        // read the length of the message
         let read = endpoint.stream.read(&mut len_bytes).map_err(|err| {
             let str = format!("{:?}", err);
             TcpError::ConnectionError
@@ -566,9 +562,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         })?;
 
         if read == 0 {
-            dbg!("read len = 0");
             endpoint.shutdown();
             return Err(PeerNetError::ReceiveError.error("read len = 0", None));
+        }
+
+        // Check if the timeout has occurred
+        if start_time.elapsed() >= endpoint.config.read_timeout {
+            return Err(PeerNetError::ReceiveError.error("timeout read len", None));
         }
 
         let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
@@ -583,31 +583,25 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             );
         }
 
-        // increment timeout for data
-        endpoint
-            .stream
-            .set_read_timeout(Some(Duration::from_secs(7)))
-            .map_err(|err| {
-                TcpError::ConnectionError
-                    .wrap()
-                    .error("set read timeout", Some(format!("{:?}", err)))
-            })?;
-
         let mut data = vec![0u8; res_size as usize];
         let mut total_read: usize = 0;
 
         while total_read < res_size as usize {
+            if start_time.elapsed() >= endpoint.config.read_timeout {
+                return Err(PeerNetError::ReceiveError.error("timeout read data", None));
+            }
+
             let read = endpoint
                 .stream
                 .read(&mut data[total_read..])
                 .map_err(|err| TcpError::ConnectionError.wrap().new("recv data", err, None))?;
-            total_read += read;
-        }
 
-        if total_read == 0 {
-            dbg!("read data = 0");
-            endpoint.shutdown();
-            return Err(PeerNetError::ReceiveError.error("read data = 0", None));
+            if read == 0 {
+                endpoint.shutdown();
+                return Err(PeerNetError::ReceiveError.error("read data = 0", None));
+            }
+
+            total_read += read;
         }
 
         {
