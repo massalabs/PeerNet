@@ -425,7 +425,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 .wrap()
                 .error("send len too long", Some(format!("{:?}", data.len())))
         })?;
-        if msg_size > 1048576000 {
+        if msg_size > endpoint.config.max_message_size as u32 {
             return Err(TcpError::ConnectionError
                 .wrap()
                 .error("send len too long", Some(format!("{:?}", data.len()))))?;
