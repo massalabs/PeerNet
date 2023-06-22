@@ -253,12 +253,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             continue;
                                         }
                                     };
-                                    // if let Err(e) = stream.set_nonblocking(true) {
-                                    //     println!("Error setting nonblocking: {:?}", e);
-                                    // }
-                                    if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
-                                        println!("Error setting linger: {:?}", e);
-                                    }
+                          
+                                    set_tcp_stream_config(&stream, &config);
                                     let ip_canonical = to_canonical(address.ip());
                                     let (category_name, category_info) = match config
                                         .peer_categories
@@ -368,12 +364,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
                     })?;
-                    // if let Err(e) = stream.set_nonblocking(true) {
-                    //     println!("Error setting nonblocking: {:?}", e);
-                    // }
-                    if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
-                        println!("Error setting linger: {:?}", e);
-                    }
+                    set_tcp_stream_config(&stream, &config);
+
                     let ip_canonical = to_canonical(address.ip());
                     let (category_name, category_info) = match config
                         .peer_categories
@@ -613,5 +605,20 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         }
 
         Ok(data)
+    }
+}
+
+fn set_tcp_stream_config(stream: &TcpStream, config: &TcpTransportConfig) {
+    // if let Err(e) = stream.set_nonblocking(true) {
+    //     println!("Error setting nonblocking: {:?}", e);
+    // }
+    if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
+        println!("Error setting linger: {:?}", e);
+    }
+    if let Err(e) = stream.set_read_timeout(Some(config.read_timeout)) {
+        println!("Error setting read timeout: {:?}", e);
+    }
+    if let Err(e) = stream.set_write_timeout(Some(config.write_timeout)) {
+        println!("Error setting write timeout: {:?}", e);
     }
 }
