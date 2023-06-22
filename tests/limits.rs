@@ -468,6 +468,8 @@ fn max_message_size() {
             rate_limit: 10000,
             data_channel_size: 1000,
             max_message_size: 10,
+            read_timeout: Duration::from_secs(10),
+            write_timeout: Duration::from_secs(10),
         }
         .into(),
         address: "127.0.0.1:18084".parse().unwrap(),
@@ -556,6 +558,8 @@ fn send_timeout() {
             rate_limit: 100,
             data_channel_size: 1000,
             max_message_size: 9000000,
+            read_timeout: Duration::from_secs(10),
+            write_timeout: Duration::from_secs(10),
         }
         .into(),
         address: "127.0.0.1:18085".parse().unwrap(),

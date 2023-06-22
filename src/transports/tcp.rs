@@ -253,7 +253,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             continue;
                                         }
                                     };
-                          
                                     set_tcp_stream_config(&stream, &config);
                                     let ip_canonical = to_canonical(address.ip());
                                     let (category_name, category_info) = match config
@@ -444,17 +443,17 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 )
             })?;
 
-          // Check if the timeout has occurred
+        // Check if the timeout has occurred
         if start_time.elapsed() >= endpoint.config.write_timeout {
             return Err(PeerNetError::ReceiveError.error("timeout write len", None));
-        } 
+        }
 
         let mut write_count = 0;
-        while write_count < data.len()  {
+        while write_count < data.len() {
             if start_time.elapsed() >= endpoint.config.write_timeout {
                 return Err(PeerNetError::ReceiveError.error("timeout write data", None));
             }
-            
+
             match endpoint.stream.write(data[write_count..].as_ref()) {
                 Ok(0) => {
                     endpoint.shutdown();
@@ -464,12 +463,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                     write_count += count;
                 }
                 Err(err) => {
-                    return Err(TcpError::ConnectionError
-                        .wrap()
-                        .new("send data write", err, None))?;
+                    return Err(TcpError::ConnectionError.wrap().new(
+                        "send data write",
+                        err,
+                        None,
+                    ))?;
                 }
             }
-                
         }
 
         let mut write = endpoint.total_bytes_sent.write();
@@ -612,14 +612,16 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 Ok(0) => {
                     endpoint.shutdown();
                     return Err(PeerNetError::ReceiveError.error("read data = 0", None));
-                },
+                }
                 Ok(n) => {
                     total_read += n;
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(e) => return Err( TcpError::ConnectionError
-                    .wrap()
-                    .error("error read data stream", Some(format!("{:?}", e)))),
+                Err(e) => {
+                    return Err(TcpError::ConnectionError
+                        .wrap()
+                        .error("error read data stream", Some(format!("{:?}", e))))
+                }
             }
         }
 
