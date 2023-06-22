@@ -14,7 +14,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use util::{create_clients, DefaultMessagesHandler};
 
-use crate::util::{DefaultContext, DefaultPeerId};
+use crate::util::{DefaultContext, DefaultPeerId, get_tcp_port};
 
 #[derive(Clone)]
 pub struct DefaultInitConnection;
@@ -65,20 +65,21 @@ fn simple() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
 
-    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
-    let _ = create_clients(11, "127.0.0.1:64850");
+    let _ = create_clients(11, format!("127.0.0.1:{port}").as_str());
     sleep(Duration::from_secs(6));
 
     // we have max_in_connections = 10
     assert_eq!(manager.nb_in_connections(), 10);
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:64850".parse().unwrap())
+        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
 }
 
@@ -114,19 +115,20 @@ fn simple_no_place() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
+        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
-    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
-    let _ = create_clients(11, "127.0.0.1:64851");
+    let _ = create_clients(11, format!("127.0.0.1:{port}").as_str());
     sleep(Duration::from_secs(6));
 
     // we have max_in_connections = 10
     assert_eq!(manager.nb_in_connections(), 0);
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:64851".parse().unwrap())
+        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
 }
 
@@ -162,19 +164,20 @@ fn simple_no_place_after_handshake() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
+        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
-    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
-    let _ = create_clients(11, "127.0.0.1:64852");
+    let _ = create_clients(11, format!("127.0.0.1:{port}").as_str());
     sleep(Duration::from_secs(6));
 
     // we have max_in_connections = 10
     assert_eq!(manager.nb_in_connections(), 0);
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:64852".parse().unwrap())
+        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
 }
 
@@ -272,19 +275,20 @@ fn simple_with_category() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64859".parse().unwrap())
+        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
-    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
+    //manager.start_listener(TransportType::Quic, format!("127.0.0.1:{port}").parse().unwrap()).unwrap();
     sleep(Duration::from_secs(3));
-    let _ = create_clients(11, "127.0.0.1:64859");
+    let _ = create_clients(11, format!("127.0.0.1:{port}").as_str());
     sleep(Duration::from_secs(6));
 
     // we have max_in_connections = 10
     assert_eq!(manager.nb_in_connections(), 10);
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:64859".parse().unwrap())
+        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
 }
 
@@ -321,8 +325,9 @@ fn two_peers_tcp() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
 
     let context2 = DefaultContext {
@@ -360,14 +365,14 @@ fn two_peers_tcp() {
     manager2
         .try_connect(
             TransportType::Tcp,
-            "127.0.0.1:8081".parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
             Duration::from_secs(3),
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_secs(1));
     assert!(manager.nb_in_connections().eq(&1));
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
         .unwrap();
 }
 
