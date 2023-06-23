@@ -79,8 +79,7 @@
 //!     message_handler: DefaultMessagesHandler {},
 //!     peers_categories: HashMap::default(),
 //!     default_category_info: PeerNetCategoryInfo {
-//!         max_in_connections_pre_handshake: 10,
-//!         max_in_connections_post_handshake: 10,
+//!         max_in_connections: 10,
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,
@@ -128,8 +127,7 @@
 //!     optional_features: PeerNetFeatures::default(),
 //!     peers_categories: HashMap::default(),
 //!     default_category_info: PeerNetCategoryInfo {
-//!         max_in_connections_pre_handshake: 10,
-//!         max_in_connections_post_handshake: 10,
+//!         max_in_connections: 10,
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,

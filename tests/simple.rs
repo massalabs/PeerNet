@@ -51,8 +51,7 @@ fn simple() {
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 10,
         },
         _phantom: std::marker::PhantomData,
@@ -108,8 +107,7 @@ fn simple_no_place() {
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 0,
-            max_in_connections_post_handshake: 0,
+            max_in_connections: 0,
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
@@ -163,8 +161,7 @@ fn simple_no_place_after_handshake() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 0,
+            max_in_connections: 0,
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
@@ -200,54 +197,6 @@ fn simple_no_place_after_handshake() {
 }
 
 #[test]
-fn simple_with_different_limit_pre_post_handshake() {
-    let context = DefaultContext {
-        our_id: DefaultPeerId::generate(),
-    };
-
-    let config = PeerNetConfiguration {
-        context,
-        max_in_connections: 10,
-        init_connection_handler: DefaultInitConnection,
-        optional_features: PeerNetFeatures::default(),
-        max_message_size: 1048576000,
-        rate_bucket_size: 10000,
-        rate_limit: 10000,
-        rate_time_window: Duration::from_secs(1),
-        send_data_channel_size: 1000,
-        message_handler: DefaultMessagesHandler {},
-        peers_categories: HashMap::default(),
-        default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 5,
-            max_in_connections_per_ip: 10,
-        },
-        _phantom: std::marker::PhantomData,
-    };
-    let mut manager: PeerNetManager<
-        DefaultPeerId,
-        DefaultContext,
-        DefaultInitConnection,
-        DefaultMessagesHandler,
-    > = PeerNetManager::new(config);
-
-    manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:64854".parse().unwrap())
-        .unwrap();
-    //manager.start_listener(TransportType::Quic, "127.0.0.1:64850".parse().unwrap()).unwrap();
-    sleep(Duration::from_secs(3));
-    let _ = create_clients(11, "127.0.0.1:64854");
-    sleep(Duration::from_secs(6));
-
-    // we have max_in_connections = 10
-    assert_eq!(manager.nb_in_connections(), 5);
-
-    manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:64854".parse().unwrap())
-        .unwrap();
-}
-
-#[test]
 fn simple_with_category() {
     // let keypair = KeyPair::generate();
     let mut peers_categories = HashMap::default();
@@ -256,8 +205,7 @@ fn simple_with_category() {
         (
             vec![IpAddr::from_str("127.0.0.1").unwrap()],
             PeerNetCategoryInfo {
-                max_in_connections_pre_handshake: 10,
-                max_in_connections_post_handshake: 10,
+                max_in_connections: 10,
                 max_in_connections_per_ip: 10,
             },
         ),
@@ -279,8 +227,7 @@ fn simple_with_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories,
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 0,
         },
         _phantom: std::marker::PhantomData,
@@ -335,8 +282,7 @@ fn two_peers_tcp() {
         send_data_channel_size: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -374,8 +320,7 @@ fn two_peers_tcp() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,

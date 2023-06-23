@@ -57,8 +57,7 @@ fn check_multiple_connection_refused() {
         send_data_channel_size: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 1,
-            max_in_connections_post_handshake: 1,
+            max_in_connections: 1,
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
@@ -95,8 +94,7 @@ fn check_multiple_connection_refused() {
         rate_time_window: Duration::from_secs(1),
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -133,8 +131,7 @@ fn check_multiple_connection_refused() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -181,8 +178,7 @@ fn check_too_much_in_refuse() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 10,
         },
         _phantom: std::marker::PhantomData,
@@ -218,8 +214,7 @@ fn check_too_much_in_refuse() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -256,8 +251,7 @@ fn check_too_much_in_refuse() {
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -298,8 +292,7 @@ fn check_multiple_connection_refused_in_category() {
         (
             vec![IpAddr::from_str("127.0.0.1").unwrap()],
             PeerNetCategoryInfo {
-                max_in_connections_pre_handshake: 1,
-                max_in_connections_post_handshake: 1,
+                max_in_connections: 1,
                 max_in_connections_per_ip: 1,
             },
         ),
@@ -317,8 +310,7 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories,
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 0,
-            max_in_connections_post_handshake: 0,
+            max_in_connections: 0,
             max_in_connections_per_ip: 0,
         },
         _phantom: std::marker::PhantomData,
@@ -354,8 +346,7 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -391,8 +382,7 @@ fn check_multiple_connection_refused_in_category() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         send_data_channel_size: 1000,
@@ -430,7 +420,7 @@ fn max_message_size() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -441,8 +431,7 @@ fn max_message_size() {
         rate_limit: 10000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
@@ -522,7 +511,7 @@ fn send_timeout() {
     };
 
     let config = PeerNetConfiguration {
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -533,8 +522,7 @@ fn send_timeout() {
         rate_limit: 100,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
-            max_in_connections_pre_handshake: 10,
-            max_in_connections_post_handshake: 10,
+            max_in_connections: 10,
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
