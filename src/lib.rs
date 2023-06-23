@@ -157,7 +157,7 @@
 //!     .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
 //!    .unwrap();
 //! ```
-#![feature(tcp_linger)]
+// #![feature(tcp_linger)]
 
 pub mod config;
 pub mod context;

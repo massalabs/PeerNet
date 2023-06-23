@@ -656,9 +656,9 @@ fn set_tcp_stream_config(stream: &TcpStream, config: &TcpTransportConfig) {
     if let Err(e) = stream.set_nonblocking(false) {
         println!("Error setting nonblocking: {:?}", e);
     }
-    if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
-        println!("Error setting linger: {:?}", e);
-    }
+    // if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
+    //     println!("Error setting linger: {:?}", e);
+    // }
     if let Err(e) = stream.set_read_timeout(Some(config.read_timeout)) {
         println!("Error setting read timeout: {:?}", e);
     }
