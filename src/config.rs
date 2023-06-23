@@ -16,8 +16,7 @@ use crate::peer_id::PeerId;
 
 #[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct PeerNetCategoryInfo {
-    pub max_in_connections_pre_handshake: usize,
-    pub max_in_connections_post_handshake: usize,
+    pub max_in_connections: usize,
     pub max_in_connections_per_ip: usize,
 }
 
@@ -80,8 +79,7 @@ impl<
             max_message_size: 1048576000,
             send_data_channel_size: 10000,
             default_category_info: PeerNetCategoryInfo {
-                max_in_connections_pre_handshake: 0,
-                max_in_connections_post_handshake: 0,
+                max_in_connections: 0,
                 max_in_connections_per_ip: 0,
             },
             rate_time_window: Duration::from_secs(1),

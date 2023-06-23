@@ -79,8 +79,7 @@
 //!     message_handler: DefaultMessagesHandler {},
 //!     peers_categories: HashMap::default(),
 //!     default_category_info: PeerNetCategoryInfo {
-//!         max_in_connections_pre_handshake: 10,
-//!         max_in_connections_post_handshake: 10,
+//!         max_in_connections: 10,
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,
@@ -94,9 +93,21 @@
 //! DefaultInitConnection,
 //! DefaultMessagesHandler,
 //! > = PeerNetManager::new(config);
-//! // Setup the listener for the TCP transport to 8081 port.
+//! // Get a random TCP port to connect to
+//! let port = {
+//!    let mut port = 0;
+//!    for test_port in 10000..u16::MAX {
+//!        if std::net::TcpListener::bind(("127.0.0.1", test_port)).is_ok() {
+//!            port = test_port;
+//!            break;
+//!         }
+//!     }
+//!    assert_ne!(port, 0, "No TCP ports available");
+//!    port
+//! };
+//! // Setup the listener for the TCP transport to the port.
 //! manager
-//!     .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+//!     .start_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
 //!     .unwrap();
 //!
 
@@ -118,8 +129,7 @@
 //!     optional_features: PeerNetFeatures::default(),
 //!     peers_categories: HashMap::default(),
 //!     default_category_info: PeerNetCategoryInfo {
-//!         max_in_connections_pre_handshake: 10,
-//!         max_in_connections_post_handshake: 10,
+//!         max_in_connections: 10,
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,
@@ -133,18 +143,18 @@
 //! DefaultInitConnection,
 //! DefaultMessagesHandler,
 //! > = PeerNetManager::new(config);
-//! // Try to connect to the first peer listener on TCP port 8081.
+//! // Try to connect to the first peer listener on its TCP port.
 //! manager2
 //!     .try_connect(
 //!         TransportType::Tcp,
-//!         "127.0.0.1:8081".parse().unwrap(),
+//!         format!("127.0.0.1:{port}").parse().unwrap(),
 //!         Duration::from_secs(3),
 //!     )
 //!     .unwrap();
 //! std::thread::sleep(std::time::Duration::from_secs(3));
 //! // Close the listener of the first peer
 //! manager
-//!     .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+//!     .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
 //!    .unwrap();
 //! ```
 #![feature(tcp_linger)]
