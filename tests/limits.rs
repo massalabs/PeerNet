@@ -20,6 +20,8 @@ use std::{
 
 use util::{DefaultContext, DefaultMessagesHandler, DefaultPeerId};
 
+use crate::util::get_tcp_port;
+
 #[derive(Clone)]
 pub struct DefaultInitConnection;
 impl InitConnectionHandler<DefaultPeerId, DefaultContext, DefaultMessagesHandler>
@@ -69,8 +71,12 @@ fn check_multiple_connection_refused() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     let context2 = DefaultContext {
@@ -105,7 +111,7 @@ fn check_multiple_connection_refused() {
     manager2
         .try_connect(
             TransportType::Tcp,
-            "127.0.0.1:8081".parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
             Duration::from_secs(3),
         )
         .unwrap();
@@ -142,7 +148,7 @@ fn check_multiple_connection_refused() {
     manager3
         .try_connect(
             TransportType::Tcp,
-            "127.0.0.1:8081".parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
             Duration::from_secs(3),
         )
         .unwrap();
@@ -150,7 +156,10 @@ fn check_multiple_connection_refused() {
 
     assert_eq!(manager.nb_in_connections(), 1);
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8081".parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -185,8 +194,12 @@ fn check_too_much_in_refuse() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     let context2 = DefaultContext {
@@ -221,7 +234,7 @@ fn check_too_much_in_refuse() {
     manager2
         .try_connect(
             TransportType::Tcp,
-            "127.0.0.1:8080".parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
             Duration::from_secs(3),
         )
         .unwrap();
@@ -259,7 +272,7 @@ fn check_too_much_in_refuse() {
     manager3
         .try_connect(
             TransportType::Tcp,
-            "127.0.0.1:8080".parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
             Duration::from_secs(3),
         )
         .unwrap();
@@ -267,7 +280,10 @@ fn check_too_much_in_refuse() {
 
     assert_eq!(manager.nb_in_connections(), 1);
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8080".parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -314,8 +330,12 @@ fn check_multiple_connection_refused_in_category() {
         DefaultInitConnection,
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     let context2 = DefaultContext {
@@ -350,7 +370,7 @@ fn check_multiple_connection_refused_in_category() {
     manager2
         .try_connect(
             TransportType::Tcp,
-            "127.0.0.1:8082".parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
             Duration::from_secs(3),
         )
         .unwrap();
@@ -388,7 +408,7 @@ fn check_multiple_connection_refused_in_category() {
     manager3
         .try_connect(
             TransportType::Tcp,
-            "127.0.0.1:8082".parse().unwrap(),
+            format!("127.0.0.1:{port}").parse().unwrap(),
             Duration::from_secs(3),
         )
         .unwrap();
@@ -396,7 +416,10 @@ fn check_multiple_connection_refused_in_category() {
 
     assert_eq!(manager.nb_in_connections(), 1);
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:8082".parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -433,12 +456,16 @@ fn max_message_size() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:18084".parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     std::thread::sleep(std::time::Duration::from_millis(500));
-    let addr: SocketAddr = "127.0.0.1:18084".parse().unwrap();
+    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     let stream = std::net::TcpStream::connect(addr).unwrap();
 
     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
@@ -450,7 +477,7 @@ fn max_message_size() {
             max_message_size: 10,
         }
         .into(),
-        address: "127.0.0.1:18084".parse().unwrap(),
+        address: format!("127.0.0.1:{port}").parse().unwrap(),
         stream,
         total_bytes_received: Arc::new(RwLock::new(0)),
         total_bytes_sent: Arc::new(RwLock::new(0)),
@@ -481,7 +508,10 @@ fn max_message_size() {
     let mut manager = handle.join().unwrap();
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:18084".parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
@@ -518,14 +548,18 @@ fn send_timeout() {
         DefaultMessagesHandler,
     > = PeerNetManager::new(config);
 
+    let port = get_tcp_port(10000..u16::MAX);
     manager
-        .start_listener(TransportType::Tcp, "127.0.0.1:18085".parse().unwrap())
+        .start_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 
     std::thread::sleep(std::time::Duration::from_millis(500));
 
     // add connection to the manager
-    let addr: SocketAddr = "127.0.0.1:18085".parse().unwrap();
+    let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     let stream = std::net::TcpStream::connect(addr).unwrap();
     let _endpoint = Endpoint::Tcp(TcpEndpoint {
         config: TcpConnectionConfig {
@@ -536,7 +570,7 @@ fn send_timeout() {
             max_message_size: 9000000,
         }
         .into(),
-        address: "127.0.0.1:18085".parse().unwrap(),
+        address: format!("127.0.0.1:{port}").parse().unwrap(),
         stream,
         total_bytes_received: Arc::new(RwLock::new(0)),
         total_bytes_sent: Arc::new(RwLock::new(0)),
@@ -558,7 +592,10 @@ fn send_timeout() {
     }
 
     manager
-        .stop_listener(TransportType::Tcp, "127.0.0.1:18085".parse().unwrap())
+        .stop_listener(
+            TransportType::Tcp,
+            format!("127.0.0.1:{port}").parse().unwrap(),
+        )
         .unwrap();
 }
 
