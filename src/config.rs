@@ -55,9 +55,9 @@ pub struct PeerNetConfiguration<
     /// Default category info for all peers not in a specific category (category info, number of connections accepted only for handshake //TODO: Remove when refactored on massa side)
     pub default_category_info: PeerNetCategoryInfo,
     pub _phantom: std::marker::PhantomData<Id>,
-
+    /// Timeout for write
     pub write_timeout: Duration,
-
+    /// Timeout for read
     pub read_timeout: Duration,
 }
 
