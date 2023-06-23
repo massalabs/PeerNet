@@ -166,7 +166,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
         let connections = self.connections.clone();
         let server = UdpSocket::bind(address)
             .unwrap_or_else(|_| panic!("Can't bind QUIC transport to address {}", address));
-        server.set_nonblocking(true).map_err(|err| {
+        server.set_nonblocking(false).map_err(|err| {
             QuicError::InitListener
                 .wrap()
                 .new("server set nonblocking", err, None)
