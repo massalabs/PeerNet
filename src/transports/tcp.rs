@@ -526,19 +526,21 @@ fn read_exact_timeout(
 
     let timeout = timeout.unwrap_or(endpoint.config.read_timeout);
 
-    endpoint
-        .stream
-        .set_read_timeout(Some(timeout))
-        .map_err(|e| {
-            PeerNetError::SendError.error("error setting read timeout", Some(e.to_string()))
-        })?;
-
     let mut total_read: usize = 0;
 
     while total_read < data.len() {
-        if start_time.elapsed() >= timeout {
+        let elapsed = start_time.elapsed();
+        let new_timeout = timeout.saturating_sub(elapsed);
+        if elapsed >= timeout || new_timeout.is_zero() {
             return Err(PeerNetError::ReceiveError.error("timeout read data", None));
         }
+
+        endpoint
+            .stream
+            .set_read_timeout(Some(new_timeout))
+            .map_err(|e| {
+                PeerNetError::SendError.error("error setting read timeout", Some(e.to_string()))
+            })?;
 
         match endpoint.stream.read(&mut data[total_read..]) {
             Ok(0) => {
@@ -578,18 +580,21 @@ fn write_exact_timeout(
     // if we don't have a timeout, use the default write timeout
     let timeout = timeout.unwrap_or(endpoint.config.write_timeout);
 
-    endpoint
-        .stream
-        .set_write_timeout(Some(timeout))
-        .map_err(|e| {
-            PeerNetError::SendError.error("error setting write timeout", Some(e.to_string()))
-        })?;
-
     let mut write_count = 0;
     while write_count < data.len() {
-        if start_time.elapsed() >= timeout {
+        let elapsed = start_time.elapsed();
+        let new_timeout = timeout.saturating_sub(elapsed);
+
+        if elapsed >= timeout || new_timeout.is_zero() {
             return Err(PeerNetError::SendError.error("send write timeout", None));
         }
+
+        endpoint
+            .stream
+            .set_write_timeout(Some(new_timeout))
+            .map_err(|e| {
+                PeerNetError::SendError.error("error setting write timeout", Some(e.to_string()))
+            })?;
 
         match endpoint.stream.write(data[write_count..].as_ref()) {
             Ok(0) => {
