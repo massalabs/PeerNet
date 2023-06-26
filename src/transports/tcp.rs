@@ -426,10 +426,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         })?;
 
         // send message size first
-        write_exact_timeout(endpoint, &msg_size.to_be_bytes().to_vec(), None)?;
+        write_exact_timeout(endpoint, &msg_size.to_be_bytes(), None)?;
 
         // then send message
-        write_exact_timeout(endpoint, &data.to_vec(), None)?;
+        write_exact_timeout(endpoint, data, None)?;
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -452,12 +452,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         })?;
         //TODO: Use config one
 
-        let elapsed =
-            write_exact_timeout(endpoint, &msg_size.to_be_bytes().to_vec(), Some(timeout))?;
+        let elapsed = write_exact_timeout(endpoint, &msg_size.to_be_bytes(), Some(timeout))?;
 
         let new_timeout = timeout.saturating_sub(elapsed);
 
-        write_exact_timeout(endpoint, &data.to_vec(), Some(new_timeout))?;
+        write_exact_timeout(endpoint, data, Some(new_timeout))?;
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -470,34 +469,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
 
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
         //TODO: Config one
-
-        let start_time = Instant::now();
         let mut len_bytes = vec![0u8; 4];
 
-        // read the length of the message
-        let mut len_read = 0;
-        while len_read < len_bytes.len() {
-            if start_time.elapsed() >= endpoint.config.read_timeout {
-                return Err(PeerNetError::ReceiveError.error("timeout read len", None));
-            }
-
-            match endpoint.stream.read(&mut len_bytes[len_read..]) {
-                Ok(0) => {
-                    endpoint.shutdown();
-                    return Err(TcpError::ConnectionError
-                        .wrap()
-                        .error("receive len read = 0", None));
-                }
-                Ok(read) => {
-                    len_read += read;
-                }
-                Err(err) => {
-                    return Err(
-                        PeerNetError::ReceiveError.error("error read len", Some(err.to_string()))
-                    );
-                }
-            }
-        }
+        // read message size first
+        read_exact_timeout(endpoint, &mut len_bytes, None)?;
 
         let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
             TcpError::ConnectionError
@@ -511,32 +486,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
             );
         }
 
+        // then read message
         let mut data = vec![0u8; res_size as usize];
-        let mut total_read: usize = 0;
-
-        while total_read < res_size as usize {
-            if start_time.elapsed() >= endpoint.config.read_timeout {
-                return Err(PeerNetError::ReceiveError.error("timeout read data", None));
-            }
-
-            match endpoint.stream.read(&mut data[total_read..]) {
-                Ok(0) => {
-                    endpoint.shutdown();
-                    return Err(TcpError::ConnectionError
-                        .wrap()
-                        .error("receive data read = 0", None));
-                }
-                Ok(n) => {
-                    total_read += n;
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(e) => {
-                    return Err(TcpError::ConnectionError
-                        .wrap()
-                        .error("error read data stream", Some(format!("{:?}", e))))
-                }
-            }
-        }
+        read_exact_timeout(endpoint, &mut data, None)?;
 
         {
             let mut write = endpoint.total_bytes_received.write();
@@ -565,9 +517,51 @@ fn set_tcp_stream_config(stream: &TcpStream, config: &TcpTransportConfig) {
     }
 }
 
+fn read_exact_timeout(
+    endpoint: &mut TcpEndpoint,
+    data: &mut [u8],
+    timeout: Option<Duration>,
+) -> PeerNetResult<Duration> {
+    let start_time = Instant::now();
+
+    let timeout = timeout.unwrap_or(endpoint.config.read_timeout);
+
+    endpoint
+        .stream
+        .set_read_timeout(Some(timeout))
+        .map_err(|e| {
+            PeerNetError::SendError.error("error setting read timeout", Some(e.to_string()))
+        })?;
+
+    let mut total_read: usize = 0;
+
+    while total_read < data.len() {
+        if start_time.elapsed() >= timeout {
+            return Err(PeerNetError::ReceiveError.error("timeout read data", None));
+        }
+
+        match endpoint.stream.read(&mut data[total_read..]) {
+            Ok(0) => {
+                endpoint.shutdown();
+                return Err(PeerNetError::ReceiveError.error("Receive data read len = 0", None));
+            }
+            Ok(n) => {
+                total_read += n;
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(e) => {
+                return Err(PeerNetError::ReceiveError
+                    .error("error read data stream", Some(format!("{:?}", e))))
+            }
+        }
+    }
+
+    Ok(start_time.elapsed())
+}
+
 fn write_exact_timeout(
     endpoint: &mut TcpEndpoint,
-    data: &Vec<u8>,
+    data: &[u8],
     timeout: Option<Duration>,
 ) -> PeerNetResult<Duration> {
     let start_time = Instant::now();
