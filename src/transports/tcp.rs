@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use crate::config::{PeerNetCategories, PeerNetCategoryInfo, PeerNetFeatures};
 use crate::context::Context;
-use crate::error::{PeerNetError, PeerNetErrorData, PeerNetResult};
+use crate::error::{PeerNetError, PeerNetResult};
 use crate::messages::MessagesHandler;
 use crate::network_manager::{to_canonical, SharedActiveConnections};
 use crate::peer::{new_peer, InitConnectionHandler, PeerConnectionType};
@@ -419,58 +419,17 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
-        let start_time = Instant::now();
         let msg_size: u32 = data.len().try_into().map_err(|_| {
             TcpError::ConnectionError
                 .wrap()
                 .error("send len too long", Some(format!("{:?}", data.len())))
         })?;
-        if msg_size > endpoint.config.max_message_size as u32 {
-            return Err(TcpError::ConnectionError
-                .wrap()
-                .error("send len too long", Some(format!("{:?}", data.len()))));
-        }
-        // write msg len to stream
-        match endpoint.stream.write(&msg_size.to_be_bytes()) {
-            Ok(0) => {
-                endpoint.shutdown();
-                return Err(TcpError::ConnectionError
-                    .wrap()
-                    .error("send len write = 0", None));
-            }
-            Ok(_count) => {}
-            Err(err) => {
-                return Err(TcpError::ConnectionError
-                    .wrap()
-                    .new("send len write", err, None))
-            }
-        }
 
-        let mut write_count = 0;
-        while write_count < data.len() {
-            if start_time.elapsed() >= endpoint.config.write_timeout {
-                return Err(TcpError::ConnectionError
-                    .wrap()
-                    .error("send data write = 0", None));
-            }
+        // send message size first
+        write_exact_timeout(endpoint, &msg_size.to_be_bytes().to_vec(), None)?;
 
-            match endpoint.stream.write(data[write_count..].as_ref()) {
-                Ok(0) => {
-                    endpoint.shutdown();
-                    return Err(TcpError::ConnectionError
-                        .wrap()
-                        .error("send data write = 0", None));
-                }
-                Ok(count) => {
-                    write_count += count;
-                }
-                Err(err) => {
-                    return Err(TcpError::ConnectionError
-                        .wrap()
-                        .new("send data write", err, None));
-                }
-            }
-        }
+        // then send message
+        write_exact_timeout(endpoint, &data.to_vec(), None)?;
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -486,88 +445,27 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         data: &[u8],
         timeout: Duration,
     ) -> Result<(), crate::error::PeerNetErrorData> {
-        let start_time = std::time::Instant::now();
-
         let msg_size: u32 = data.len().try_into().map_err(|_| {
             TcpError::ConnectionError
                 .wrap()
                 .error("send len too long", Some(format!("{:?}", data.len())))
         })?;
-        if msg_size > endpoint.config.max_message_size as u32 {
-            return Err(TcpError::ConnectionError
-                .wrap()
-                .error("send len too long", Some(format!("{:?}", data.len()))))?;
-        }
         //TODO: Use config one
 
-        let mut try_write = || -> Result<(), PeerNetErrorData> {
-            endpoint
-                .stream
-                .set_write_timeout(Some(timeout))
-                .map_err(|e| {
-                    PeerNetError::SendError.error("error set write timeout", Some(e.to_string()))
-                })?;
+        let elapsed =
+            write_exact_timeout(endpoint, &msg_size.to_be_bytes().to_vec(), Some(timeout))?;
 
-            match endpoint.stream.write(&msg_size.to_be_bytes()) {
-                Ok(0) => {
-                    endpoint.shutdown();
-                    return Err(TcpError::ConnectionError
-                        .wrap()
-                        .error("send len write = 0", None));
-                }
-                Ok(_count) => {}
-                Err(err) => {
-                    return Err(TcpError::ConnectionError.wrap().new(
-                        "send len write",
-                        err,
-                        Some(format!("{:?}", data.len().to_le_bytes())),
-                    ))
-                }
-            }
+        let new_timeout = timeout.saturating_sub(elapsed);
 
-            let mut total_bytes_written = 0;
-            while total_bytes_written < data.len() {
-                if start_time.elapsed() >= timeout {
-                    return Err(PeerNetError::SendError.error("write timeout", None));
-                }
-                match endpoint.stream.write(&data[total_bytes_written..]) {
-                    Ok(0) => {
-                        endpoint.shutdown();
-                        return Err(TcpError::ConnectionError
-                            .wrap()
-                            .error("send data write = 0", None));
-                    }
-                    Ok(bytes_written) => {
-                        total_bytes_written += bytes_written;
-                    }
-                    Err(err) => {
-                        return Err(
-                            PeerNetError::SendError.error("write error", Some(err.to_string()))
-                        );
-                    }
-                }
-            }
+        write_exact_timeout(endpoint, &data.to_vec(), Some(new_timeout))?;
 
-            let mut write = endpoint.total_bytes_sent.write();
-            *write += data.len() as u64;
+        let mut write = endpoint.total_bytes_sent.write();
+        *write += data.len() as u64;
 
-            let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
-            *endpoint_write += data.len() as u64;
+        let mut endpoint_write = endpoint.endpoint_bytes_sent.write();
+        *endpoint_write += data.len() as u64;
 
-            Ok(())
-        };
-
-        let result = try_write();
-
-        // after write we need to reset the timeout on the stream
-        endpoint
-            .stream
-            .set_write_timeout(Some(endpoint.config.write_timeout))
-            .map_err(|e| {
-                PeerNetError::SendError.error("error reset write timeout", Some(e.to_string()))
-            })?;
-
-        result
+        Ok(())
     }
 
     fn receive(endpoint: &mut Self::Endpoint) -> PeerNetResult<Vec<u8>> {
@@ -665,4 +563,53 @@ fn set_tcp_stream_config(stream: &TcpStream, config: &TcpTransportConfig) {
     if let Err(e) = stream.set_write_timeout(Some(config.write_timeout)) {
         println!("Error setting write timeout: {:?}", e);
     }
+}
+
+fn write_exact_timeout(
+    endpoint: &mut TcpEndpoint,
+    data: &Vec<u8>,
+    timeout: Option<Duration>,
+) -> PeerNetResult<Duration> {
+    let start_time = Instant::now();
+    let msg_size: u32 = data.len().try_into().map_err(|_| {
+        PeerNetError::SendError.error("error with send len", Some(format!("{:?}", data.len())))
+    })?;
+
+    if msg_size > endpoint.config.max_message_size as u32 {
+        return Err(
+            PeerNetError::SendError.error("send len too long", Some(format!("{:?}", data.len())))
+        );
+    }
+
+    // if we don't have a timeout, use the default write timeout
+    let timeout = timeout.unwrap_or(endpoint.config.write_timeout);
+
+    endpoint
+        .stream
+        .set_write_timeout(Some(timeout))
+        .map_err(|e| {
+            PeerNetError::SendError.error("error setting write timeout", Some(e.to_string()))
+        })?;
+
+    let mut write_count = 0;
+    while write_count < data.len() {
+        if start_time.elapsed() >= timeout {
+            return Err(PeerNetError::SendError.error("send write timeout", None));
+        }
+
+        match endpoint.stream.write(data[write_count..].as_ref()) {
+            Ok(0) => {
+                endpoint.shutdown();
+                return Err(PeerNetError::SendError.error("write len = 0", None));
+            }
+            Ok(count) => {
+                write_count += count;
+            }
+            Err(err) => {
+                return Err(PeerNetError::SendError.error("error on write", Some(err.to_string())));
+            }
+        }
+    }
+
+    Ok(start_time.elapsed())
 }
