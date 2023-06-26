@@ -426,10 +426,16 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         })?;
 
         // send message size first
-        write_exact_timeout(endpoint, &msg_size.to_be_bytes(), None)?;
+        let elapsed = write_exact_timeout(
+            endpoint,
+            &msg_size.to_be_bytes(),
+            endpoint.config.write_timeout,
+        )?;
+
+        let timeout = endpoint.config.write_timeout.saturating_sub(elapsed);
 
         // then send message
-        write_exact_timeout(endpoint, data, None)?;
+        write_exact_timeout(endpoint, data, timeout)?;
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -452,11 +458,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         })?;
         //TODO: Use config one
 
-        let elapsed = write_exact_timeout(endpoint, &msg_size.to_be_bytes(), Some(timeout))?;
+        let elapsed = write_exact_timeout(endpoint, &msg_size.to_be_bytes(), timeout)?;
 
-        let new_timeout = timeout.saturating_sub(elapsed);
+        let timeout = timeout.saturating_sub(elapsed);
 
-        write_exact_timeout(endpoint, data, Some(new_timeout))?;
+        write_exact_timeout(endpoint, data, timeout)?;
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -472,7 +478,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         let mut len_bytes = vec![0u8; 4];
 
         // read message size first
-        read_exact_timeout(endpoint, &mut len_bytes, None)?;
+        let elapsed = read_exact_timeout(endpoint, &mut len_bytes, endpoint.config.read_timeout)?;
 
         let res_size = u32::from_be_bytes(len_bytes.try_into().map_err(|err| {
             TcpError::ConnectionError
@@ -485,10 +491,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 PeerNetError::InvalidMessage.error("len too long", Some(format!("{:?}", res_size)))
             );
         }
+        let timeout = endpoint.config.read_timeout.saturating_sub(elapsed);
 
         // then read message
         let mut data = vec![0u8; res_size as usize];
-        read_exact_timeout(endpoint, &mut data, None)?;
+        read_exact_timeout(endpoint, &mut data, timeout)?;
 
         {
             let mut write = endpoint.total_bytes_received.write();
@@ -520,37 +527,30 @@ fn set_tcp_stream_config(stream: &TcpStream, config: &TcpTransportConfig) {
 fn read_exact_timeout(
     endpoint: &mut TcpEndpoint,
     data: &mut [u8],
-    timeout: Option<Duration>,
+    timeout: Duration,
 ) -> PeerNetResult<Duration> {
     let start_time = Instant::now();
-
-    let timeout = timeout.unwrap_or(endpoint.config.read_timeout);
-
     let mut total_read: usize = 0;
-
     while total_read < data.len() {
-        let elapsed = start_time.elapsed();
-        let new_timeout = timeout.saturating_sub(elapsed);
-        if elapsed >= timeout || new_timeout.is_zero() {
-            return Err(PeerNetError::ReceiveError.error("timeout read data", None));
+        let remaining_time = timeout.saturating_sub(start_time.elapsed());
+        if remaining_time.is_zero() {
+            return Err(PeerNetError::TimeOut.error("timeout read data", None));
         }
 
         endpoint
             .stream
-            .set_read_timeout(Some(new_timeout))
+            .set_read_timeout(Some(remaining_time))
             .map_err(|e| {
-                PeerNetError::SendError.error("error setting read timeout", Some(e.to_string()))
+                PeerNetError::CouldNotSetTimeout
+                    .error("error setting read timeout", Some(e.to_string()))
             })?;
 
         match endpoint.stream.read(&mut data[total_read..]) {
             Ok(0) => {
                 endpoint.shutdown();
-                return Err(PeerNetError::ReceiveError.error("Receive data read len = 0", None));
+                return Err(PeerNetError::ConnectionClosed.error("Receive data read len = 0", None));
             }
-            Ok(n) => {
-                total_read += n;
-            }
-            Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Ok(n) => total_read += n,
             Err(e) => {
                 return Err(PeerNetError::ReceiveError
                     .error("error read data stream", Some(format!("{:?}", e))))
@@ -564,7 +564,7 @@ fn read_exact_timeout(
 fn write_exact_timeout(
     endpoint: &mut TcpEndpoint,
     data: &[u8],
-    timeout: Option<Duration>,
+    timeout: Duration,
 ) -> PeerNetResult<Duration> {
     let start_time = Instant::now();
     let msg_size: u32 = data.len().try_into().map_err(|_| {
@@ -577,23 +577,20 @@ fn write_exact_timeout(
         );
     }
 
-    // if we don't have a timeout, use the default write timeout
-    let timeout = timeout.unwrap_or(endpoint.config.write_timeout);
-
     let mut write_count = 0;
     while write_count < data.len() {
-        let elapsed = start_time.elapsed();
-        let new_timeout = timeout.saturating_sub(elapsed);
+        let remaining_time = timeout.saturating_sub(start_time.elapsed());
 
-        if elapsed >= timeout || new_timeout.is_zero() {
-            return Err(PeerNetError::SendError.error("send write timeout", None));
+        if remaining_time.is_zero() {
+            return Err(PeerNetError::TimeOut.error("send write timeout", None));
         }
 
         endpoint
             .stream
-            .set_write_timeout(Some(new_timeout))
+            .set_write_timeout(Some(remaining_time))
             .map_err(|e| {
-                PeerNetError::SendError.error("error setting write timeout", Some(e.to_string()))
+                PeerNetError::CouldNotSetTimeout
+                    .error("error setting write timeout", Some(e.to_string()))
             })?;
 
         match endpoint.stream.write(data[write_count..].as_ref()) {
@@ -601,11 +598,9 @@ fn write_exact_timeout(
                 endpoint.shutdown();
                 return Err(PeerNetError::SendError.error("write len = 0", None));
             }
-            Ok(count) => {
-                write_count += count;
-            }
+            Ok(count) => write_count += count,
             Err(err) => {
-                return Err(PeerNetError::SendError.error("error on write", Some(err.to_string())));
+                return Err(PeerNetError::SendError.error("error on write", Some(err.to_string())))
             }
         }
     }

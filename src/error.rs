@@ -21,6 +21,9 @@ pub enum PeerNetError {
     SocketError,
     BoundReached,
     InvalidMessage,
+    CouldNotSetTimeout,
+    ConnectionClosed,
+    TimeOut,
     TransportError(TransportErrorType),
 }
 
