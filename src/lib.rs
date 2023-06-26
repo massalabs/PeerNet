@@ -83,6 +83,8 @@
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,
+//!     read_timeout: Duration::from_secs(10),
+//!     write_timeout: Duration::from_secs(10),
 //! };
 //! // Setup the manager for the first peer
 //! let mut manager: PeerNetManager<
@@ -131,6 +133,8 @@
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,
+//!     read_timeout: Duration::from_secs(10),
+//!     write_timeout: Duration::from_secs(10),
 //! };
 //! // Setup the manager for the second peer
 //! let mut manager2: PeerNetManager<
@@ -153,6 +157,7 @@
 //!     .stop_listener(TransportType::Tcp, format!("127.0.0.1:{port}").parse().unwrap())
 //!    .unwrap();
 //! ```
+// #![feature(tcp_linger)]
 
 pub mod config;
 pub mod context;

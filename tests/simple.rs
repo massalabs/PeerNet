@@ -55,6 +55,8 @@ fn simple() {
             max_in_connections_per_ip: 10,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
 
     let mut manager: PeerNetManager<
@@ -111,6 +113,8 @@ fn simple_no_place() {
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
     let mut manager: PeerNetManager<
         DefaultPeerId,
@@ -165,6 +169,8 @@ fn simple_no_place_after_handshake() {
             max_in_connections_per_ip: 1,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
     let mut manager: PeerNetManager<
         DefaultPeerId,
@@ -215,6 +221,8 @@ fn simple_with_category() {
     };
 
     let config = PeerNetConfiguration {
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
         context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection,
@@ -286,6 +294,8 @@ fn two_peers_tcp() {
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
 
     let mut manager: PeerNetManager<
@@ -324,6 +334,8 @@ fn two_peers_tcp() {
             max_in_connections_per_ip: 2,
         },
         _phantom: std::marker::PhantomData,
+        read_timeout: Duration::from_secs(10),
+        write_timeout: Duration::from_secs(10),
     };
 
     let mut manager2: PeerNetManager<

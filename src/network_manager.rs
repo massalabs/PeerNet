@@ -234,7 +234,11 @@ impl<
                             rate_bucket_size: self.config.rate_bucket_size,
                             data_channel_size: self.config.send_data_channel_size,
                             max_message_size: self.config.max_message_size,
+                            read_timeout: self.config.read_timeout,
+                            write_timeout: self.config.write_timeout,
                         },
+                        read_timeout: self.config.read_timeout,
+                        write_timeout: self.config.write_timeout,
                     })),
                     TransportType::Quic => TransportConfig::Quic(Box::new(QuicTransportConfig {
                         connection_config: QuicConnectionConfig {
@@ -281,7 +285,11 @@ impl<
                             rate_bucket_size: self.config.rate_bucket_size,
                             data_channel_size: self.config.send_data_channel_size,
                             max_message_size: self.config.max_message_size,
+                            read_timeout: self.config.read_timeout,
+                            write_timeout: self.config.write_timeout,
                         },
+                        read_timeout: self.config.read_timeout,
+                        write_timeout: self.config.write_timeout,
                     })),
                     TransportType::Quic => TransportConfig::Quic(Box::new(QuicTransportConfig {
                         connection_config: QuicConnectionConfig {
@@ -325,7 +333,11 @@ impl<
                             rate_bucket_size: self.config.rate_bucket_size,
                             data_channel_size: self.config.send_data_channel_size,
                             max_message_size: self.config.max_message_size,
+                            read_timeout: self.config.read_timeout,
+                            write_timeout: self.config.write_timeout,
                         },
+                        read_timeout: self.config.read_timeout,
+                        write_timeout: self.config.write_timeout,
                     })),
                     TransportType::Quic => TransportConfig::Quic(Box::new(QuicTransportConfig {
                         connection_config: QuicConnectionConfig {
