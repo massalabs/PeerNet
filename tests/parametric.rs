@@ -14,6 +14,8 @@ use util::{DefaultContext, DefaultMessagesHandler, DefaultPeerId};
 
 use rand::Rng;
 
+use crate::util::get_tcp_port;
+
 const ALLOWED_PERC_DIFF: f64 = 0.05;
 
 pub struct TestParameters<R: Rng> {
@@ -36,12 +38,12 @@ impl<R: Rng> TestParameters<R> {
     }
 
     pub fn get_min_time_handshake(&self) -> Duration {
-        let nbytes = (self.misc_data_len + 8 + (2 * 4)) * 2; // Read and write
-        println!("{} {} {:?}", self.rbs, self.rl, self.rtw);
-
-        let mint = (self.rtw / self.rl as u32) * (nbytes as u32);
-        println!("Handshake should take at least {mint:?}");
-        mint
+        let nbytes = (
+            self.misc_data_len +
+                std::mem::size_of::<DefaultPeerId>() +
+                (4 * 4)
+        ) * 4; // Read and write
+        (self.rtw / self.rl as u32) * (nbytes as u32)
     }
 
     pub fn build_config(&mut self, init: Option<DefaultInitConnection>) -> PeerNetCfg {
@@ -50,6 +52,8 @@ impl<R: Rng> TestParameters<R> {
         };
 
         PeerNetConfiguration {
+            read_timeout: 10 * self.get_min_time_handshake(),
+            write_timeout: 10 * self.get_min_time_handshake(),
             optional_features: PeerNetFeatures::default(),
             message_handler: DefaultMessagesHandler {},
             peers_categories: HashMap::default(),
@@ -70,8 +74,7 @@ impl<R: Rng> TestParameters<R> {
             send_data_channel_size: 1000,
             max_message_size: 1048576000,
             default_category_info: PeerNetCategoryInfo {
-                max_in_connections_pre_handshake: 10,
-                max_in_connections_post_handshake: 10,
+                max_in_connections: 10,
                 max_in_connections_per_ip: 10,
             },
             _phantom: std::marker::PhantomData,
@@ -128,6 +131,7 @@ impl InitConnectionHandler<DefaultPeerId, DefaultContext, DefaultMessagesHandler
         endpoint.send::<DefaultPeerId>(&self.misc_data)?;
         let received = endpoint.receive::<DefaultPeerId>()?;
         assert_eq!(received.len(), self.datalen);
+        assert_eq!(received, self.misc_data);
 
         endpoint.send::<DefaultPeerId>(&self.id.id.to_be_bytes())?;
         let remote_id = endpoint.receive::<DefaultPeerId>()?;
@@ -140,12 +144,11 @@ impl InitConnectionHandler<DefaultPeerId, DefaultContext, DefaultMessagesHandler
 
 #[test]
 fn handshake_with_limiter() {
-    fn test_handshake<T: Rng>(npar: usize, rng: T) {
+    fn test_handshake<T: Rng>(rng: T) {
         let mut test_parameters = TestParameters::generate(rng);
         let config: PeerNetCfg = test_parameters.build_config(None);
         let config2: PeerNetCfg =
             test_parameters.build_config(Some(config.init_connection_handler.clone()));
-        let base_port = 8090;
         let exp_min_time = test_parameters.get_min_time_handshake();
         if exp_min_time > Duration::from_secs(5) {
             return;
@@ -158,7 +161,8 @@ fn handshake_with_limiter() {
             DefaultMessagesHandler,
         > = PeerNetManager::new(config);
 
-        let port = base_port + npar;
+        let port = get_tcp_port(1024..u16::MAX);
+
         manager
             .start_listener(
                 TransportType::Tcp,
@@ -188,8 +192,9 @@ fn handshake_with_limiter() {
             // Timeout if takes too long
             assert!(
                 now.elapsed() < (exp_min_time * 10).max(Duration::from_secs(10)),
-                "Took {:?}",
-                now.elapsed()
+                "Took {:?}, should have taken {:?}",
+                now.elapsed(),
+                exp_min_time,
             );
         }
         if now.elapsed() < exp_min_time {

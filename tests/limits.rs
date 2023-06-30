@@ -441,7 +441,7 @@ fn max_message_size() {
     let config = PeerNetConfiguration {
         read_timeout: Duration::from_secs(10),
         write_timeout: Duration::from_secs(10),
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
@@ -536,7 +536,7 @@ fn send_timeout() {
     let config = PeerNetConfiguration {
         read_timeout: Duration::from_secs(10),
         write_timeout: Duration::from_secs(10),
-        context: context,
+        context,
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),

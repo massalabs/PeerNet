@@ -137,20 +137,12 @@ impl TcpEndpoint {
             .shutdown(std::net::Shutdown::Both);
     }
 
-    pub fn get_bytes_received(&self) -> u64 {
-        *self.endpoint_bytes_received.read()
-    }
-
     pub fn get_bytes_sent(&self) -> u64 {
         *self.endpoint_bytes_sent.read()
     }
 
     pub fn get_bytes_received(&self) -> u64 {
         *self.endpoint_bytes_received.read()
-    }
-
-    pub fn get_bytes_sent(&self) -> u64 {
-        *self.endpoint_bytes_sent.read()
     }
 }
 
@@ -561,6 +553,7 @@ fn read_exact_timeout(
         }
 
         endpoint
+            .stream_limiter
             .stream
             .set_read_timeout(Some(remaining_time))
             .map_err(|e| {
@@ -568,7 +561,7 @@ fn read_exact_timeout(
                     .error("error setting read timeout", Some(e.to_string()))
             })?;
 
-        match endpoint.stream.read(&mut data[total_read..]) {
+        match endpoint.stream_limiter.stream.read(&mut data[total_read..]) {
             Ok(0) => {
                 endpoint.shutdown();
                 return Err(PeerNetError::ConnectionClosed.error("Receive data read len = 0", None));
@@ -593,6 +586,7 @@ fn write_exact_timeout(
     let msg_size: u32 = data.len().try_into().map_err(|_| {
         PeerNetError::SendError.error("error with send len", Some(format!("{:?}", data.len())))
     })?;
+    println!("Write {msg_size} bytes");
 
     if msg_size > endpoint.config.max_message_size as u32 {
         return Err(
@@ -609,6 +603,7 @@ fn write_exact_timeout(
         }
 
         endpoint
+            .stream_limiter
             .stream
             .set_write_timeout(Some(remaining_time))
             .map_err(|e| {
@@ -616,7 +611,7 @@ fn write_exact_timeout(
                     .error("error setting write timeout", Some(e.to_string()))
             })?;
 
-        match endpoint.stream.write(data[write_count..].as_ref()) {
+        match endpoint.stream_limiter.write(data[write_count..].as_ref()) {
             Ok(0) => {
                 endpoint.shutdown();
                 return Err(PeerNetError::SendError.error("write len = 0", None));
