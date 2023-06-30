@@ -38,11 +38,7 @@ impl<R: Rng> TestParameters<R> {
     }
 
     pub fn get_min_time_handshake(&self) -> Duration {
-        let nbytes = (
-            self.misc_data_len +
-                std::mem::size_of::<DefaultPeerId>() +
-                (4 * 4)
-        ) * 4; // Read and write
+        let nbytes = (self.misc_data_len + std::mem::size_of::<DefaultPeerId>() + (4 * 4)) * 4; // Read and write
         (self.rtw / self.rl as u32) * (nbytes as u32)
     }
 
@@ -202,10 +198,10 @@ fn handshake_with_limiter() {
             let expt = exp_min_time.as_nanos();
             assert!(
                 (expt - elapsedn) as f64 / (expt as f64) < ALLOWED_PERC_DIFF,
-                "Took {:?} > {exp_min_time:?}", now.elapsed(),
+                "Took {:?} > {exp_min_time:?}",
+                now.elapsed(),
             );
         }
-
 
         manager
             .stop_listener(

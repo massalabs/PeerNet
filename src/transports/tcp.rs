@@ -578,7 +578,7 @@ fn read_exact_timeout(
             Err(e) => {
                 log::error!("error read data stream: {e:?}");
                 return Err(PeerNetError::ReceiveError
-                    .error("error read data stream", Some(format!("{:?}", e))))
+                    .error("error read data stream", Some(format!("{:?}", e))));
             }
         }
     }
@@ -632,7 +632,7 @@ fn write_exact_timeout(
             Ok(count) => write_count += count,
             Err(err) => {
                 log::error!("error on write: {:?}", err);
-                return Err(PeerNetError::SendError.error("error on write", Some(err.to_string())))
+                return Err(PeerNetError::SendError.error("error on write", Some(err.to_string())));
             }
         }
     }
