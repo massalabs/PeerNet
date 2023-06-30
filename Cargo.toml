@@ -15,6 +15,7 @@ mio = { version = "0.8", features = ["os-poll", "net"] }
 serde = { version = "1.0", features = ["derive"] }
 stream_limiter = { git = "https://github.com/massalabs/stream_limiter", branch = "improve_limiter" } #path = "../stream_limiter"} #"2.0.0"
 thiserror = "1.0.39"
+log = "0.4.19"
 
 [dev-dependencies]
 serde_json = "1.0.95"
