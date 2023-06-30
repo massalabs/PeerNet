@@ -77,7 +77,7 @@ pub struct TcpConnectionConfig {
 impl From<TcpConnectionConfig> for LimiterOptions {
     fn from(val: TcpConnectionConfig) -> Self {
         let mut opts = LimiterOptions::new(val.rate_limit, val.rate_time_window, val.rate_bucket_size);
-        opts.set_min_operation_size(60 * 1024);
+        opts.set_min_operation_size(60 * 1024);    // Min packet size for TCP: 60 Kb
         opts
     }
 }
