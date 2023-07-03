@@ -561,6 +561,9 @@ fn read_exact_timeout(
             return Err(PeerNetError::TimeOut.error("timeout read data", None));
         }
 
+        if let Some(ref mut opts) = endpoint.stream_limiter.read_opt {
+            opts.set_timeout(remaining_time);
+        }
         endpoint
             .stream_limiter
             .stream
@@ -616,6 +619,9 @@ fn write_exact_timeout(
             return Err(PeerNetError::TimeOut.error("send write timeout", None));
         }
 
+        if let Some(ref mut opts) = endpoint.stream_limiter.write_opt {
+            opts.set_timeout(remaining_time);
+        }
         endpoint
             .stream_limiter
             .stream

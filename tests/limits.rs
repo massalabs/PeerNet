@@ -54,7 +54,7 @@ fn check_multiple_connection_refused() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
@@ -94,7 +94,7 @@ fn check_multiple_connection_refused() {
         optional_features: PeerNetFeatures::default(),
         message_handler: DefaultMessagesHandler {},
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         peers_categories: HashMap::default(),
@@ -131,7 +131,7 @@ fn check_multiple_connection_refused() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
@@ -178,7 +178,7 @@ fn check_too_much_in_refuse() {
         context,
         max_in_connections: 1,
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
@@ -219,7 +219,7 @@ fn check_too_much_in_refuse() {
         init_connection_handler: DefaultInitConnection {},
         optional_features: PeerNetFeatures::default(),
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         message_handler: DefaultMessagesHandler {},
@@ -260,7 +260,7 @@ fn check_too_much_in_refuse() {
         message_handler: DefaultMessagesHandler {},
         peers_categories: HashMap::default(),
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         default_category_info: PeerNetCategoryInfo {
@@ -317,7 +317,7 @@ fn check_multiple_connection_refused_in_category() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
@@ -355,7 +355,7 @@ fn check_multiple_connection_refused_in_category() {
         max_in_connections: 10,
         init_connection_handler: DefaultInitConnection {},
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         send_data_channel_size: 1000,
@@ -393,7 +393,7 @@ fn check_multiple_connection_refused_in_category() {
         context: context3,
         max_in_connections: 10,
         max_message_size: 1048576000,
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         rate_time_window: Duration::from_secs(1),
         init_connection_handler: DefaultInitConnection {},
@@ -448,7 +448,7 @@ fn max_message_size() {
         message_handler: DefaultMessagesHandler {},
         max_message_size: 40,
         rate_time_window: Duration::from_secs(1),
-        rate_bucket_size: 10000,
+        rate_bucket_size: 60 * 1024,
         rate_limit: 10000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
@@ -481,7 +481,7 @@ fn max_message_size() {
     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
         config: TcpConnectionConfig {
             rate_time_window: Duration::from_secs(1),
-            rate_bucket_size: 10000,
+            rate_bucket_size: 60 * 1024,
             rate_limit: 10000,
             data_channel_size: 1000,
             max_message_size: 10,
@@ -543,8 +543,8 @@ fn send_timeout() {
         message_handler: DefaultMessagesHandler {},
         max_message_size: 9000000,
         rate_time_window: Duration::from_secs(1),
-        rate_bucket_size: 10000,
-        rate_limit: 100,
+        rate_bucket_size: 60 * 1024,
+        rate_limit: 1000,
         peers_categories: HashMap::default(),
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
@@ -577,7 +577,7 @@ fn send_timeout() {
     let _endpoint = Endpoint::Tcp(TcpEndpoint {
         config: TcpConnectionConfig {
             rate_time_window: Duration::from_secs(1),
-            rate_bucket_size: 10000,
+            rate_bucket_size: 60 * 1024,
             rate_limit: 100,
             data_channel_size: 1000,
             max_message_size: 9000000,
@@ -602,6 +602,7 @@ fn send_timeout() {
             .endpoint
             .send_timeout::<DefaultPeerId>(&[0; 9000000], Duration::from_millis(200));
         let err = result.unwrap_err();
+        println!("Err: {:?}", err);
         assert!(err.to_string().contains("timeout"));
         break;
     }

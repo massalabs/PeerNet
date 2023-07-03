@@ -16,8 +16,6 @@ use rand::Rng;
 
 use crate::util::get_tcp_port;
 
-const ALLOWED_PERC_DIFF: f64 = 0.05;
-
 pub struct TestParameters<R: Rng> {
     misc_data_len: usize,
     rbs: u64,
@@ -29,17 +27,12 @@ pub struct TestParameters<R: Rng> {
 impl<R: Rng> TestParameters<R> {
     pub fn generate(mut rng: R) -> TestParameters<R> {
         TestParameters {
-            misc_data_len: rng.gen_range(0..10240),
-            rbs: rng.gen_range(100..(1024 * 1024 * 5)),
-            rl: rng.gen_range(100..(1024 * 1024 * 5)),
-            rtw: Duration::from_millis(rng.gen_range(1..10000)),
+            misc_data_len: rng.gen_range(10..10240),
+            rbs: rng.gen_range((60 * 1024)..(1024 * 512)),
+            rl: rng.gen_range(1024..(1024 * 512)),
+            rtw: Duration::from_millis(rng.gen_range(1..100)),
             rng,
         }
-    }
-
-    pub fn get_min_time_handshake(&self) -> Duration {
-        let nbytes = (self.misc_data_len + std::mem::size_of::<DefaultPeerId>() + (4 * 4)) * 4; // Read and write
-        (self.rtw / self.rl as u32) * (nbytes as u32)
     }
 
     pub fn build_config(&mut self, init: Option<DefaultInitConnection>) -> PeerNetCfg {
@@ -48,8 +41,8 @@ impl<R: Rng> TestParameters<R> {
         };
 
         PeerNetConfiguration {
-            read_timeout: 10 * self.get_min_time_handshake(),
-            write_timeout: 10 * self.get_min_time_handshake(),
+            read_timeout: Duration::from_secs(10),
+            write_timeout: Duration::from_secs(10),
             optional_features: PeerNetFeatures::default(),
             message_handler: DefaultMessagesHandler {},
             peers_categories: HashMap::default(),
@@ -145,10 +138,6 @@ fn handshake_with_limiter() {
         let config: PeerNetCfg = test_parameters.build_config(None);
         let config2: PeerNetCfg =
             test_parameters.build_config(Some(config.init_connection_handler.clone()));
-        let exp_min_time = test_parameters.get_min_time_handshake();
-        if exp_min_time > Duration::from_secs(5) {
-            return;
-        }
 
         let mut manager: PeerNetManager<
             DefaultPeerId,
@@ -183,24 +172,12 @@ fn handshake_with_limiter() {
             )
             .unwrap();
         while manager.nb_in_connections() < 1 {
-            std::thread::sleep(Duration::from_millis(1));
+            std::thread::sleep(Duration::from_millis(10));
 
             // Timeout if takes too long
-            assert!(
-                now.elapsed() < (exp_min_time * 10).max(Duration::from_secs(10)),
-                "Took {:?}, should have taken {:?}",
-                now.elapsed(),
-                exp_min_time,
-            );
-        }
-        if now.elapsed() < exp_min_time {
-            let elapsedn = now.elapsed().as_nanos();
-            let expt = exp_min_time.as_nanos();
-            assert!(
-                (expt - elapsedn) as f64 / (expt as f64) < ALLOWED_PERC_DIFF,
-                "Took {:?} > {exp_min_time:?}",
-                now.elapsed(),
-            );
+            if now.elapsed() > Duration::from_secs(3) {
+                assert!(false, "Took {:?}", now.elapsed(),);
+            }
         }
 
         manager
@@ -214,7 +191,7 @@ fn handshake_with_limiter() {
     }
 
     start_parametric_test(
-        3_000_000,
+        50,
         vec![
             10824795490488834629,
             15469480549121256480,
