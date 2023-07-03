@@ -174,7 +174,6 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
         data: &[u8],
         timeout: Duration,
     ) -> PeerNetResult<()> {
-        println!("Transports send timeout");
         match endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send_timeout(endpoint, data, timeout),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send_timeout(endpoint, data, timeout),

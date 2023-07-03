@@ -654,7 +654,6 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
         data: &[u8],
         timeout: Duration,
     ) -> PeerNetResult<()> {
-        println!("Quic send timeout");
         endpoint
             .data_sender
             .send_timeout(QuicInternalMessage::Data(data.to_vec()), timeout)

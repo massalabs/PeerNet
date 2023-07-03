@@ -142,6 +142,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
     }
 
     pub fn remove_connection(&mut self, id: &Id) {
+        println!("Removing connection from: {:?}", id);
         if let Some(mut connection) = self.connections.remove(id) {
             connection.shutdown();
             self.compute_counters();
