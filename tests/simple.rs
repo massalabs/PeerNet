@@ -53,6 +53,7 @@ fn simple() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
             max_in_connections_per_ip: 10,
+            max_out_connections: 10
         },
         _phantom: std::marker::PhantomData,
         read_timeout: Duration::from_secs(10),
@@ -111,6 +112,7 @@ fn simple_no_place() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 0,
             max_in_connections_per_ip: 1,
+            max_out_connections: 1,
         },
         _phantom: std::marker::PhantomData,
         read_timeout: Duration::from_secs(10),
@@ -167,6 +169,7 @@ fn simple_no_place_after_handshake() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 0,
             max_in_connections_per_ip: 1,
+            max_out_connections: 1,
         },
         _phantom: std::marker::PhantomData,
         read_timeout: Duration::from_secs(10),
@@ -213,6 +216,7 @@ fn simple_with_category() {
             PeerNetCategoryInfo {
                 max_in_connections: 10,
                 max_in_connections_per_ip: 10,
+                max_out_connections: 10,
             },
         ),
     );
@@ -237,6 +241,7 @@ fn simple_with_category() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
             max_in_connections_per_ip: 0,
+            max_out_connections: 10,
         },
         _phantom: std::marker::PhantomData,
     };
@@ -292,6 +297,7 @@ fn two_peers_tcp() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
             max_in_connections_per_ip: 2,
+            max_out_connections: 10,
         },
         _phantom: std::marker::PhantomData,
         read_timeout: Duration::from_secs(10),
@@ -332,6 +338,7 @@ fn two_peers_tcp() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 10,
             max_in_connections_per_ip: 2,
+            max_out_connections: 10,
         },
         _phantom: std::marker::PhantomData,
         read_timeout: Duration::from_secs(10),

@@ -78,6 +78,7 @@ fn two_peers_tcp_with_one_message() {
             max_in_connections_pre_handshake: 10,
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
+            max_out_connections: 10,
         },
     };
     let mut manager = PeerNetManager::new(config);
@@ -98,6 +99,7 @@ fn two_peers_tcp_with_one_message() {
             max_in_connections_pre_handshake: 10,
             max_in_connections_post_handshake: 10,
             max_in_connections_per_ip: 2,
+            max_out_connections: 10,
         },
     };
     let mut manager2 = PeerNetManager::new(config);
