@@ -62,7 +62,7 @@ fn check_multiple_connection_refused() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 1,
             max_in_connections_per_ip: 1,
-            max_out_connections: 10
+            max_out_connections: 10,
         },
         _phantom: std::marker::PhantomData,
     };
@@ -313,7 +313,7 @@ fn check_multiple_connection_refused_in_category() {
             PeerNetCategoryInfo {
                 max_in_connections: 1,
                 max_in_connections_per_ip: 1,
-                max_out_connections: 1
+                max_out_connections: 1,
             },
         ),
     );
@@ -334,7 +334,7 @@ fn check_multiple_connection_refused_in_category() {
         default_category_info: PeerNetCategoryInfo {
             max_in_connections: 0,
             max_in_connections_per_ip: 0,
-            max_out_connections: 0
+            max_out_connections: 0,
         },
         _phantom: std::marker::PhantomData,
     };

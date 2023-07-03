@@ -82,7 +82,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
         id: &Id,
-        connection_type: PeerConnectionType
+        connection_type: PeerConnectionType,
     ) -> bool {
         let mut nb_connection_for_this_ip = 0;
         let mut nb_connection_for_this_category = 0;
@@ -125,7 +125,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
             category_name.clone(),
             category_info,
             &id,
-            connection_type
+            connection_type,
         ) {
             self.connections.insert(
                 id,
