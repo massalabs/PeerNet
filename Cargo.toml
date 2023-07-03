@@ -7,14 +7,18 @@ edition = "2021"
 # https://github.com/rust-lang/socket2/issues/378
 [dependencies]
 parking_lot = "0.12"
-rand = "0.8"
+rand = { version = "0.8", features = ["default", "small_rng"] }
 crossbeam = "0.8"
 quiche = "0.16"
 enum_delegate = "0.2.0"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 serde = { version = "1.0", features = ["derive"] }
-stream_limiter = "2.0.0"
+stream_limiter = "3.2.0"
 thiserror = "1.0.39"
+log = "0.4.19"
 
 [dev-dependencies]
 serde_json = "1.0.95"
+
+[features]
+heavy_testing = []
