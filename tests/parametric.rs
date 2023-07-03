@@ -65,6 +65,7 @@ impl<R: Rng> TestParameters<R> {
             default_category_info: PeerNetCategoryInfo {
                 max_in_connections: 10,
                 max_in_connections_per_ip: 10,
+                max_out_connections: 10,
             },
             _phantom: std::marker::PhantomData,
             context,
