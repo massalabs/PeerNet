@@ -20,6 +20,7 @@ pub const RATE_LIMIT: u64 = u64::MAX; //1024 * 1024 * 120; // 120 Mo / sec
 pub struct PeerNetCategoryInfo {
     pub max_in_connections: usize,
     pub max_in_connections_per_ip: usize,
+    pub max_out_connections: usize,
 }
 
 pub type PeerNetCategories = HashMap<String, (Vec<IpAddr>, PeerNetCategoryInfo)>;
@@ -83,6 +84,7 @@ impl<
             default_category_info: PeerNetCategoryInfo {
                 max_in_connections: 0,
                 max_in_connections_per_ip: 0,
+                max_out_connections: 0,
             },
             rate_time_window: Duration::from_secs(1),
             rate_bucket_size: RATE_LIMIT.saturating_mul(3),

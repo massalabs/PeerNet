@@ -333,6 +333,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                                                 PeerNetCategoryInfo {
                                                     max_in_connections_per_ip: 0,
                                                     max_in_connections: 0,
+                                                    max_out_connections: 0,
                                                 },
                                             );
                                         }
@@ -599,6 +600,7 @@ impl<Id: PeerId> Transport<Id> for QuicTransport<Id> {
                         PeerNetCategoryInfo {
                             max_in_connections_per_ip: 0,
                             max_in_connections: 0,
+                            max_out_connections: 0,
                         },
                     );
                     drop(wg);

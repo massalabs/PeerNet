@@ -82,6 +82,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
         category_name: Option<String>,
         category_info: PeerNetCategoryInfo,
         id: &Id,
+        connection_type: PeerConnectionType,
     ) -> bool {
         let mut nb_connection_for_this_ip = 0;
         let mut nb_connection_for_this_category = 0;
@@ -90,7 +91,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
             return false;
         }
         for connection in self.connections.values() {
-            if connection.connection_type == PeerConnectionType::IN {
+            if connection.connection_type == connection_type {
                 let connection_ip = to_canonical(connection.endpoint.get_target_addr().ip());
                 // Check if a connection is already established with the same IP
                 if connection_ip == ip {
@@ -102,8 +103,12 @@ impl<Id: PeerId> ActiveConnections<Id> {
                 }
             }
         }
-        nb_connection_for_this_ip < category_info.max_in_connections_per_ip
-            && nb_connection_for_this_category < category_info.max_in_connections
+        let category_check = if connection_type == PeerConnectionType::IN {
+            nb_connection_for_this_category < category_info.max_in_connections
+        } else {
+            nb_connection_for_this_category < category_info.max_out_connections
+        };
+        nb_connection_for_this_ip < category_info.max_in_connections_per_ip && category_check
     }
 
     pub fn confirm_connection(
@@ -120,6 +125,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
             category_name.clone(),
             category_info,
             &id,
+            connection_type,
         ) {
             self.connections.insert(
                 id,

@@ -80,6 +80,7 @@
 //!     peers_categories: HashMap::default(),
 //!     default_category_info: PeerNetCategoryInfo {
 //!         max_in_connections: 10,
+//!         max_out_connections: 10,
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,
@@ -130,6 +131,7 @@
 //!     peers_categories: HashMap::default(),
 //!     default_category_info: PeerNetCategoryInfo {
 //!         max_in_connections: 10,
+//!         max_out_connections: 10,
 //!         max_in_connections_per_ip: 10,
 //!     },
 //!     _phantom: std::marker::PhantomData,
