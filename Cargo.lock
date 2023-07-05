@@ -261,7 +261,6 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "stream_limiter",
  "thiserror",
 ]
 
@@ -423,12 +422,6 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
-name = "stream_limiter"
-version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89acdb288f530d175bbeb1344aab11cfa0e0ee5b4e63d75c204001568dcf90cf"
 
 [[package]]
 name = "syn"

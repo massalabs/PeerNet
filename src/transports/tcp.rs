@@ -21,7 +21,6 @@ use crossbeam::sync::WaitGroup;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
-use stream_limiter::{Limiter, LimiterOptions};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TcpError {
@@ -74,14 +73,14 @@ pub struct TcpConnectionConfig {
     pub read_timeout: Duration,
 }
 
-impl From<TcpConnectionConfig> for LimiterOptions {
-    fn from(val: TcpConnectionConfig) -> Self {
-        let mut opts =
-            LimiterOptions::new(val.rate_limit, val.rate_time_window, val.rate_bucket_size);
-        opts.set_min_operation_size(60 * 1024); // Min packet size for TCP: 60 Kb
-        opts
-    }
-}
+// impl From<TcpConnectionConfig> for LimiterOptions {
+//     fn from(val: TcpConnectionConfig) -> Self {
+//         let mut opts =
+//             LimiterOptions::new(val.rate_limit, val.rate_time_window, val.rate_bucket_size);
+//         opts.set_min_operation_size(60 * 1024); // Min packet size for TCP: 60 Kb
+//         opts
+//     }
+// }
 
 impl Default for TcpConnectionConfig {
     fn default() -> Self {
