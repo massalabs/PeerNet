@@ -101,7 +101,7 @@ impl Default for TcpConnectionConfig {
 pub struct TcpEndpoint {
     pub config: TcpConnectionConfig,
     pub address: SocketAddr,
-    pub stream_limiter: Limiter<TcpStream>,
+    pub stream_limiter: TcpStream, //Limiter<TcpStream>,
     // shared between all endpoints
     pub total_bytes_received: Arc<RwLock<u64>>,
     // shared between all endpoints
@@ -116,15 +116,15 @@ impl TcpEndpoint {
     pub fn try_clone(&self) -> PeerNetResult<Self> {
         Ok(TcpEndpoint {
             address: self.address,
-            stream_limiter: Limiter::new(
-                self.stream_limiter.stream.try_clone().map_err(|err| {
+            stream_limiter: self.stream_limiter.try_clone().map_err(|err| { //Limiter::new(
+                // self.stream_limiter.stream.try_clone().map_err(|err| {
                     TcpError::ConnectionError
                         .wrap()
                         .new("cannot clone stream", err, None)
-                })?,
-                Some(self.config.clone().into()),
-                Some(self.config.clone().into()),
-            ),
+                // })?,
+                // Some(self.config.clone().into()),
+                // Some(self.config.clone().into()),
+            })?,
             config: self.config.clone(),
             total_bytes_received: self.total_bytes_received.clone(),
             total_bytes_sent: self.total_bytes_sent.clone(),
@@ -136,7 +136,7 @@ impl TcpEndpoint {
     pub fn shutdown(&mut self) {
         let _ = self
             .stream_limiter
-            .stream
+            // .stream
             .shutdown(std::net::Shutdown::Both);
     }
 
@@ -278,11 +278,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
 
                                     let mut endpoint = Endpoint::Tcp(TcpEndpoint {
                                         address,
-                                        stream_limiter: Limiter::new(
-                                            stream,
-                                            Some(config.connection_config.clone().into()),
-                                            Some(config.connection_config.clone().into()),
-                                        ),
+                                        stream_limiter: stream, //Limiter::new(
+                                        //     stream,
+                                        //     Some(config.connection_config.clone().into()),
+                                        //     Some(config.connection_config.clone().into()),
+                                        // ),
                                         config: config.connection_config.clone(),
                                         total_bytes_received: total_bytes_received.clone(),
                                         total_bytes_sent: total_bytes_sent.clone(),
@@ -379,11 +379,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         )
                     })?;
                     set_tcp_stream_config(&stream, &config);
-                    let stream_limiter = Limiter::new(
-                        stream,
-                        Some(config.connection_config.clone().into()),
-                        Some(config.connection_config.clone().into()),
-                    );
+                    let stream_limiter = stream; //Limiter::new(
+                    //     stream,
+                    //     Some(config.connection_config.clone().into()),
+                    //     Some(config.connection_config.clone().into()),
+                    // );
                     let ip_canonical = to_canonical(address.ip());
                     let (category_name, category_info) = match config
                         .peer_categories
@@ -561,12 +561,12 @@ fn read_exact_timeout(
             return Err(PeerNetError::TimeOut.error("timeout read data", None));
         }
 
-        if let Some(ref mut opts) = endpoint.stream_limiter.read_opt {
-            opts.set_timeout(remaining_time);
-        }
+        // if let Some(ref mut opts) = endpoint.stream_limiter.read_opt {
+        //     opts.set_timeout(remaining_time);
+        // }
         endpoint
             .stream_limiter
-            .stream
+            // .stream
             .set_read_timeout(Some(remaining_time))
             .map_err(|e| {
                 log::error!("error setting read timeout: {e:?}");
@@ -574,7 +574,7 @@ fn read_exact_timeout(
                     .error("error setting read timeout", Some(e.to_string()))
             })?;
 
-        match endpoint.stream_limiter.stream.read(&mut data[total_read..]) {
+        match endpoint.stream_limiter.read(&mut data[total_read..]) {
             Ok(0) => {
                 endpoint.shutdown();
                 log::error!("error reading: len = 0");
@@ -619,12 +619,12 @@ fn write_exact_timeout(
             return Err(PeerNetError::TimeOut.error("send write timeout", None));
         }
 
-        if let Some(ref mut opts) = endpoint.stream_limiter.write_opt {
-            opts.set_timeout(remaining_time);
-        }
+        // if let Some(ref mut opts) = endpoint.stream_limiter.write_opt {
+        //     opts.set_timeout(remaining_time);
+        // }
         endpoint
             .stream_limiter
-            .stream
+            // .stream
             .set_write_timeout(Some(remaining_time))
             .map_err(|e| {
                 log::error!("error setting write timeout: {:?}", e);
