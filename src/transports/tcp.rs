@@ -298,7 +298,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         ) {
                                             active_connections
                                                 .connection_queue
-                                                .push((address, category_name.clone()));
+                                                .insert(address);
                                             active_connections.compute_counters();
                                             None
                                         } else {
@@ -370,6 +370,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let total_bytes_sent = self.total_bytes_sent.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
+                    active_connections.write().connection_queue.insert(address);
                     let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         log::error!("try_connect stream connect: {err:?}");
                         TcpError::ConnectionError.wrap().new(
