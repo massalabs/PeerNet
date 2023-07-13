@@ -2,6 +2,7 @@
 //!
 //! It is the entry point of the library and is used to create and manage the transports and the peers.
 
+use std::collections::HashSet;
 use std::net::IpAddr;
 use std::thread::JoinHandle;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
@@ -29,7 +30,7 @@ pub struct ActiveConnections<Id: PeerId> {
     pub nb_in_connections: usize,
     pub nb_out_connections: usize,
     /// Peers attempting to connect but not yet finished initialization
-    pub connection_queue: Vec<(SocketAddr, Option<String>)>,
+    pub connection_queue: HashSet<SocketAddr>,
     pub connections: HashMap<Id, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
@@ -201,7 +202,7 @@ impl<
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_out_connections: 0,
             nb_in_connections: 0,
-            connection_queue: vec![],
+            connection_queue: HashSet::new(),
             connections: Default::default(),
             listeners: Default::default(),
         }));

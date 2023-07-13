@@ -163,7 +163,7 @@ pub(crate) fn new_peer<
                     let mut write_active_connections = active_connections.write();
                     write_active_connections
                         .connection_queue
-                        .retain(|(addr, _)| addr != endpoint.get_target_addr());
+                        .retain(|addr| addr != endpoint.get_target_addr());
                     write_active_connections.compute_counters();
                 }
                 return;
@@ -183,7 +183,7 @@ pub(crate) fn new_peer<
                     let mut write_active_connections = active_connections.write();
                     write_active_connections
                     .connection_queue
-                    .retain(|(addr, _)| addr != endpoint.get_target_addr());
+                    .retain(|addr| addr != endpoint.get_target_addr());
                     write_active_connections.remove_connection(&peer_id);
                 }
                 return;
@@ -195,7 +195,7 @@ pub(crate) fn new_peer<
 
             let mut write_active_connections = active_connections.write();
             write_active_connections.connection_queue
-            .retain(|(addr, _)| addr != endpoint.get_target_addr());
+            .retain(|addr| addr != endpoint.get_target_addr());
             // if peer_id == PeerId::from_public_key(self_keypair.get_public_key()) || !active_connections.write().confirm_connection(
             if peer_id == id || !write_active_connections.confirm_connection(
                 peer_id.clone(),
