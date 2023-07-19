@@ -263,7 +263,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             continue;
                                         }
                                     };
-                                    dbg!("new connection from {}", &address);
                                     set_tcp_stream_config(&stream, &config);
                                     let ip_canonical = to_canonical(address.ip());
                                     let (category_name, category_info) = match config
@@ -307,7 +306,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         }
                                     };
                                     if let Some(listeners) = listeners {
-                                        dbg!("call fallback");
                                         if let Err(err) = init_connection_handler.fallback_function(
                                             &context,
                                             &mut endpoint,
@@ -387,7 +385,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                     }) {
                         Err(e) => {
                             active_connections.write().connection_queue.remove(&address);
-                            dbg!(e);
+                            Err(e)
                         }
                         Ok(stream) => {
                             set_tcp_stream_config(&stream, &config);
