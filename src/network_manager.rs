@@ -73,6 +73,9 @@ impl<Id: PeerId> ActiveConnections<Id> {
                 }
             }
         }
+
+        dbg!(nb_connection_for_this_ip, nb_connection_for_this_category);
+
         nb_connection_for_this_ip < category_info.max_in_connections_per_ip
             && nb_connection_for_this_category < category_info.max_in_connections
     }
@@ -109,6 +112,12 @@ impl<Id: PeerId> ActiveConnections<Id> {
         } else {
             nb_connection_for_this_category < category_info.max_out_connections
         };
+        dbg!(
+            nb_connection_for_this_ip,
+            nb_connection_for_this_category,
+            category_check
+        );
+
         nb_connection_for_this_ip < category_info.max_in_connections_per_ip && category_check
     }
 
