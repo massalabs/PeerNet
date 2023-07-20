@@ -313,6 +313,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         ) {
                                             log::error!("Error while sending fallback to address {}, err:{}", address, err)
                                         }
+                                        let mut active_connections = active_connections.write();
+                                        active_connections
+                                        .connection_queue
+                                        .remove(&address);
                                         continue;
                                     }
                                     new_peer(
@@ -371,50 +375,59 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let wg = self.out_connection_attempts.clone();
                 move || {
                     active_connections.write().connection_queue.insert(address);
-                    let stream = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
+                    match TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         log::error!("try_connect stream connect: {err:?}");
                         TcpError::ConnectionError.wrap().new(
                             "try_connect stream connect",
                             err,
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
-                    })?;
-                    set_tcp_stream_config(&stream, &config);
-                    let stream_limiter = Limiter::new(
-                        stream,
-                        Some(config.connection_config.clone().into()),
-                        Some(config.connection_config.clone().into()),
-                    );
-                    let ip_canonical = to_canonical(address.ip());
-                    let (category_name, category_info) = match config
-                        .peer_categories
-                        .iter()
-                        .find(|(_, info)| info.0.contains(&ip_canonical))
-                    {
-                        Some((category_name, info)) => (Some(category_name.clone()), info.1),
-                        None => (None, config.default_category_info),
-                    };
-                    new_peer(
-                        context.clone(),
-                        Endpoint::Tcp(TcpEndpoint {
-                            address,
-                            stream_limiter,
-                            config: config.connection_config.clone(),
-                            total_bytes_received: total_bytes_received.clone(),
-                            total_bytes_sent: total_bytes_sent.clone(),
-                            endpoint_bytes_received: Arc::new(RwLock::new(0)),
-                            endpoint_bytes_sent: Arc::new(RwLock::new(0)),
-                        }),
-                        handshake_handler.clone(),
-                        message_handler.clone(),
-                        active_connections.clone(),
-                        peer_stop_rx,
-                        PeerConnectionType::OUT,
-                        category_name,
-                        category_info,
-                    );
-                    drop(wg);
-                    Ok(())
+                    }) {
+                        Err(e) => {
+                            active_connections.write().connection_queue.remove(&address);
+                            Err(e)
+                        }
+                        Ok(stream) => {
+                            set_tcp_stream_config(&stream, &config);
+                            let stream_limiter = Limiter::new(
+                                stream,
+                                Some(config.connection_config.clone().into()),
+                                Some(config.connection_config.clone().into()),
+                            );
+                            let ip_canonical = to_canonical(address.ip());
+                            let (category_name, category_info) = match config
+                                .peer_categories
+                                .iter()
+                                .find(|(_, info)| info.0.contains(&ip_canonical))
+                            {
+                                Some((category_name, info)) => {
+                                    (Some(category_name.clone()), info.1)
+                                }
+                                None => (None, config.default_category_info),
+                            };
+                            new_peer(
+                                context.clone(),
+                                Endpoint::Tcp(TcpEndpoint {
+                                    address,
+                                    stream_limiter,
+                                    config: config.connection_config.clone(),
+                                    total_bytes_received: total_bytes_received.clone(),
+                                    total_bytes_sent: total_bytes_sent.clone(),
+                                    endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                                    endpoint_bytes_sent: Arc::new(RwLock::new(0)),
+                                }),
+                                handshake_handler.clone(),
+                                message_handler.clone(),
+                                active_connections.clone(),
+                                peer_stop_rx,
+                                PeerConnectionType::OUT,
+                                category_name,
+                                category_info,
+                            );
+                            drop(wg);
+                            Ok(())
+                        }
+                    }
                 }
             })
             .expect("Failed to spawn thread tcp_try_connect"))
