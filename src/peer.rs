@@ -231,7 +231,8 @@ pub(crate) fn new_peer<
             move || loop {
                 match high_write_rx.try_recv() {
                     Ok(data) => {
-                        if write_endpoint.send::<Id>(&data).is_err() {
+                        if let Err(e) = write_endpoint.send::<Id>(&data) {
+                            dbg!("TIM error sending data on high prio:", &e);
                             {
                                 let mut write_active_connections = write_active_connections.write();
                                 write_active_connections.remove_connection(&write_peer_id);
@@ -252,7 +253,8 @@ pub(crate) fn new_peer<
                     recv(low_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if write_endpoint.send::<Id>(&data).is_err() {
+                                if let Err(e) = write_endpoint.send::<Id>(&data) {
+                                    dbg!("TIM error sending data on low prio:", &e);
                                     {
                                         let mut write_active_connections = write_active_connections.write();
                                         write_active_connections.remove_connection(&write_peer_id);
@@ -268,7 +270,8 @@ pub(crate) fn new_peer<
                     recv(high_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if write_endpoint.send::<Id>(&data).is_err() {
+                                if let Err(e) = write_endpoint.send::<Id>(&data) {
+                                    dbg!("TIM error sending data on high prio (2):", &e);
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();
@@ -298,6 +301,7 @@ pub(crate) fn new_peer<
                         // but in the second case we need to remove it. We have no possibilities to know which case we are in
                         // so we just try to remove it and ignore the error if it's not there.
                         {
+                            dbg!("TIM     receive data is empty");
                             let mut write_active_connections = active_connections.write();
                             write_active_connections.remove_connection(&peer_id);
                         }
@@ -312,8 +316,9 @@ pub(crate) fn new_peer<
                         }
                     }
                 }
-                Err(_) => {
+                Err(e) => {
                     {
+                        dbg!("TIM     receive error:", &e);
                         let mut write_active_connections = active_connections.write();
                         write_active_connections.remove_connection(&peer_id);
                     }

@@ -501,7 +501,7 @@ fn max_message_size() {
         }
         .into(),
         address: format!("127.0.0.1:{port}").parse().unwrap(),
-        stream_limiter: Limiter::new(stream, None, None),
+        stream_limiter: stream, //Limiter::new(stream, None, None),
         total_bytes_received: Arc::new(RwLock::new(0)),
         total_bytes_sent: Arc::new(RwLock::new(0)),
         endpoint_bytes_received: Arc::new(RwLock::new(0)),
@@ -598,7 +598,7 @@ fn send_timeout() {
         }
         .into(),
         address: format!("127.0.0.1:{port}").parse().unwrap(),
-        stream_limiter: Limiter::new(stream, None, None),
+        stream_limiter: stream, //Limiter::new(stream, None, None),
         total_bytes_received: Arc::new(RwLock::new(0)),
         total_bytes_sent: Arc::new(RwLock::new(0)),
         endpoint_bytes_received: Arc::new(RwLock::new(0)),
