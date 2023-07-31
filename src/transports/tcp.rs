@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::io::{Read, Write, ErrorKind};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -568,7 +568,6 @@ fn read_exact_timeout(
 ) -> PeerNetResult<Duration> {
     let start_time = Instant::now();
     let mut total_read: usize = 0;
-    endpoint.stream_limiter.stream.set_nonblocking(false).unwrap();
     while total_read < data.len() {
         let remaining_time = timeout.saturating_sub(start_time.elapsed());
         if remaining_time.is_zero() {
@@ -589,8 +588,6 @@ fn read_exact_timeout(
                     .error("error setting read timeout", Some(e.to_string()))
             })?;
 
-        let tstart = std::time::Instant::now();
-
         match endpoint.stream_limiter.read(&mut data[total_read..]) {
             Ok(0) => {
                 endpoint.shutdown();
@@ -598,12 +595,20 @@ fn read_exact_timeout(
                 return Err(PeerNetError::ConnectionClosed.error("Receive data read len = 0", None));
             }
             Ok(n) => total_read += n,
-            Err(e) => {
-                dbg!("TIM Timeout is", &remaining_time);
-                dbg!("TIM Got data read after some time", tstart.elapsed());
-                log::error!("error read data stream: {e:?}");
-                return Err(PeerNetError::ReceiveError
-                    .error("error read data stream", Some(format!("{:?}", e))));
+            Err(err) => {
+                match err.kind() {
+                    // Handle timeout error for both Unix and Windows.
+                    ErrorKind::WouldBlock | ErrorKind::TimedOut => {
+                        continue;
+                    },
+                    // Handle other IO errors.
+                    _ => {
+                        dbg!("TIM    Error", &err);
+                        log::error!("error read data stream: {err:?}");
+                        return Err(PeerNetError::ReceiveError
+                            .error("error read data stream", Some(format!("{:?}", err))));
+                    },
+                }
             }
         }
     }
