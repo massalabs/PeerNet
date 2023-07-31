@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -588,17 +588,26 @@ fn read_exact_timeout(
                     .error("error setting read timeout", Some(e.to_string()))
             })?;
 
-        match endpoint.stream_limiter.stream.read(&mut data[total_read..]) {
+        match endpoint.stream_limiter.read(&mut data[total_read..]) {
             Ok(0) => {
                 endpoint.shutdown();
                 log::error!("error reading: len = 0");
                 return Err(PeerNetError::ConnectionClosed.error("Receive data read len = 0", None));
             }
             Ok(n) => total_read += n,
-            Err(e) => {
-                log::error!("error read data stream: {e:?}");
-                return Err(PeerNetError::ReceiveError
-                    .error("error read data stream", Some(format!("{:?}", e))));
+            Err(err) => {
+                match err.kind() {
+                    // Handle timeout error for both Unix and Windows.
+                    ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted => {
+                        continue;
+                    }
+                    // Handle other IO errors.
+                    _ => {
+                        log::error!("error read data stream: {err:?}");
+                        return Err(PeerNetError::ReceiveError
+                            .error("error read data stream", Some(format!("{:?}", err))));
+                    }
+                }
             }
         }
     }

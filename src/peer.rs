@@ -312,7 +312,10 @@ pub(crate) fn new_peer<
                         }
                     }
                 }
-                Err(_) => {
+                Err(e) => {
+                    if e.error_type == PeerNetError::TimeOut {
+                        continue;
+                    }
                     {
                         let mut write_active_connections = active_connections.write();
                         write_active_connections.remove_connection(&peer_id);
