@@ -184,7 +184,7 @@ pub(crate) fn new_peer<
                     write_active_connections
                     .connection_queue
                     .retain(|addr| addr != endpoint.get_target_addr());
-                    log::info!("TIM    Remove because error when try_cloning endpoint {err:?}");
+                    dbg!("TIM Remove because error when try_cloning endpoint {err:?}");
                     write_active_connections.remove_connection(&peer_id);
                 }
                 return;
@@ -224,7 +224,7 @@ pub(crate) fn new_peer<
                     println!("Error while cloning endpoint: {:?}", err);
                     {
                         let mut write_active_connections = write_active_connections.write();
-                        log::info!("TIM    Remove because error when try_cloning endpoint {err:?} (writing thread)");
+                        dbg!("TIM Remove because error when try_cloning endpoint {err:?} (writing thread)");
                         write_active_connections.remove_connection(&write_peer_id);
                     }
                     return;
@@ -236,7 +236,7 @@ pub(crate) fn new_peer<
                         if let Err(e) = write_endpoint.send::<Id>(&data) {
                             {
                                 let mut write_active_connections = write_active_connections.write();
-                                log::info!("TIM    Remove because error in RX High prio 1 {e:?}");
+                                dbg!("TIM Remove because error in RX High prio 1 {e:?}");
                                 write_active_connections.remove_connection(&write_peer_id);
                             }
                             break;
@@ -258,7 +258,7 @@ pub(crate) fn new_peer<
                                 if let Err(e) = write_endpoint.send::<Id>(&data) {
                                     {
                                         let mut write_active_connections = write_active_connections.write();
-                                        log::info!("TIM    Remove because error in RX low prio {e:?}");
+                                        dbg!("TIM Remove because error in RX low prio {e:?}");
                                         write_active_connections.remove_connection(&write_peer_id);
                                     }
                                     break;
@@ -276,7 +276,7 @@ pub(crate) fn new_peer<
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();
-                                        log::info!("TIM    Remove because error in RX high prio 2 {e:?}");
+                                        dbg!("TIM Remove because error in RX high prio 2 {e:?}");
                                         write_active_connections.remove_connection(&write_peer_id);
                                     }
                                     break;
@@ -303,7 +303,7 @@ pub(crate) fn new_peer<
                         // but in the second case we need to remove it. We have no possibilities to know which case we are in
                         // so we just try to remove it and ignore the error if it's not there.
                         {
-                            log::info!("TIM    Remove because data is empty");
+                            dbg!("TIM Remove because data is empty");
                             let mut write_active_connections = active_connections.write();
                             write_active_connections.remove_connection(&peer_id);
                         }
@@ -313,7 +313,7 @@ pub(crate) fn new_peer<
                     if let Err(err) = message_handler.handle(&data, &peer_id) {
                         println!("Error handling message: {:?}", err);
                         {
-                            log::info!("TIM    Remove because of handling message error {err:?}");
+                            dbg!("TIM Remove because of handling message error {err:?}");
                             let mut write_active_connections = active_connections.write();
                             write_active_connections.remove_connection(&peer_id);
                         }
@@ -321,7 +321,7 @@ pub(crate) fn new_peer<
                 }
                 Err(e) => {
                     {
-                        log::info!("TIM    Remove because of receiver error {e:?}");
+                        dbg!("TIM Remove because of receiver error {e:?}");
                         let mut write_active_connections = active_connections.write();
                         write_active_connections.remove_connection(&peer_id);
                     }
