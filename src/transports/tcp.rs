@@ -568,6 +568,7 @@ fn read_exact_timeout(
 ) -> PeerNetResult<Duration> {
     let start_time = Instant::now();
     let mut total_read: usize = 0;
+    endpoint.stream_limiter.stream.set_nonblocking(false).unwrap();
     while total_read < data.len() {
         let remaining_time = timeout.saturating_sub(start_time.elapsed());
         if remaining_time.is_zero() {
@@ -598,11 +599,8 @@ fn read_exact_timeout(
             }
             Ok(n) => total_read += n,
             Err(e) => {
-                endpoint.stream_limiter.stream.set_nonblocking(false).unwrap();
-                dbg!("TIM Set nonblocking to false, trying another loop");
-                continue;
-                // dbg!("TIM Timeout is", &remaining_time);
-                // dbg!("TIM Got data read after some time", tstart.elapsed());
+                dbg!("TIM Timeout is", &remaining_time);
+                dbg!("TIM Got data read after some time", tstart.elapsed());
                 log::error!("error read data stream: {e:?}");
                 return Err(PeerNetError::ReceiveError
                     .error("error read data stream", Some(format!("{:?}", e))));
