@@ -18,6 +18,14 @@ pub enum Endpoint {
 }
 
 impl Endpoint {
+    pub fn print_debug_info(&self) {
+        if let Endpoint::Tcp(TcpEndpoint { config, address, stream_limiter, ..}) = self {
+            dbg!("Config: {config:?}");
+            dbg!("Address: {address:?}");
+            dbg!("Stream: {stream_limiter:?}");
+        }
+    }
+    
     pub fn get_target_addr(&self) -> &std::net::SocketAddr {
         match self {
             Endpoint::Tcp(TcpEndpoint { address, .. }) => address,

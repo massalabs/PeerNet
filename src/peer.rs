@@ -319,6 +319,7 @@ pub(crate) fn new_peer<
                 Err(e) => {
                     {
                         dbg!("TIM     receive error:", &e);
+                        endpoint.print_debug_infos();
                         let mut write_active_connections = active_connections.write();
                         write_active_connections.remove_connection(&peer_id);
                     }
