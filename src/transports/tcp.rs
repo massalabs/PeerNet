@@ -590,7 +590,7 @@ fn read_exact_timeout(
 
         let tstart = std::time::Instant::now();
 
-        match endpoint.stream_limiter.stream.read(&mut data[total_read..]) {
+        match endpoint.stream_limiter.read(&mut data[total_read..]) {
             Ok(0) => {
                 dbg!("TIM Timeout is", &remaining_time);
                 dbg!("TIM Got len = 0 after some time", tstart.elapsed());
