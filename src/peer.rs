@@ -320,6 +320,9 @@ pub(crate) fn new_peer<
                     }
                 }
                 Err(e) => {
+                    if e.error_type == PeerNetError::TimeOut {
+                        continue;
+                    }
                     {
                         dbg!("TIM Remove because of receiver error", e);
                         let mut write_active_connections = active_connections.write();
