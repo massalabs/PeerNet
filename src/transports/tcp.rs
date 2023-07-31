@@ -592,16 +592,17 @@ fn read_exact_timeout(
 
         match endpoint.stream_limiter.read(&mut data[total_read..]) {
             Ok(0) => {
-                dbg!("TIM Timeout is", &remaining_time);
-                dbg!("TIM Got len = 0 after some time", tstart.elapsed());
                 endpoint.shutdown();
                 log::error!("error reading: len = 0");
                 return Err(PeerNetError::ConnectionClosed.error("Receive data read len = 0", None));
             }
             Ok(n) => total_read += n,
             Err(e) => {
-                dbg!("TIM Timeout is", &remaining_time);
-                dbg!("TIM Got data read after some time", tstart.elapsed());
+                endpoint.stream_limiter.stream.set_nonblocking(false).unwrap();
+                dbg!("TIM Set nonblocking to false, trying another loop");
+                continue;
+                // dbg!("TIM Timeout is", &remaining_time);
+                // dbg!("TIM Got data read after some time", tstart.elapsed());
                 log::error!("error read data stream: {e:?}");
                 return Err(PeerNetError::ReceiveError
                     .error("error read data stream", Some(format!("{:?}", e))));
