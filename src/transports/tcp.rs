@@ -598,7 +598,7 @@ fn read_exact_timeout(
             Err(err) => {
                 match err.kind() {
                     // Handle timeout error for both Unix and Windows.
-                    ErrorKind::WouldBlock | ErrorKind::TimedOut => {
+                    ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted => {
                         continue;
                     },
                     // Handle other IO errors.
