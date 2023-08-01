@@ -512,10 +512,15 @@ fn max_message_size() {
 
     let handle = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(200));
-        for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
+        if let Some((_peer_id, conn)) = manager
+            .active_connections
+            .write()
+            .connections
+            .iter_mut()
+            .next()
+        {
             // send msg with 20 bytes length
             conn.endpoint.send::<DefaultPeerId>(&[0; 20]).unwrap();
-            break;
         }
         manager
     });
@@ -606,7 +611,13 @@ fn send_timeout() {
     std::thread::sleep(std::time::Duration::from_secs(1));
     assert!(manager.nb_in_connections().eq(&1));
 
-    for (_peer_id, conn) in manager.active_connections.write().connections.iter_mut() {
+    if let Some((_peer_id, conn)) = manager
+        .active_connections
+        .write()
+        .connections
+        .iter_mut()
+        .next()
+    {
         // send msg with large data that trigger the timeout
         let result = conn
             .endpoint
@@ -614,7 +625,6 @@ fn send_timeout() {
         let err = result.unwrap_err();
         println!("Err: {:?}", err);
         assert!(err.to_string().contains("timeout"));
-        break;
     }
 
     manager
