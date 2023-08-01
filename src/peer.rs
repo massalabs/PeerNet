@@ -231,7 +231,7 @@ pub(crate) fn new_peer<
             move || loop {
                 match high_write_rx.try_recv() {
                     Ok(data) => {
-                        if let Err(_) = write_endpoint.send::<Id>(&data) {
+                        if write_endpoint.send::<Id>(&data).is_err() {
                             {
                                 let mut write_active_connections = write_active_connections.write();
                                 write_active_connections.remove_connection(&write_peer_id);
@@ -252,7 +252,7 @@ pub(crate) fn new_peer<
                     recv(low_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if let Err(_) = write_endpoint.send::<Id>(&data) {
+                                if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections = write_active_connections.write();
                                         write_active_connections.remove_connection(&write_peer_id);
@@ -268,7 +268,7 @@ pub(crate) fn new_peer<
                     recv(high_write_rx) -> msg => {
                         match msg {
                             Ok(data) => {
-                                if let Err(_) = write_endpoint.send::<Id>(&data) {
+                                if write_endpoint.send::<Id>(&data).is_err() {
                                     {
                                         let mut write_active_connections =
                                             write_active_connections.write();

@@ -80,9 +80,9 @@ pub type PeerNetCfg = PeerNetConfiguration<
     DefaultMessagesHandler,
 >;
 
-impl<R: Rng> Into<PeerNetCfg> for &mut TestParameters<R> {
-    fn into(self) -> PeerNetCfg {
-        self.build_config(None)
+impl<R: Rng> From<&mut TestParameters<R>> for PeerNetCfg {
+    fn from(val: &mut TestParameters<R>) -> Self {
+        val.build_config(None)
     }
 }
 
@@ -177,7 +177,7 @@ fn handshake_with_limiter() {
 
             // Timeout if takes too long
             if now.elapsed() > Duration::from_secs(3) {
-                assert!(false, "Took {:?}", now.elapsed(),);
+                panic!("Took {:?}", now.elapsed());
             }
         }
 
@@ -188,7 +188,7 @@ fn handshake_with_limiter() {
             )
             .unwrap();
         println!("Done");
-        println!("");
+        println!();
     }
 
     start_parametric_test(
