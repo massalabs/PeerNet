@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{Read, Write, ErrorKind};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -600,14 +600,13 @@ fn read_exact_timeout(
                     // Handle timeout error for both Unix and Windows.
                     ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted => {
                         continue;
-                    },
+                    }
                     // Handle other IO errors.
                     _ => {
-                        dbg!("TIM    Error", &err);
                         log::error!("error read data stream: {err:?}");
                         return Err(PeerNetError::ReceiveError
                             .error("error read data stream", Some(format!("{:?}", err))));
-                    },
+                    }
                 }
             }
         }
