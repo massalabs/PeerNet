@@ -246,6 +246,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
                                             .count() +  read_active_connections
                                             .connection_queue.len();
+                                        println!("AURELIEN: total_in_connections: {}", total_in_connections);
                                         if total_in_connections >= config.max_in_connections {
                                             continue;
                                         }

@@ -73,7 +73,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
                 }
             }
         }
-
+        println!("AURELIEN: category {:?}, nb_connection_for_this_ip: {}, nb_connection_for_this_category: {}, max_in_connections_per_ip: {}, max_in_connections_per_category: {}", category_name, nb_connection_for_this_ip, nb_connection_for_this_category, category_info.max_in_connections_per_ip, category_info.max_in_connections);
         nb_connection_for_this_ip < category_info.max_in_connections_per_ip
             && nb_connection_for_this_category < category_info.max_in_connections
     }
@@ -105,6 +105,7 @@ impl<Id: PeerId> ActiveConnections<Id> {
                 }
             }
         }
+        println!("AURELIEN: category {:?} connection_type: {:?}, nb_connection_for_this_ip: {}, nb_connection_for_this_category: {}, max_in_connections_per_ip: {}, max_in_connections_per_category: {}, max_out_connections_per_category: {}", category_name, connection_type, nb_connection_for_this_ip, nb_connection_for_this_category, category_info.max_in_connections_per_ip, category_info.max_in_connections, category_info.max_out_connections);
         let category_check = if connection_type == PeerConnectionType::IN {
             nb_connection_for_this_category < category_info.max_in_connections
         } else {
