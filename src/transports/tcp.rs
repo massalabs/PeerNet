@@ -233,6 +233,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         poll.poll(&mut events, None).unwrap_or_else(|_| {
                             panic!("Can't poll TCP transport of address {}", address)
                         });
+                        println!("AURELIEN: loop");
 
                         // Process each event.
                         for event in events.iter() {
