@@ -299,15 +299,15 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                     });
                                     let listeners = {
                                         let mut active_connections = active_connections.write();
+                                        active_connections
+                                        .connection_queue
+                                        .insert(address);
                                         if active_connections.check_addr_accepted_pre_handshake(
                                             &address,
                                             category_name.clone(),
                                             category_info,
                                         ) {
                                             println!("AURELIEN: accepted");
-                                            active_connections
-                                                .connection_queue
-                                                .insert(address);
                                             active_connections.compute_counters();
                                             None
                                         } else {
@@ -384,7 +384,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let total_bytes_sent = self.total_bytes_sent.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
-                    active_connections.write().connection_queue.insert(address);
                     match TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         log::error!("try_connect stream connect: {err:?}");
                         TcpError::ConnectionError.wrap().new(
@@ -394,7 +393,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         )
                     }) {
                         Err(e) => {
-                            active_connections.write().connection_queue.remove(&address);
                             Err(e)
                         }
                         Ok(stream) => {
