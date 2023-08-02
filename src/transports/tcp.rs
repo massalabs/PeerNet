@@ -247,6 +247,12 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
                                             .count() +  read_active_connections
                                             .connection_queue.len();
+                                        println!("AURELIEN: connections in queue: {}", read_active_connections.connection_queue.len());
+                                        println!("AURELIEN: connections in active: {}", read_active_connections
+                                        .connections
+                                        .iter()
+                                        .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
+                                        .count());
                                         println!("AURELIEN: total_in_connections: {}", total_in_connections);
                                         if total_in_connections >= config.max_in_connections {
                                             continue;
@@ -298,12 +304,14 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             category_name.clone(),
                                             category_info,
                                         ) {
+                                            println!("AURELIEN: accepted");
                                             active_connections
                                                 .connection_queue
                                                 .insert(address);
                                             active_connections.compute_counters();
                                             None
                                         } else {
+                                            println!("AURELIEN: fallback");
                                             Some(active_connections.listeners.clone())
                                         }
                                     };
