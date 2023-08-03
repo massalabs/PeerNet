@@ -237,8 +237,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
 
                         // Process each event.
                         for event in events.iter() {
+                            println!("AURELIEN: loop event");
                             match event.token() {
                                 NEW_CONNECTION => {
+                                    println!("AURELIEN: new connections");
                                     {
                                         let read_active_connections = active_connections.read();
                                         let total_in_connections = read_active_connections
@@ -343,6 +345,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                     );
                                 }
                                 STOP_LISTENER => {
+                                    println!("AURELIEN: stop listener");
                                     peer_stop_tx.send(()).unwrap();
                                     return Ok(());
                                 }
