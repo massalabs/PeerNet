@@ -215,6 +215,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                     let server = TcpListener::bind(address).unwrap_or_else(|_| {
                         panic!("Can't bind TCP transport to address {}", address)
                     });
+                    server.set_nonblocking(true).unwrap_or_else(|_| {
+                        panic!("Can't set TCP transport to non-blocking mode for address {}", address)
+                    });
                     let mut mio_server = MioTcpListener::from_std(
                         server.try_clone().expect("Unable to clone server socket"),
                     );
@@ -233,103 +236,102 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         poll.poll(&mut events, None).unwrap_or_else(|_| {
                             panic!("Can't poll TCP transport of address {}", address)
                         });
-
                         // Process each event.
                         for event in events.iter() {
                             match event.token() {
                                 NEW_CONNECTION => {
-                                    {
-                                        let read_active_connections = active_connections.read();
-                                        let total_in_connections = read_active_connections
-                                            .connections
+                                    loop {
+                                        let (stream, address) = match server.accept() {
+                                            Ok((stream, address)) => (stream, address),
+                                            Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                                                break;
+                                            }
+                                            Err(e) => {
+                                                log::error!("Error accepting connection: {:?}", e);
+                                                continue;
+                                            }
+                                        };
+                                        {
+                                            let read_active_connections = active_connections.read();
+                                            let total_in_connections = read_active_connections
+                                                .connections
+                                                .iter()
+                                                .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
+                                                .count() +  read_active_connections
+                                                .in_connection_queue.len();
+                                            if total_in_connections >= config.max_in_connections {
+                                                continue;
+                                            }
+                                        }
+                                        set_tcp_stream_config(&stream, &config);
+                                        let ip_canonical = to_canonical(address.ip());
+                                        let (category_name, category_info) = match config
+                                            .peer_categories
                                             .iter()
-                                            .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
-                                            .count() +  read_active_connections
-                                            .connection_queue.len();
-                                        if total_in_connections >= config.max_in_connections {
-                                            continue;
-                                        }
-                                    }
-                                    let (stream, address) = match server.accept().map_err(|err| {
-                                        TcpError::ConnectionError.wrap().new(
-                                            "listener accept",
-                                            err,
-                                            None,
-                                        )
-                                    }) {
-                                        Ok((stream, address)) => (stream, address),
-                                        Err(err) => {
-                                            log::error!("Error accepting connection: {:?}", err);
-                                            continue;
-                                        }
-                                    };
-                                    set_tcp_stream_config(&stream, &config);
-                                    let ip_canonical = to_canonical(address.ip());
-                                    let (category_name, category_info) = match config
-                                        .peer_categories
-                                        .iter()
-                                        .find(|(_, info)| info.0.contains(&ip_canonical))
-                                    {
-                                        Some((category_name, info)) => {
-                                            (Some(category_name.clone()), info.1)
-                                        }
-                                        None => (None, config.default_category_info),
-                                    };
+                                            .find(|(_, info)| info.0.contains(&ip_canonical))
+                                        {
+                                            Some((category_name, info)) => {
+                                                (Some(category_name.clone()), info.1)
+                                            }
+                                            None => (None, config.default_category_info),
+                                        };
 
-                                    let mut endpoint = Endpoint::Tcp(TcpEndpoint {
-                                        address,
-                                        stream_limiter: Limiter::new(
-                                            stream,
-                                            Some(config.connection_config.clone().into()),
-                                            Some(config.connection_config.clone().into()),
-                                        ),
-                                        config: config.connection_config.clone(),
-                                        total_bytes_received: total_bytes_received.clone(),
-                                        total_bytes_sent: total_bytes_sent.clone(),
-                                        endpoint_bytes_received: Arc::new(RwLock::new(0)),
-                                        endpoint_bytes_sent: Arc::new(RwLock::new(0)),
-                                    });
-                                    let listeners = {
-                                        let mut active_connections = active_connections.write();
-                                        if active_connections.check_addr_accepted_pre_handshake(
-                                            &address,
-                                            category_name.clone(),
-                                            category_info,
-                                        ) {
+                                        let mut endpoint = Endpoint::Tcp(TcpEndpoint {
+                                            address,
+                                            stream_limiter: Limiter::new(
+                                                stream,
+                                                Some(config.connection_config.clone().into()),
+                                                Some(config.connection_config.clone().into()),
+                                            ),
+                                            config: config.connection_config.clone(),
+                                            total_bytes_received: total_bytes_received.clone(),
+                                            total_bytes_sent: total_bytes_sent.clone(),
+                                            endpoint_bytes_received: Arc::new(RwLock::new(0)),
+                                            endpoint_bytes_sent: Arc::new(RwLock::new(0)),
+                                        });
+                                        let listeners = {
+                                            let mut active_connections = active_connections.write();
                                             active_connections
-                                                .connection_queue
-                                                .insert(address);
-                                            active_connections.compute_counters();
-                                            None
-                                        } else {
-                                            Some(active_connections.listeners.clone())
+                                            .in_connection_queue
+                                            .insert(address);
+                                            if active_connections.check_addr_accepted_pre_handshake(
+                                                &address,
+                                                category_name.clone(),
+                                                category_info,
+                                            ) {
+                                                active_connections.compute_counters();
+                                                None
+                                            } else {
+                                                Some(active_connections.listeners.clone())
+                                            }
+                                        };
+                                        if let Some(listeners) = listeners {
+                                            if let Err(err) = init_connection_handler.fallback_function(
+                                                &context,
+                                                &mut endpoint,
+                                                &listeners,
+                                            ) {
+                                                log::error!("Error while sending fallback to address {}, err:{}", address, err)
+                                            }
+                                            //TODO: Wait end of thread to remove connection from queue
+                                            let mut active_connections = active_connections.write();
+                                            active_connections
+                                            .in_connection_queue
+                                            .remove(&address);
+                                            continue;
                                         }
-                                    };
-                                    if let Some(listeners) = listeners {
-                                        if let Err(err) = init_connection_handler.fallback_function(
-                                            &context,
-                                            &mut endpoint,
-                                            &listeners,
-                                        ) {
-                                            log::error!("Error while sending fallback to address {}, err:{}", address, err)
-                                        }
-                                        let mut active_connections = active_connections.write();
-                                        active_connections
-                                        .connection_queue
-                                        .remove(&address);
-                                        continue;
+                                        new_peer(
+                                            context.clone(),
+                                            endpoint,
+                                            init_connection_handler.clone(),
+                                            message_handler.clone(),
+                                            active_connections.clone(),
+                                            peer_stop_rx.clone(),
+                                            PeerConnectionType::IN,
+                                            category_name,
+                                            category_info,
+                                        );
                                     }
-                                    new_peer(
-                                        context.clone(),
-                                        endpoint,
-                                        init_connection_handler.clone(),
-                                        message_handler.clone(),
-                                        active_connections.clone(),
-                                        peer_stop_rx.clone(),
-                                        PeerConnectionType::IN,
-                                        category_name,
-                                        category_info,
-                                    );
                                 }
                                 STOP_LISTENER => {
                                     peer_stop_tx.send(()).unwrap();
@@ -374,7 +376,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let total_bytes_sent = self.total_bytes_sent.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
-                    active_connections.write().connection_queue.insert(address);
+                    active_connections
+                        .write()
+                        .out_connection_queue
+                        .insert(address);
                     match TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         log::error!("try_connect stream connect: {err:?}");
                         TcpError::ConnectionError.wrap().new(
@@ -384,7 +389,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         )
                     }) {
                         Err(e) => {
-                            active_connections.write().connection_queue.remove(&address);
+                            active_connections
+                                .write()
+                                .out_connection_queue
+                                .remove(&address);
                             Err(e)
                         }
                         Ok(stream) => {
