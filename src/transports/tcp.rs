@@ -229,12 +229,12 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             )
                         });
                     loop {
+                        println!("AURELIEN: loop1");
                         // Poll Mio for events, blocking until we get an event.
                         poll.poll(&mut events, None).unwrap_or_else(|_| {
                             panic!("Can't poll TCP transport of address {}", address)
                         });
-                        println!("AURELIEN: loop");
-
+                        println!("AURELIEN: loop2");
                         // Process each event.
                         for event in events.iter() {
                             println!("AURELIEN: loop event");
