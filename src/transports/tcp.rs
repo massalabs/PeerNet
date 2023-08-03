@@ -376,7 +376,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let total_bytes_sent = self.total_bytes_sent.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
-                    active_connections.write().out_connection_queue.insert(address);
+                    active_connections
+                        .write()
+                        .out_connection_queue
+                        .insert(address);
                     match TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         log::error!("try_connect stream connect: {err:?}");
                         TcpError::ConnectionError.wrap().new(
@@ -386,7 +389,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         )
                     }) {
                         Err(e) => {
-                            active_connections.write().out_connection_queue.remove(&address);
+                            active_connections
+                                .write()
+                                .out_connection_queue
+                                .remove(&address);
                             Err(e)
                         }
                         Ok(stream) => {
