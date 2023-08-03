@@ -248,11 +248,11 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         let (stream, address) = match server.accept() {
                                             Ok((stream, address)) => (stream, address),
                                             Err(e) if e.kind() == ErrorKind::WouldBlock => {
-                                                continue;
+                                                break;
                                             }
                                             Err(e) => {
                                                 log::error!("Error accepting connection: {:?}", e);
-                                                break;
+                                                continue;
                                             }
                                         };
                                         {
