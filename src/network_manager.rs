@@ -30,7 +30,8 @@ pub struct ActiveConnections<Id: PeerId> {
     pub nb_in_connections: usize,
     pub nb_out_connections: usize,
     /// Peers attempting to connect but not yet finished initialization
-    pub connection_queue: HashSet<SocketAddr>,
+    pub in_connection_queue: HashSet<SocketAddr>,
+    pub out_connection_queue: HashSet<SocketAddr>,
     pub connections: HashMap<Id, PeerConnection>,
     pub listeners: HashMap<SocketAddr, TransportType>,
 }
@@ -73,7 +74,6 @@ impl<Id: PeerId> ActiveConnections<Id> {
                 }
             }
         }
-        println!("AURELIEN: category {:?}, nb_connection_for_this_ip: {}, nb_connection_for_this_category: {}, max_in_connections_per_ip: {}, max_in_connections_per_category: {}", category_name, nb_connection_for_this_ip, nb_connection_for_this_category, category_info.max_in_connections_per_ip, category_info.max_in_connections);
         nb_connection_for_this_ip < category_info.max_in_connections_per_ip
             && nb_connection_for_this_category < category_info.max_in_connections
     }
@@ -105,7 +105,6 @@ impl<Id: PeerId> ActiveConnections<Id> {
                 }
             }
         }
-        println!("AURELIEN: category {:?} connection_type: {:?}, nb_connection_for_this_ip: {}, nb_connection_for_this_category: {}, max_in_connections_per_ip: {}, max_in_connections_per_category: {}, max_out_connections_per_category: {}", category_name, connection_type, nb_connection_for_this_ip, nb_connection_for_this_category, category_info.max_in_connections_per_ip, category_info.max_in_connections, category_info.max_out_connections);
         let category_check = if connection_type == PeerConnectionType::IN {
             nb_connection_for_this_category < category_info.max_in_connections
         } else {
@@ -205,7 +204,8 @@ impl<
         let active_connections = Arc::new(RwLock::new(ActiveConnections {
             nb_out_connections: 0,
             nb_in_connections: 0,
-            connection_queue: HashSet::new(),
+            in_connection_queue: HashSet::new(),
+            out_connection_queue: HashSet::new(),
             connections: Default::default(),
             listeners: Default::default(),
         }));

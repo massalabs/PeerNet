@@ -232,19 +232,15 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                             )
                         });
                     loop {
-                        println!("AURELIEN: loop1");
                         // Poll Mio for events, blocking until we get an event.
                         poll.poll(&mut events, None).unwrap_or_else(|_| {
                             panic!("Can't poll TCP transport of address {}", address)
                         });
-                        println!("AURELIEN: loop2");
                         // Process each event.
                         for event in events.iter() {
-                            println!("AURELIEN: loop event");
                             match event.token() {
                                 NEW_CONNECTION => {
                                     loop {
-                                        println!("AURELIEN: new connections");
                                         let (stream, address) = match server.accept() {
                                             Ok((stream, address)) => (stream, address),
                                             Err(e) if e.kind() == ErrorKind::WouldBlock => {
@@ -262,16 +258,8 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                                 .iter()
                                                 .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
                                                 .count() +  read_active_connections
-                                                .connection_queue.len();
-                                            println!("AURELIEN: connections in queue: {}", read_active_connections.connection_queue.len());
-                                            println!("AURELIEN: connections in active: {}", read_active_connections
-                                            .connections
-                                            .iter()
-                                            .filter(|(_, connection)| connection.connection_type == PeerConnectionType::IN)
-                                            .count());
-                                            println!("AURELIEN: total_in_connections: {}", total_in_connections);
+                                                .in_connection_queue.len();
                                             if total_in_connections >= config.max_in_connections {
-                                                println!("AURELIEN: max_in_connections reached");
                                                 continue;
                                             }
                                         }
@@ -304,18 +292,16 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                         let listeners = {
                                             let mut active_connections = active_connections.write();
                                             active_connections
-                                            .connection_queue
+                                            .in_connection_queue
                                             .insert(address);
                                             if active_connections.check_addr_accepted_pre_handshake(
                                                 &address,
                                                 category_name.clone(),
                                                 category_info,
                                             ) {
-                                                println!("AURELIEN: accepted");
                                                 active_connections.compute_counters();
                                                 None
                                             } else {
-                                                println!("AURELIEN: fallback");
                                                 Some(active_connections.listeners.clone())
                                             }
                                         };
@@ -330,7 +316,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                             //TODO: Wait end of thread to remove connection from queue
                                             let mut active_connections = active_connections.write();
                                             active_connections
-                                            .connection_queue
+                                            .in_connection_queue
                                             .remove(&address);
                                             continue;
                                         }
@@ -348,7 +334,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                     }
                                 }
                                 STOP_LISTENER => {
-                                    println!("AURELIEN: stop listener");
                                     peer_stop_tx.send(()).unwrap();
                                     return Ok(());
                                 }
@@ -391,7 +376,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let total_bytes_sent = self.total_bytes_sent.clone();
                 let wg = self.out_connection_attempts.clone();
                 move || {
-                    active_connections.write().connection_queue.insert(address);
+                    active_connections.write().out_connection_queue.insert(address);
                     match TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         log::error!("try_connect stream connect: {err:?}");
                         TcpError::ConnectionError.wrap().new(
@@ -401,7 +386,7 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         )
                     }) {
                         Err(e) => {
-                            active_connections.write().connection_queue.remove(&address);
+                            active_connections.write().out_connection_queue.remove(&address);
                             Err(e)
                         }
                         Ok(stream) => {
