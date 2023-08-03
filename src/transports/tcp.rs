@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{Error, ErrorKind, Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -215,7 +215,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                     let server = TcpListener::bind(address).unwrap_or_else(|_| {
                         panic!("Can't bind TCP transport to address {}", address)
                     });
-                    server.set_nonblocking(true).unwrap();
+                    server.set_nonblocking(true).unwrap_or_else(|_| {
+                        panic!("Can't set TCP transport to non-blocking mode for address {}", address)
+                    });
                     let mut mio_server = MioTcpListener::from_std(
                         server.try_clone().expect("Unable to clone server socket"),
                     );
