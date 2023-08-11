@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -18,7 +18,7 @@ use super::{Transport, TransportErrorType};
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
-use mio::net::TcpListener as MioTcpListener;
+use mio::net::TcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
 use stream_limiter::{Limiter, LimiterOptions};
@@ -212,15 +212,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let peer_stop_tx = self.peer_stop_tx.clone();
                 let config = self.config.clone();
                 move || {
-                    let std_server = TcpListener::bind(address).unwrap_or_else(|_| {
+                    let mut server = TcpListener::bind(address).unwrap_or_else(|_| {
                         panic!("Can't bind TCP transport to address {}", address)
                     });
-                    std_server.set_nonblocking(true).unwrap_or_else(|_| {
-                        panic!("Can't set TCP transport to non-blocking mode for address {}", address)
-                    });
-                    let mut server = MioTcpListener::from_std(
-                        std_server.try_clone().expect("Unable to clone server socket"),
-                    );
 
                     // Start listening for incoming connections.
                     poll.registry()
@@ -255,7 +249,6 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                                 continue;
                                             }
                                         };
-                                        
                                         {
                                             let read_active_connections = active_connections.read();
                                             let total_in_connections = read_active_connections
