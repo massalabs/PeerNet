@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -18,7 +18,7 @@ use super::{Transport, TransportErrorType};
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use crossbeam::sync::WaitGroup;
-use mio::net::TcpListener as MioTcpListener;
+use mio::net::TcpListener;
 use mio::{Events, Interest, Poll, Token, Waker};
 use parking_lot::RwLock;
 use stream_limiter::{Limiter, LimiterOptions};
@@ -212,19 +212,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let peer_stop_tx = self.peer_stop_tx.clone();
                 let config = self.config.clone();
                 move || {
-                    let server = TcpListener::bind(address).unwrap_or_else(|_| {
+                    let mut server = TcpListener::bind(address).unwrap_or_else(|_| {
                         panic!("Can't bind TCP transport to address {}", address)
                     });
-                    server.set_nonblocking(true).unwrap_or_else(|_| {
-                        panic!("Can't set TCP transport to non-blocking mode for address {}", address)
-                    });
-                    let mut mio_server = MioTcpListener::from_std(
-                        server.try_clone().expect("Unable to clone server socket"),
-                    );
 
                     // Start listening for incoming connections.
                     poll.registry()
-                        .register(&mut mio_server, NEW_CONNECTION, Interest::READABLE)
+                        .register(&mut server, NEW_CONNECTION, Interest::READABLE)
                         .unwrap_or_else(|_| {
                             panic!(
                                 "Can't register polling on TCP transport of address {}",
@@ -242,7 +236,13 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                 NEW_CONNECTION => {
                                     loop {
                                         let (stream, address) = match server.accept() {
-                                            Ok((stream, address)) => (stream, address),
+                                            Ok((mut stream, address)) => {
+                                                if let Err(e) = poll.registry().deregister(&mut stream) {
+                                                    log::error!("Could not deregister the stream {:?} from the mio poll: {:?}", stream, e);
+                                                };
+                                                let stream: std::net::TcpStream = mio_stream_to_std(stream);
+                                                (stream, address)
+                                            },
                                             Err(e) if e.kind() == ErrorKind::WouldBlock => {
                                                 break;
                                             }
@@ -678,4 +678,26 @@ fn write_exact_timeout(
     }
 
     Ok(start_time.elapsed())
+}
+
+/// Convert a mio stream to std
+/// Adapted from Tokio
+pub(crate) fn mio_stream_to_std(mio_socket: mio::net::TcpStream) -> std::net::TcpStream {
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::{FromRawFd, IntoRawFd};
+        unsafe { std::net::TcpStream::from_raw_fd(mio_socket.into_raw_fd()) }
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::{FromRawSocket, IntoRawSocket};
+        unsafe { std::net::TcpStream::from_raw_socket(mio_socket.into_raw_socket()) }
+    }
+
+    #[cfg(target_os = "wasi")]
+    {
+        use std::os::wasi::io::{FromRawFd, IntoRawFd};
+        unsafe { std::net::TcpStream::from_raw_fd(io.into_raw_fd()) }
+    }
 }
