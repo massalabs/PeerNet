@@ -237,7 +237,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                                     loop {
                                         let (stream, address) = match server.accept() {
                                             Ok((mut stream, address)) => {
-                                                let _ = poll.registry().deregister(&mut stream);
+                                                if let Err(e) = poll.registry().deregister(&mut stream) {
+                                                    log::error!("Could not deregister the stream {:?} from the mio poll: {:?}", stream, e);
+                                                };
                                                 let stream: std::net::TcpStream = mio_stream_to_std(stream);
                                                 (stream, address)
                                             },
