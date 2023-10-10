@@ -22,4 +22,5 @@ serde_json = "1.0.95"
 
 [features]
 heavy_testing = []
+testing = []
 deadlock_detection = ["parking_lot/deadlock_detection"]
