@@ -23,7 +23,7 @@ pub enum Endpoint {
     #[cfg(feature = "testing")]
     // First parameter is a sender that should be received by the user and the second is
     // a receiver that the user should send to
-    MockEndpoint((Sender<Vec<u8>>, Receiver<Vec<u8>>, SocketAddr))
+    MockEndpoint((Sender<Vec<u8>>, Receiver<Vec<u8>>, SocketAddr)),
 }
 
 impl Endpoint {
@@ -51,7 +51,11 @@ impl Endpoint {
             Endpoint::Tcp(endpoint) => Ok(Endpoint::Tcp(endpoint.try_clone()?)),
             Endpoint::Quic(endpoint) => Ok(Endpoint::Quic(endpoint.clone())),
             #[cfg(feature = "testing")]
-            Endpoint::MockEndpoint((sender, receiver, addr)) => Ok(Endpoint::MockEndpoint((sender.clone(), receiver.clone(), addr.clone()))),
+            Endpoint::MockEndpoint((sender, receiver, addr)) => Ok(Endpoint::MockEndpoint((
+                sender.clone(),
+                receiver.clone(),
+                addr.clone(),
+            ))),
         }
     }
 
@@ -63,7 +67,7 @@ impl Endpoint {
             Endpoint::MockEndpoint((sender, _, _)) => {
                 sender.send(data.to_vec()).unwrap();
                 Ok(())
-            },
+            }
         }
     }
 
@@ -79,7 +83,7 @@ impl Endpoint {
             Endpoint::MockEndpoint((sender, _, _)) => {
                 sender.send(data.to_vec()).unwrap();
                 Ok(())
-            },
+            }
         }
     }
 
