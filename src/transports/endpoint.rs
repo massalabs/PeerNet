@@ -32,7 +32,7 @@ impl Endpoint {
             Endpoint::Tcp(TcpEndpoint { address, .. }) => address,
             Endpoint::Quic(QuicEndpoint { address, .. }) => address,
             #[cfg(feature = "testing")]
-            Endpoint::MockEndpoint((_, _, address)) => &address,
+            Endpoint::MockEndpoint((_, _, address)) => address,
         }
     }
 
@@ -54,7 +54,7 @@ impl Endpoint {
             Endpoint::MockEndpoint((sender, receiver, addr)) => Ok(Endpoint::MockEndpoint((
                 sender.clone(),
                 receiver.clone(),
-                addr.clone(),
+                *addr,
             ))),
         }
     }
