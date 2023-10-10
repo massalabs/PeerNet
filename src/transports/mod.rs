@@ -159,6 +159,11 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
         match endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send(endpoint, data),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send(endpoint, data),
+            #[cfg(feature = "testing")]
+            Endpoint::MockEndpoint((sender, _, _)) => {
+                sender.send(data.to_vec()).unwrap();
+                Ok(())
+            }
         }
     }
 
@@ -166,6 +171,8 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
         match endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
+            #[cfg(feature = "testing")]
+            Endpoint::MockEndpoint((_, receiver, _)) => Ok(receiver.recv().unwrap()),
         }
     }
 
@@ -177,6 +184,11 @@ impl<Id: PeerId> Transport<Id> for InternalTransportType<Id> {
         match endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send_timeout(endpoint, data, timeout),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send_timeout(endpoint, data, timeout),
+            #[cfg(feature = "testing")]
+            Endpoint::MockEndpoint((sender, _, _)) => {
+                sender.send(data.to_vec()).unwrap();
+                Ok(())
+            }
         }
     }
 }
