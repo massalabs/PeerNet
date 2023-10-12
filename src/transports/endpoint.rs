@@ -12,6 +12,8 @@ use super::{
 };
 
 #[cfg(feature = "testing")]
+use crate::error::PeerNetError;
+#[cfg(feature = "testing")]
 use crossbeam::channel::{Receiver, Sender};
 #[cfg(feature = "testing")]
 use std::net::SocketAddr;
@@ -92,7 +94,9 @@ impl Endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::receive(endpoint),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::receive(endpoint),
             #[cfg(feature = "testing")]
-            Endpoint::MockEndpoint((_, receiver, _)) => Ok(receiver.recv().unwrap()),
+            Endpoint::MockEndpoint((_, receiver, _)) => receiver
+                .recv()
+                .map_err(|err| PeerNetError::ReceiveError.new("MockEndpoint", err, None)),
         }
     }
 
