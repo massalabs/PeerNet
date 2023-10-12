@@ -67,8 +67,7 @@ impl Endpoint {
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send(endpoint, data),
             #[cfg(feature = "testing")]
             Endpoint::MockEndpoint((sender, _, _)) => {
-                sender.send(data.to_vec()).unwrap();
-                Ok(())
+                sender.send(data.to_vec());
             }
         }
     }
@@ -82,10 +81,9 @@ impl Endpoint {
             Endpoint::Tcp(endpoint) => TcpTransport::<Id>::send_timeout(endpoint, data, timeout),
             Endpoint::Quic(endpoint) => QuicTransport::<Id>::send_timeout(endpoint, data, timeout),
             #[cfg(feature = "testing")]
-            Endpoint::MockEndpoint((sender, _, _)) => {
-                sender.send(data.to_vec()).unwrap();
-                Ok(())
-            }
+            Endpoint::MockEndpoint((sender, _, _)) => sender
+                .send(data.to_vec())
+                .map_err(|err| PeerNetError::ReceiveError.new("MockEndpoint", err, None)),
         }
     }
 
