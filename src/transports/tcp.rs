@@ -212,10 +212,51 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                 let peer_stop_tx = self.peer_stop_tx.clone();
                 let config = self.config.clone();
                 move || {
-                    let mut server = TcpListener::bind(address).unwrap_or_else(|_| {
-                        panic!("Can't bind TCP transport to address {}", address)
+                    let domain = if address.is_ipv4() {
+                        socket2::Domain::IPV4
+                    } else {
+                        socket2::Domain::IPV6
+                    };
+
+                    let socket = socket2::Socket::new(domain, socket2::Type::STREAM, None).unwrap_or_else(|_| {
+                        panic!(
+                            "Can't configure socket for address {}",
+                            address
+                        )
                     });
 
+                    if address.is_ipv6() {
+                        socket.set_only_v6(false).unwrap_or_else(|_| {
+                            panic!(
+                                "Can't configure socket for address {}",
+                                address
+                            )
+                        });
+                    }
+                    // This is needed for the mio-polling system, which depends on the socket being non-blocking.
+                    // If we don't set non-blocking, then we can .accept() on the server below,
+                    // which is needed to ensure the polling triggers every time.
+                    socket.set_nonblocking(true).unwrap_or_else(|_| {
+                        panic!(
+                            "Can't configure socket for address {}",
+                            address
+                        )
+                    });
+                    socket.bind(&(address).into()).unwrap_or_else(|_| {
+                        panic!(
+                            "Can't bind TCP transport to address {}",
+                            address
+                        )
+                    });
+                    // Number of connections to queue, set to the hardcoded value used by tokio
+                    socket.listen(1024).unwrap_or_else(|_| {
+                        panic!(
+                            "Can't configure socket for address {}",
+                            address
+                        )
+                    });
+
+                    let mut server = TcpListener::from_std(socket.into());
                     // Start listening for incoming connections.
                     poll.registry()
                         .register(&mut server, NEW_CONNECTION, Interest::READABLE)

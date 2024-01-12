@@ -13,6 +13,7 @@ quiche = "0.16"
 enum_delegate = "0.2.0"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 serde = { version = "1.0", features = ["derive"] }
+socket2 = "0.5"
 stream_limiter = "3.2.0"
 thiserror = "1.0.39"
 log = "0.4.19"
