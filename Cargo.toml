@@ -9,7 +9,7 @@ edition = "2021"
 parking_lot = "0.12"
 rand = { version = "0.8", features = ["default", "small_rng"] }
 crossbeam = "0.8"
-quiche = "0.16"
+quiche = "0.20.0"
 enum_delegate = "0.2.0"
 mio = { version = "0.8", features = ["os-poll", "net"] }
 serde = { version = "1.0", features = ["derive"] }
