@@ -380,14 +380,15 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
                         .write()
                         .out_connection_queue
                         .insert(address);
-                    match TcpStream::connect_timeout(&address, timeout).map_err(|err| {
+                    let connection = TcpStream::connect_timeout(&address, timeout).map_err(|err| {
                         log::error!("try_connect stream connect: {err:?}");
                         TcpError::ConnectionError.wrap().new(
                             "try_connect stream connect",
                             err,
                             Some(format!("address: {}, timeout: {:?}", address, timeout)),
                         )
-                    }) {
+                    });
+                    match connection {
                         Err(e) => {
                             active_connections
                                 .write()
