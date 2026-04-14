@@ -7,7 +7,7 @@ edition = "2021"
 # https://github.com/rust-lang/socket2/issues/378
 [dependencies]
 parking_lot = "0.12"
-rand = { version = "0.8", features = ["default", "small_rng"] }
+rand = { version = "0.9", features = ["default", "small_rng"] }
 crossbeam = "0.8"
 quiche = "0.20.0"
 enum_delegate = "0.2.0"
