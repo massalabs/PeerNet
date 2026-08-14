@@ -43,6 +43,12 @@ pub trait InitConnectionHandler<Id: PeerId, Ctx: Context<Id>, M: MessagesHandler
     }
 }
 
+/// Outbound send handles for a peer connection.
+///
+/// `Clone` is cheap (`crossbeam::Sender` clones) and lets callers detach a send
+/// handle from `ActiveConnections` so serialization/enqueue does not hold the
+/// global connections lock.
+#[derive(Clone)]
 pub struct SendChannels {
     low_priority: Sender<Vec<u8>>,
     high_priority: Sender<Vec<u8>>,
