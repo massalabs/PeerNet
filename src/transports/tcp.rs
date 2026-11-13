@@ -461,24 +461,9 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
     }
 
     fn send(endpoint: &mut Self::Endpoint, data: &[u8]) -> PeerNetResult<()> {
-        let msg_size: u32 = data.len().try_into().map_err(|_| {
-            log::error!("Send len too long: {:?}", data.len());
-            TcpError::ConnectionError
-                .wrap()
-                .error("send len too long", Some(format!("{:?}", data.len())))
-        })?;
-
-        // send message size first
-        let elapsed = write_exact_timeout(
-            endpoint,
-            &msg_size.to_be_bytes(),
-            endpoint.config.write_timeout,
-        )?;
-
-        let timeout = endpoint.config.write_timeout.saturating_sub(elapsed);
-
-        // then send message
-        write_exact_timeout(endpoint, data, timeout)?;
+        // send message size and message in a single write
+        let frame = length_prefixed(data, endpoint.config.max_message_size)?;
+        write_exact_timeout(endpoint, &frame, endpoint.config.write_timeout)?;
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -494,19 +479,10 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
         data: &[u8],
         timeout: Duration,
     ) -> Result<(), crate::error::PeerNetErrorData> {
-        let msg_size: u32 = data.len().try_into().map_err(|_| {
-            log::error!("Send_timeout len too long: {:?}", data.len());
-            TcpError::ConnectionError
-                .wrap()
-                .error("send len too long", Some(format!("{:?}", data.len())))
-        })?;
         //TODO: Use config one
 
-        let elapsed = write_exact_timeout(endpoint, &msg_size.to_be_bytes(), timeout)?;
-
-        let timeout = timeout.saturating_sub(elapsed);
-
-        write_exact_timeout(endpoint, data, timeout)?;
+        let frame = length_prefixed(data, endpoint.config.max_message_size)?;
+        write_exact_timeout(endpoint, &frame, timeout)?;
 
         let mut write = endpoint.total_bytes_sent.write();
         *write += data.len() as u64;
@@ -555,9 +531,46 @@ impl<Id: PeerId> Transport<Id> for TcpTransport<Id> {
     }
 }
 
+/// Size of the big-endian `u32` that precedes each message.
+const LENGTH_PREFIX_SIZE: usize = 4;
+
+/// Builds `size || data`, so that a message goes out in one write.
+///
+/// Written separately, the payload waited behind the 4-byte size segment: with Nagle's
+/// algorithm it is held until that segment is acknowledged, and the peer may delay that
+/// acknowledgement by tens of milliseconds.
+///
+/// The size is checked before the frame is allocated, so a message over the limit is refused
+/// without being copied.
+fn length_prefixed(data: &[u8], max_message_size: usize) -> PeerNetResult<Vec<u8>> {
+    let msg_size: u32 = data.len().try_into().map_err(|_| {
+        log::error!("Send len too long: {:?}", data.len());
+        TcpError::ConnectionError
+            .wrap()
+            .error("send len too long", Some(format!("{:?}", data.len())))
+    })?;
+
+    if msg_size > max_message_size as u32 {
+        log::error!("write len too long: {:?}", data.len());
+        return Err(
+            PeerNetError::SendError.error("send len too long", Some(format!("{:?}", data.len())))
+        );
+    }
+
+    let mut frame = Vec::with_capacity(LENGTH_PREFIX_SIZE + data.len());
+    frame.extend_from_slice(&msg_size.to_be_bytes());
+    frame.extend_from_slice(data);
+    Ok(frame)
+}
+
 fn set_tcp_stream_config(stream: &TcpStream, config: &TcpTransportConfig) {
     if let Err(e) = stream.set_nonblocking(false) {
         log::error!("Error setting nonblocking: {:?}", e);
+    }
+    // Messages are sent as soon as they are written: latency matters more than packing small
+    // writes into fewer segments.
+    if let Err(e) = stream.set_nodelay(true) {
+        log::error!("Error setting nodelay: {:?}", e);
     }
     // if let Err(e) = stream.set_linger(Some(config.write_timeout)) {
     //     log::error!("Error setting linger: {:?}", e);
@@ -624,24 +637,13 @@ fn read_exact_timeout(
     Ok(start_time.elapsed())
 }
 
+/// Writes a frame built by [`length_prefixed`], which has already checked its size.
 fn write_exact_timeout(
     endpoint: &mut TcpEndpoint,
     data: &[u8],
     timeout: Duration,
 ) -> PeerNetResult<Duration> {
     let start_time = Instant::now();
-    let msg_size: u32 = data.len().try_into().map_err(|_| {
-        log::error!("write error len: {:?}", data.len());
-        PeerNetError::SendError.error("error with send len", Some(format!("{:?}", data.len())))
-    })?;
-
-    if msg_size > endpoint.config.max_message_size as u32 {
-        log::error!("write len too long: {:?}", data.len());
-        return Err(
-            PeerNetError::SendError.error("send len too long", Some(format!("{:?}", data.len())))
-        );
-    }
-
     let mut write_count = 0;
     while write_count < data.len() {
         let remaining_time = timeout.saturating_sub(start_time.elapsed());
@@ -700,5 +702,23 @@ pub(crate) fn mio_stream_to_std(mio_socket: mio::net::TcpStream) -> std::net::Tc
     {
         use std::os::wasi::io::{FromRawFd, IntoRawFd};
         unsafe { std::net::TcpStream::from_raw_fd(io.into_raw_fd()) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn length_prefixed_builds_size_then_payload() {
+        assert_eq!(
+            length_prefixed(b"abc", 3).unwrap(),
+            [0, 0, 0, 3, b'a', b'b', b'c']
+        );
+    }
+
+    #[test]
+    fn length_prefixed_refuses_a_message_over_the_limit() {
+        assert!(length_prefixed(b"abcd", 3).is_err());
     }
 }
